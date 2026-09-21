@@ -1,0 +1,79 @@
+{
+  "_comment": "Bill of materials for the M35080 bench setup. `productId` is an AliExpress product id; scripts/sync-aliexpress.mjs resolves each one to a title, price and affiliate link and writes data/aliexpress.json. Leave productId null for anything not yet chosen - the sync reports those rather than inventing a link, and the UI shows the search term instead.",
+  "parts": [
+    {
+      "id": "m35080-blank",
+      "required": true,
+      "qty": 1,
+      "note": "restore-only",
+      "productId": "4000691456657",
+      "searchQuery": "M35080 EEPROM SOP8",
+      "url": "https://www.aliexpress.com/item/4000691456657.html"
+    },
+    {
+      "id": "arduino-uno",
+      "required": true,
+      "qty": 1,
+      "productId": null,
+      "searchQuery": "Arduino UNO R3 ATmega328P"
+    },
+    {
+      "id": "sop8-adapter-150mil",
+      "required": true,
+      "qty": 1,
+      "note": "150mil-not-200",
+      "productId": null,
+      "searchQuery": "SOP8 to DIP8 adapter 150mil programmer socket"
+    },
+    {
+      "id": "breadboard",
+      "required": true,
+      "qty": 1,
+      "productId": null,
+      "searchQuery": "solderless breadboard 830 tie points"
+    },
+    {
+      "id": "jumper-wires",
+      "required": true,
+      "qty": 1,
+      "productId": null,
+      "searchQuery": "dupont jumper wire male to male 20cm"
+    },
+    {
+      "id": "cap-100nf",
+      "required": true,
+      "qty": 1,
+      "productId": null,
+      "searchQuery": "0.1uF 100nF ceramic capacitor 50V"
+    },
+    {
+      "id": "res-10k",
+      "required": true,
+      "qty": 1,
+      "productId": null,
+      "searchQuery": "10k ohm resistor 1/4W"
+    },
+    {
+      "id": "soldering-iron",
+      "required": false,
+      "qty": 1,
+      "productId": null,
+      "searchQuery": "soldering station temperature controlled"
+    },
+    {
+      "id": "hot-air",
+      "required": false,
+      "qty": 1,
+      "note": "desolder-so8",
+      "productId": null,
+      "searchQuery": "hot air rework station SMD"
+    },
+    {
+      "id": "flux",
+      "required": false,
+      "qty": 1,
+      "productId": null,
+      "searchQuery": "no clean solder flux paste"
+    }
+  ]
+}

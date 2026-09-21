@@ -1,0 +1,23 @@
+{
+  // tsunagi-m-release section 3.4: the Pages project for a non-production
+  // environment is `<slug>-<environment>`, and the slug is the product name
+  // lowercased to ASCII hyphens - "E46 M35080 /// Migration" ->
+  // "e46-m35080-migration". This build is the PREVIEW.
+  //
+  // The name lives HERE and the deploy script reads it, rather than being
+  // repeated as a --project-name literal. Section 5.2: when the two diverge,
+  // wrangler skips the bindings for the project the config describes and
+  // deploys anyway, with no warning and a "Success" line.
+  "name": "e46-m35080-migration-preview",
+
+  // Pinned, never "today". A floating date changes runtime behaviour on a
+  // deploy that changed nothing.
+  "compatibility_date": "2025-11-01",
+
+  // Always written (section 7), so nothing infers it from the CWD.
+  "pages_build_output_dir": "out"
+
+  // No `env.*` blocks: environments are separated by having separate projects.
+  // No bindings: this is a static export with no Pages Functions at all, which
+  // scripts/deploy.mjs asserts before every upload.
+}

@@ -1,0 +1,6 @@
+{
+  "_comment": "Written by scripts/sync-aliexpress.mjs. Committed on purpose: the build stays hermetic (no API secret in CI) and a stale price is visible in the diff instead of ageing silently on a static page. Empty until the first sync - the parts list then falls back to search links.",
+  "fetchedAt": null,
+  "trackingId": null,
+  "products": {}
+}

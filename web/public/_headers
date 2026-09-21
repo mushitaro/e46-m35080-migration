@@ -1,0 +1,20 @@
+# Cloudflare Pages reads this from the root of the published directory.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  # `serial` is what gates the Web Serial API. Its default allowlist is already
+  # self, so this grants nothing new - it states the intent, and keeps a future
+  # tightening of the default from silently disabling the only transport this
+  # app has. Everything else this tool has no business asking for is denied.
+  Permissions-Policy: serial=(self), usb=(), geolocation=(), camera=(), microphone=(), payment=(), interest-cohort=()
+
+# The worker must never be served from cache, or a published fix cannot reach
+# a browser that already installed an older one.
+/sw.js
+  Cache-Control: no-cache
+
+# Content-hashed: a new build means a new URL, so these can be held forever.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable

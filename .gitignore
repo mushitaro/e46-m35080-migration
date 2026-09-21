@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+dist/
+*.log
+.DS_Store
+.env*.local
+coverage/
+.tools/
+.diagnostics/
+
+# build artifacts
+tsconfig.tsbuildinfo
+.wrangler/

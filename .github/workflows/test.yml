@@ -1,0 +1,43 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+        working-directory: web
+
+      # THIS WORKFLOW DOES NOT DEPLOY.
+      #
+      # tsunagi-m-release section 1: production is published by a push to main;
+      # staging and preview are published by a local script. This repository is
+      # the PREVIEW environment, so a push must not put anything on the web -
+      # it runs the tests and the build, and stops.
+      #
+      # The test gate CLAUDE.md requires did not disappear with the deploy
+      # step; it moved to web/scripts/deploy.mjs, which runs the same suite
+      # before it will upload anything. Deploying from a laptop is
+      # `npm run deploy`.
+      - run: npm run test
+        working-directory: web
+
+      # Build too, so a broken export is caught on push rather than at the
+      # moment someone is trying to deploy.
+      - run: npm run build
+        working-directory: web
