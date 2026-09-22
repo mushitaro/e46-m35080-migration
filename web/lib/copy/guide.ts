@@ -215,6 +215,41 @@ const JA = {
     'ここでは命名しません。実チップ 4 個を 1 バイトずつ比較したところ、' +
     '0xFF を除いて全個体で一致するアドレスは 1 つもありませんでした。' +
     '固定マップは作れません。バイトの「形」については構造パネルを参照してください。',
+  /* ------------------------------ file inspect ---------------------------- */
+
+  stepInspect: '検査',
+
+  inspectTitle: 'ダンプファイルを開く',
+  inspectIntro:
+    '手元の .BIN を読み込み、中身を確認して編集できます。実機は不要です。',
+  inspectNoDevice:
+    'ここで開いたファイルはチップとは切り離されています。書き込み経路には入りません。' +
+    'ファイルをチップへ書くのは「復旧」タブで、そちらはバックアップと読み戻しで守られています。',
+  inspectClose: '閉じる',
+
+  inspectNotAChip: (v: number) =>
+    `1024 バイトすべてが 0x${v.toString(16).toUpperCase().padStart(2, '0')} です。` +
+    'これはチップの読み取りではありません（配線が浮いている、D11とD12が直結、' +
+    'などのバス側の結果）。ここから読める走行距離も VIN も意味を持ちません。',
+  inspectDistinct: (n: number) => `異なるバイト値 ${n} 種`,
+  inspectErased: '標準領域は全 FF（消去済み）',
+  chipBlankShort: 'セキュア領域は 0（新品）',
+  inspectNoReadout:
+    'このファイルからは走行距離も VIN も構造も表示しません。'
+    + '解読はできてしまいますが、その値は配線の状態であってチップの内容ではないためです。'
+    + 'HEX ビューと編集は使えます。',
+
+  inspectEdit: '編集',
+  inspectPickByte: 'HEX ビューでバイトを選んでください。',
+  inspectSet: '書き換え',
+  inspectChanged: (n: number) => `元ファイルとの差分 ${n} バイト`,
+  inspectUnchanged: '元ファイルと同一',
+  inspectUndo: '一つ戻す',
+  inspectRevert: '全て戻す',
+  inspectSave: '別名で保存',
+  inspectSaveNote:
+    '保存は必ず別名です。元ファイルには上書きしません — そのダンプが、' +
+    '既に書き換えたチップの唯一の記録であることがあるためです。',
 };
 
 const EN: typeof JA = {
@@ -401,6 +436,42 @@ const EN: typeof JA = {
     'Not named here. Four real chips were compared byte for byte and, outside ' +
     '0xFF, not one address held the same value on all four - so there is no ' +
     'fixed map to write down. The structure panel reports their shape instead.',
+  /* ------------------------------ file inspect ---------------------------- */
+
+  stepInspect: 'INSPECT',
+
+  inspectTitle: 'Open a dump file',
+  inspectIntro:
+    'Load a .BIN from disk, see what is in it, and edit it. No hardware needed.',
+  inspectNoDevice:
+    'A file opened here is kept apart from the chip and cannot reach the write ' +
+    'path. Writing a file TO a chip is the RESTORE tab, which is guarded by a ' +
+    'backup and a read-back.',
+  inspectClose: 'Close',
+
+  inspectNotAChip: (v: number) =>
+    `All 1024 bytes are 0x${v.toString(16).toUpperCase().padStart(2, '0')}. ` +
+    'This is not a chip read - it is the bus (a floating wire, or D11 shorted ' +
+    'to D12). Any odometer or VIN read out of it means nothing.',
+  inspectDistinct: (n: number) => `${n} distinct byte values`,
+  inspectErased: 'standard array all FF (erased)',
+  chipBlankShort: 'secure area is zero (new)',
+  inspectNoReadout:
+    'No odometer, VIN or structure is shown for this file. It would decode - '
+    + 'that is the problem - but the value would describe the wiring, not a chip. '
+    + 'The hex view and the editor still work.',
+
+  inspectEdit: 'Edit',
+  inspectPickByte: 'Pick a byte in the hex view.',
+  inspectSet: 'SET',
+  inspectChanged: (n: number) => `${n} byte(s) differ from the file`,
+  inspectUnchanged: 'identical to the file',
+  inspectUndo: 'UNDO',
+  inspectRevert: 'REVERT',
+  inspectSave: 'SAVE AS',
+  inspectSaveNote:
+    'A save always writes a new name, never the source. These dumps are often ' +
+    'the only record of a chip that has since been written over.',
 };
 
 /** Read the bench copy for the currently resolved language. */

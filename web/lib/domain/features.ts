@@ -79,6 +79,14 @@ export const FEATURES: Feature[] = [
     surfaces: ['rewrite'],
   },
   {
+    /* Opening a file and opening a chip share every reader, but they are not
+       one feature: this one works with no hardware and cannot reach the write
+       path at all. */
+    id: 'inspect-file',
+    stage: 'stable',
+    surfaces: ['inspect'],
+  },
+  {
     id: 'records',
     stage: 'stable',
     surfaces: ['records'],

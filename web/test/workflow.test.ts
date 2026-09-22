@@ -14,15 +14,35 @@ const EMPTY: WorkflowState = {
   chipBlank: false,
   odometerKm: null,
   recordCount: 0,
+  inspecting: false,
 };
 
 const s = (over: Partial<WorkflowState> = {}): WorkflowState => ({ ...EMPTY, ...over });
 
 describe('deriveSteps - the strip is a sequence', () => {
-  it('numbers the steps 1..5 in working order', () => {
+  it('numbers the steps 1..6 in working order', () => {
     const steps = deriveSteps(EMPTY);
-    expect(steps.map((x) => x.id)).toEqual(['setup', 'read', 'restore', 'rewrite', 'records']);
-    expect(steps.map((x) => x.ordinal)).toEqual([1, 2, 3, 4, 5]);
+    expect(steps.map((x) => x.id)).toEqual([
+      'setup',
+      'read',
+      'restore',
+      'rewrite',
+      'inspect',
+      'records',
+    ]);
+    expect(steps.map((x) => x.ordinal)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it('never gates INSPECT on a chip or a connection', () => {
+    /* Sorting a pile of .bin files into "chip read" and "floating wire" is
+       exactly what you do BEFORE getting hardware out. */
+    const steps = deriveSteps(EMPTY);
+    expect(stepById(steps, 'inspect')).toMatchObject({
+      enabled: true,
+      complete: false,
+      blockedBy: null,
+    });
+    expect(stepById(deriveSteps(s({ inspecting: true })), 'inspect')?.complete).toBe(true);
   });
 
   it('lets a cold start reach the bench guide and the records', () => {

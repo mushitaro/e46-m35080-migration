@@ -9,7 +9,7 @@ import { FEATURES, enabledSurfaces, ownerOf, type Surface } from '@/lib/domain/f
  * here means a promotion cannot land without editing this line - in a place
  * where it reads as a deliberate act.
  */
-const RELEASE: Surface[] = ['setup', 'read', 'restore', 'rewrite', 'records'];
+const RELEASE: Surface[] = ['setup', 'read', 'restore', 'rewrite', 'inspect', 'records'];
 
 describe('the feature registry', () => {
   it('ships exactly these surfaces in a release', () => {

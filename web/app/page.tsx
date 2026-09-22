@@ -16,6 +16,7 @@ import { SetupPanel } from '@/components/panels/SetupPanel';
 import { RecordsTable } from '@/components/panels/RecordsPanel';
 import { StructurePanel } from '@/components/panels/StructurePanel';
 import { AddressPanel } from '@/components/panels/AddressPanel';
+import { InspectPanel } from '@/components/panels/InspectPanel';
 import { GUIDE_STEPS, type GuideStepId } from '@/components/AssemblyGuide';
 import {
   planRewrite,
@@ -31,6 +32,7 @@ import { enabledSurfaces } from '@/lib/domain/features';
 import { usePreviewScope } from '@/lib/domain/variant';
 import { VariantBadge } from '@/components/VariantBadge';
 import { parseImageFile } from '@/lib/domain/image';
+import { openWorkspace, type Workspace } from '@/lib/domain/inspect';
 import { vinRange } from '@/lib/domain/addressMap';
 import { listRecords, deleteRecord, type DeviceRecord } from '@/lib/domain/records';
 import {
@@ -77,6 +79,10 @@ export default function Page() {
   const [vinAction, setVinAction] = useState<VinAction>({ kind: 'keep' });
   const [vinInput, setVinInput] = useState('');
   const [backupFile, setBackupFile] = useState<Uint8Array | null>(null);
+  /* The file workbench. Deliberately NOT `image`: that one means the bytes
+     read off the chip, and every write plans and verifies against it. */
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [inspectError, setInspectError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<RefusalCode | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [records, setRecords] = useState<DeviceRecord[]>([]);
@@ -147,8 +153,9 @@ export default function Page() {
       chipBlank: chip?.blank ?? false,
       odometerKm: odometer?.ok ? odometer.km : null,
       recordCount: records.length,
+      inspecting: workspace !== null,
     }),
-    [phase, image, backedUp, chip, odometer, records.length],
+    [phase, image, backedUp, chip, odometer, records.length, workspace],
   );
 
   const steps = useMemo(() => deriveSteps(workflow), [workflow]);
@@ -159,6 +166,7 @@ export default function Page() {
     read: c.stepRead,
     restore: c.stepRestore,
     rewrite: c.stepRewrite,
+    inspect: c.stepInspect,
     records: c.stepRecords,
   };
 
@@ -448,6 +456,26 @@ export default function Page() {
           <div className="min-h-0 flex-1 overflow-hidden px-4 py-2">
             {step === 'setup' ? (
               <WiringDiagram highlight={diagramHighlight} onSelectPin={setWire} />
+            ) : step === 'inspect' ? (
+              workspace ? (
+                <div className="flex h-full flex-col gap-2">
+                  <HexLegend changedCount={null} vin={vinRange(workspace.current)} />
+                  <div className="min-h-0 flex-1">
+                    {/* reference is the file as opened, so every edit is marked
+                        against what was actually on disk. */}
+                    <HexView
+                      image={workspace.current}
+                      reference={workspace.original}
+                      changeMode="pending"
+                      vin={vinRange(workspace.current)}
+                      selected={selected}
+                      onSelect={setSelected}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <EmptyState label={c.inspectTitle} />
+              )
             ) : step === 'records' ? (
               <RecordsTable
                 records={records}
@@ -505,6 +533,33 @@ export default function Page() {
                   }
                   wire={wire}
                   onWire={setWire}
+                />
+              ) : step === 'inspect' ? (
+                <InspectPanel
+                  workspace={workspace}
+                  fileError={inspectError}
+                  selected={selected}
+                  onSelect={setSelected}
+                  onOpen={(file) => {
+                    setInspectError(null);
+                    void file
+                      .arrayBuffer()
+                      .then((buf) => {
+                        const r = parseImageFile(buf);
+                        if (!r.ok) {
+                          setInspectError(copy.refusal({ code: 'backup-size' }).reason);
+                          return;
+                        }
+                        setWorkspace(openWorkspace(file.name, r.image));
+                        setSelected(null);
+                      })
+                      .catch(() => setInspectError(copy.refusal({ code: 'backup-size' }).reason));
+                  }}
+                  onChange={setWorkspace}
+                  onClose={() => {
+                    setWorkspace(null);
+                    setInspectError(null);
+                  }}
                 />
               ) : step === 'rewrite' ? (
                 <JobPanel>

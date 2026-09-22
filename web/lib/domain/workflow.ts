@@ -14,7 +14,7 @@
  * with the device.
  */
 
-export type StepId = 'setup' | 'read' | 'restore' | 'rewrite' | 'records';
+export type StepId = 'setup' | 'read' | 'restore' | 'rewrite' | 'inspect' | 'records';
 
 /** Why a step cannot be entered yet. Rendered from i18n, never as prose here. */
 export type BlockedReason = 'need-image' | 'need-connection';
@@ -31,6 +31,8 @@ export type WorkflowState = {
   odometerKm: number | null;
   /** How many records are stored. */
   recordCount: number;
+  /** A dump file is open on the workbench. Nothing to do with the chip. */
+  inspecting: boolean;
 };
 
 export type Step = {
@@ -43,7 +45,7 @@ export type Step = {
   blockedBy: BlockedReason | null;
 };
 
-const ORDER: StepId[] = ['setup', 'read', 'restore', 'rewrite', 'records'];
+const ORDER: StepId[] = ['setup', 'read', 'restore', 'rewrite', 'inspect', 'records'];
 
 /**
  * Derive the whole strip from state.
@@ -82,6 +84,14 @@ export function deriveSteps(s: WorkflowState): Step[] {
           complete: s.hasImage && s.backedUp,
           blockedBy: s.hasImage ? null : 'need-image',
         };
+
+      /* A file on disk, not the chip. Never gated on a connection or an
+         image, because needing neither is the whole point: it is how a pile of
+         .bin files gets sorted into the ones that are chip reads and the ones
+         that are a floating wire. It sits after the bench steps with RECORDS,
+         the other surface that touches no hardware. */
+      case 'inspect':
+        return { id, ordinal, enabled: true, complete: s.inspecting, blockedBy: null };
 
       case 'records':
         return {
