@@ -38,7 +38,6 @@ import { listRecords, deleteRecord, type DeviceRecord } from '@/lib/domain/recor
 import {
   applyLangToDocument,
   getLang,
-  setLang,
   subscribeLang,
   t,
   STATIC_LANG,
@@ -46,6 +45,7 @@ import {
 } from '@/lib/i18n';
 import { g } from '@/lib/copy/guide';
 import { isWebSerialSupported } from '@/lib/transport/webSerialTransport';
+import { CHROME } from '@/lib/copy/chrome';
 
 /**
  * Re-render chrome when the resolved language changes.
@@ -75,6 +75,9 @@ export default function Page() {
      false; in preview the badge can force it false too. */
   const previewScope = usePreviewScope();
   const [step, setStep] = useState<StepId>('setup');
+  /* What the NEXT connect will talk to. The reader's value: connecting does
+     not clear it, and only the reader unticks it. */
+  const [practiceIntent, setPracticeIntent] = useState(false);
   const [targetKm, setTargetKm] = useState('');
   const [vinAction, setVinAction] = useState<VinAction>({ kind: 'keep' });
   const [vinInput, setVinInput] = useState('');
@@ -83,7 +86,7 @@ export default function Page() {
      read off the chip, and every write plans and verifies against it. */
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [inspectError, setInspectError] = useState<string | null>(null);
-  const [fileError, setFileError] = useState<RefusalCode | null>(null);
+  const [fileError, setFileError] = useState<{ code: RefusalCode; fileSize?: number } | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [records, setRecords] = useState<DeviceRecord[]>([]);
   const [pending, setPending] = useState<{ job: WriteJob; body: string; details: string[] } | null>(
@@ -162,12 +165,12 @@ export default function Page() {
   const rec = useMemo(() => recommend(workflow, targetKmNum), [workflow, targetKmNum]);
 
   const LABEL: Record<StepId, string> = {
-    setup: c.stepSetup,
-    read: c.stepRead,
-    restore: c.stepRestore,
-    rewrite: c.stepRewrite,
-    inspect: c.stepInspect,
-    records: c.stepRecords,
+    setup: CHROME.tab.setup,
+    read: CHROME.tab.read,
+    restore: CHROME.tab.restore,
+    rewrite: CHROME.tab.rewrite,
+    inspect: CHROME.tab.inspect,
+    records: CHROME.tab.records,
   };
 
   /* The registry says WHICH surfaces may be drawn; workflow.ts keeps the order
@@ -219,16 +222,20 @@ export default function Page() {
     if (busy) {
       const label =
         phase === 'connecting'
-          ? copy.connecting
+          ? CHROME.hub.connecting
           : phase === 'reading'
-            ? copy.reading
+            ? CHROME.hub.reading
             : phase === 'verifying'
-              ? copy.verifying
-              : copy.writing;
+              ? CHROME.hub.verifying
+              : CHROME.hub.writing;
       return { label, Icon: Loader2, onClick: () => {}, spin: true, disabled: true };
     }
     if (phase === 'disconnected') {
-      return { label: copy.connect, Icon: Plug, onClick: () => void link.connect('serial') };
+      return {
+        label: CHROME.hub.connect,
+        Icon: Plug,
+        onClick: () => void link.connect(practiceIntent ? 'practice' : 'serial', 'used'),
+      };
     }
     /* Reading lands the user on the tab that shows the result. Pressing READ
        from SETUP used to leave them on the wiring diagram with the image
@@ -236,7 +243,7 @@ export default function Page() {
        PREVIOUS image, so navigating would show the wrong chip's data. */
     if (!image) {
       return {
-        label: copy.read,
+        label: CHROME.hub.read,
         Icon: Zap,
         onClick: () => void link.read().then((ok) => ok && setStep('read')),
       };
@@ -244,11 +251,11 @@ export default function Page() {
 
     // Backup is not a side quest: it is the next step in the sequence, and
     // gating it here is what makes "backup before write" structural.
-    if (!backedUp) return { label: 'BACKUP', Icon: Save, onClick: () => void link.backup() };
+    if (!backedUp) return { label: CHROME.hub.backup, Icon: Save, onClick: () => void link.backup() };
 
     if (step === 'rewrite' && rewritePlan?.ok) {
       return {
-        label: 'WRITE ODO',
+        label: CHROME.hub.writeOdometer,
         Icon: Zap,
         danger: true,
         disabled: rewritePlan.secureOps.length === 0 && rewritePlan.byteWrites.length === 0,
@@ -280,7 +287,7 @@ export default function Page() {
        blanked, the odometer untouched (planReset). */
     if (step === 'restore' && chip?.blank && restorePlan?.ok) {
       return {
-        label: 'WRITE CHIP',
+        label: CHROME.hub.writeChip,
         Icon: Upload,
         danger: true,
         onClick: () =>
@@ -299,7 +306,7 @@ export default function Page() {
        counter, which is what lets it be used as a retention test. */
     if (step === 'restore' && !chip?.blank && repairPlan?.ok && repairPlan.byteWrites.length > 0) {
       return {
-        label: 'REPAIR',
+        label: CHROME.hub.repair,
         Icon: Upload,
         danger: true,
         onClick: () =>
@@ -315,20 +322,21 @@ export default function Page() {
     }
     if (step === 'restore') {
       const label = !backupFile
-        ? 'SELECT BACKUP'
+        ? CHROME.hub.selectBackup
         : !chip?.blank && repairPlan?.ok
-          ? 'NOTHING TO REPAIR'
-          : 'CHECK BACKUP';
+          ? CHROME.hub.nothingToRepair
+          : CHROME.hub.checkBackup;
       return { label, Icon: Upload, onClick: () => {}, disabled: true };
     }
     return {
-      label: copy.read,
+      label: CHROME.hub.read,
       Icon: Zap,
       onClick: () => void link.read().then((ok) => ok && setStep('read')),
     };
   }, [
     busy,
     phase,
+    practiceIntent,
     image,
     backedUp,
     step,
@@ -354,7 +362,7 @@ export default function Page() {
     const out: SubAction[] = [];
     if (phase !== 'disconnected') {
       out.push({
-        label: copy.disconnect,
+        label: CHROME.disconnect,
         Icon: Unplug,
         danger: true,
         onClick: () => void link.disconnect(),
@@ -373,14 +381,22 @@ export default function Page() {
 
   const onBackupFile = useCallback((file: File) => {
     setFileError(null);
-    file.arrayBuffer().then((buf) => {
-      const r = parseImageFile(buf);
-      if (r.ok) setBackupFile(r.image);
-      else {
+    file
+      .arrayBuffer()
+      .then((buf) => {
+        const r = parseImageFile(buf);
+        if (r.ok) setBackupFile(r.image);
+        else {
+          setBackupFile(null);
+          setFileError({ code: 'backup-size', fileSize: r.size });
+        }
+      })
+      /* A file that cannot be read at all (moved, permission, a folder) used to
+         leave the previous backup loaded and show nothing. */
+      .catch(() => {
         setBackupFile(null);
-        setFileError('backup-size');
-      }
-    });
+        setFileError({ code: 'backup-size' });
+      });
   }, []);
 
   /* ------------------------------ render -------------------------------- */
@@ -428,21 +444,6 @@ export default function Page() {
         </div>
         <div className="ml-auto flex items-center gap-3">
           <VariantBadge />
-          <div className="flex items-center gap-1">
-          {(['ja', 'en'] as const).map((l) => (
-            <button
-              key={l}
-              aria-pressed={lang === l}
-              onClick={() => setLang(l)}
-              disabled={busy}
-              className={`px-1.5 font-mono text-[10px] transition-colors disabled:opacity-30 ${
-                lang === l ? 'text-blue-400' : 'text-slate-600 hover:text-slate-400'
-              }`}
-            >
-              {l}
-            </button>
-          ))}
-          </div>
         </div>
       </header>
 
@@ -474,7 +475,7 @@ export default function Page() {
                   </div>
                 </div>
               ) : (
-                <EmptyState label={c.inspectTitle} />
+                <EmptyState label={CHROME.awaiting.file} />
               )
             ) : step === 'records' ? (
               <RecordsTable
@@ -486,7 +487,7 @@ export default function Page() {
               />
             ) : !image ? (
               <EmptyState
-                label={phase === 'disconnected' ? c.awaitingConnection : c.awaitingRead}
+                label={phase === 'disconnected' ? CHROME.awaiting.connection : CHROME.awaiting.read}
               />
             ) : (
               <div className="flex h-full flex-col gap-2">
@@ -547,13 +548,17 @@ export default function Page() {
                       .then((buf) => {
                         const r = parseImageFile(buf);
                         if (!r.ok) {
-                          setInspectError(copy.refusal({ code: 'backup-size' }).reason);
+                          const why = copy.refusal({ code: 'backup-size', fileSize: r.size });
+                          setInspectError(`${why.reason} ${why.detail ?? ''}`.trim());
                           return;
                         }
                         setWorkspace(openWorkspace(file.name, r.image));
                         setSelected(null);
                       })
-                      .catch(() => setInspectError(copy.refusal({ code: 'backup-size' }).reason));
+                      .catch(() => {
+                        const why = copy.refusal({ code: 'backup-size' });
+                        setInspectError(`${why.reason} ${why.detail ?? ''}`.trim());
+                      });
                   }}
                   onChange={setWorkspace}
                   onClose={() => {
@@ -564,12 +569,12 @@ export default function Page() {
               ) : step === 'rewrite' ? (
                 <JobPanel>
                   <Recommendation rec={rec} step={step} />
-                  <Field label={copy.currentKm}>
+                  <Field label={CHROME.readout.current}>
                     <span className="font-mono text-sm text-slate-300">
                       {odometer?.ok ? `${odometer.km.toLocaleString()} km` : '—'}
                     </span>
                   </Field>
-                  <Field label={copy.targetKm}>
+                  <Field label={CHROME.readout.target}>
                     <input
                       inputMode="numeric"
                       value={targetKm}
@@ -579,7 +584,7 @@ export default function Page() {
                                  placeholder:text-slate-700 focus:ring-1 focus:ring-blue-500"
                     />
                   </Field>
-                  <Field label={copy.vin}>
+                  <Field label={CHROME.readout.vin}>
                     <div className="flex flex-wrap gap-2">
                       {(['keep', 'write', 'blank'] as const).map((k) => (
                         <button
@@ -640,10 +645,13 @@ export default function Page() {
                       )}
                     </>
                   )}
-                  <DropZone onFile={onBackupFile} hint={c.dropBackup} />
+                  <DropZone onFile={onBackupFile} hint={CHROME.drop.backup} />
                   {fileError && (
                     <p className="font-mono text-[10px] text-red-400">
-                      {copy.refusal({ code: fileError }).reason}
+                      {copy.refusal(fileError).reason}
+                      {copy.refusal(fileError).detail && (
+                        <span className="block text-slate-500">{copy.refusal(fileError).detail}</span>
+                      )}
                     </p>
                   )}
                   <PlanNote plan={chip?.blank ? restorePlan : repairPlan} />
@@ -685,22 +693,22 @@ export default function Page() {
             {/* Control panel - declared 38.2%, floor wins on a short viewport */}
             <div className="flex h-[38.2%] min-h-fit flex-none flex-col overflow-y-auto px-5 pb-5 pt-4">
               <StatusRow
-                label="LINK"
+                label={CHROME.status.link}
                 state={linkLed}
                 value={
                   phase === 'disconnected'
                     ? serialSupported
-                      ? copy.linkIdle
-                      : 'NO WEB SERIAL'
+                      ? CHROME.status.idle
+                      : CHROME.status.noWebSerial
                     : link.practice
-                      ? 'PRACTICE'
-                      : copy.linkReady
+                      ? CHROME.status.practice
+                      : CHROME.status.ready
                 }
               />
               <StatusRow
-                label="CHIP"
+                label={CHROME.status.chip}
                 state={chipLed}
-                value={!image ? copy.chipUnknown : chip?.blank ? copy.chipBlank : copy.chipUsed}
+                value={!image ? CHROME.status.notRead : chip?.blank ? CHROME.status.blank : CHROME.status.used}
                 reason={chip?.reasons.join(' · ')}
               />
 
@@ -709,20 +717,41 @@ export default function Page() {
                 tone={progress ? 'info' : noticeTone}
               />
 
-              <div className="flex min-h-0 flex-1 items-center justify-center">
+              <div className="relative flex min-h-0 flex-1 items-center justify-center">
+                {/* PRACTICE: top right of the hub area, a checkbox, in every link
+                    state (tsunagi-m-ux section 16). A checkbox because it
+                    declares what every following operation acts on rather than
+                    doing anything itself. Always drawn, because a practice mark
+                    that disappears on connect is gone at the one moment that
+                    separates "this is the car" from "this is a rehearsal".
+
+                    While a link is up the box shows what that link IS - the
+                    authority, not the intent - and cannot change it: an open
+                    link cannot be retargeted, so a live box would lie. */}
+                <label
+                  className={`absolute right-0 top-0 inline-flex items-center gap-1.5 text-[10px]
+                              font-bold uppercase tracking-widest transition-colors
+                    ${
+                      (phase === 'disconnected' ? practiceIntent : link.practice)
+                        ? 'text-amber-400'
+                        : 'text-slate-500'
+                    }
+                    ${phase === 'disconnected' && !busy ? 'cursor-pointer hover:text-slate-300' : 'opacity-60'}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={phase === 'disconnected' ? practiceIntent : link.practice}
+                    disabled={phase !== 'disconnected' || busy}
+                    onChange={(e) => setPracticeIntent(e.target.checked)}
+                    className="h-3 w-3 accent-amber-500"
+                  />
+                  {CHROME.practice}
+                </label>
                 <Hub config={hub} busy={busy} />
               </div>
 
               <SubActionRow actions={subActions} />
 
-              {phase === 'disconnected' && (
-                <button
-                  onClick={() => void link.connect('practice', 'used')}
-                  className="mt-1 text-[9px] font-bold uppercase tracking-widest text-slate-600 transition-colors hover:text-amber-400"
-                >
-                  {c.practiceButton}
-                </button>
-              )}
             </div>
           </div>
         </aside>

@@ -14,26 +14,27 @@ import { useMemo } from 'react';
 import { analyzeStructure, type Finding } from '@/lib/domain/structure';
 import { formatAddress } from '@/lib/domain/image';
 import { g } from '@/lib/copy/guide';
+import { CHROME } from '@/lib/copy/chrome';
 
 function label(f: Finding, c: ReturnType<typeof g>): { tag: string; tone: string; text: string } {
   switch (f.kind) {
     case 'secure':
-      return { tag: c.structSecure, tone: 'text-blue-400', text: c.structSecureNote };
+      return { tag: CHROME.structure.secure, tone: 'text-blue-400', text: c.structSecureNote };
     case 'ascii':
       return {
-        tag: f.vinShaped ? c.structIdVin : c.structId,
+        tag: f.vinShaped ? CHROME.structure.idVin : CHROME.structure.id,
         tone: f.vinShaped ? 'text-emerald-400' : 'text-slate-300',
         text: `"${f.text}"`,
       };
     case 'repeat':
       return {
-        tag: c.structRepeat,
+        tag: CHROME.structure.redundant,
         tone: 'text-indigo-400',
         text: c.structRepeatNote(f.hex, f.copies, f.stride),
       };
     case 'run':
       return {
-        tag: f.value === 0xff ? c.structUnused : c.structZero,
+        tag: f.value === 0xff ? CHROME.structure.unused : CHROME.structure.zero,
         tone: 'text-slate-500',
         text: c.structRunNote(f.to - f.from + 1, f.value),
       };
@@ -53,7 +54,7 @@ export function StructurePanel({
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-        {c.structTitle}
+        {CHROME.structure.title}
       </h3>
       <p className="text-[10px] leading-snug text-slate-500">{c.structNote}</p>
 

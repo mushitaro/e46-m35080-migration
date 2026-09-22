@@ -95,7 +95,10 @@ describe('parseImageFile', () => {
     for (const n of [0, 512, 1023, 1025, 2048]) {
       const r = parseImageFile(new ArrayBuffer(n));
       expect(r.ok).toBe(false);
-      if (!r.ok) expect(r.reason).toMatch(/expected exactly 1024/);
+      /* The size it SAW, so the refusal can tell an empty file from a dump
+         of a different chip - a sentence here would be English prose the
+         reader's language never reached. */
+      if (!r.ok) expect(r.size).toBe(n);
     }
   });
 });
@@ -244,5 +247,18 @@ describe('diagnoseImage + the status register', () => {
       value: SPI_DUMMY,
       status: SPI_DUMMY,
     });
+  });
+});
+
+describe('backupFilename - the mode is in the name', () => {
+  it('prefixes a PRACTICE backup, so it cannot pass for a chip read', async () => {
+    /* tsunagi-m-ux section 16. A practice export named exactly like a real
+       backup was once read back as evidence for an offset the app itself had
+       written. */
+    const { backupFilename } = await import('@/lib/domain/records');
+    const at = new Date(2026, 8, 23, 10, 20);
+    expect(backupFilename('ABC12345', 155_940, at, true)).toMatch(/^PRACTICE_Backup_/);
+    expect(backupFilename('ABC12345', 155_940, at, false)).toMatch(/^Backup_/);
+    expect(backupFilename('ABC12345', 155_940, at)).toMatch(/^Backup_/);
   });
 });

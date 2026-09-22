@@ -106,10 +106,19 @@ export async function deleteRecord(id: string): Promise<void> {
  * 155,940 km with VIN KT17727 is named for exactly that, so a directory of
  * them stays readable without opening any.
  */
+/**
+ * `practice` prefixes the name.
+ *
+ * tsunagi-m-ux section 16: what a mode produces carries the mode. On this bench
+ * a PRACTICE export named exactly like a real backup was later read back as
+ * evidence for a VIN offset the app had written itself - the name was the only
+ * thing that could have said otherwise, and it did not.
+ */
 export function backupFilename(
   vin: string | null,
   km: number | null,
   when = new Date(),
+  practice = false,
 ): string {
   const stamp =
     when.getFullYear().toString() +
@@ -118,7 +127,7 @@ export function backupFilename(
     '-' +
     String(when.getHours()).padStart(2, '0') +
     String(when.getMinutes()).padStart(2, '0');
-  const parts = ['Backup', vin ?? 'noVIN', km === null ? 'noKM' : `${km}km`, stamp];
+  const parts = [practice ? 'PRACTICE_Backup' : 'Backup', vin ?? 'noVIN', km === null ? 'noKM' : `${km}km`, stamp];
   return `${parts.join('_')}.bin`;
 }
 

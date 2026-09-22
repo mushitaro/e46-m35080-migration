@@ -35,6 +35,7 @@ import { secureOf } from '@/lib/domain/image';
 import { readVin } from '@/lib/domain/vin';
 import { downloadImage } from '@/lib/domain/records';
 import { g } from '@/lib/copy/guide';
+import { CHROME } from '@/lib/copy/chrome';
 
 export function InspectPanel({
   workspace,
@@ -67,10 +68,10 @@ export function InspectPanel({
     return (
       <div className="flex flex-col gap-3 px-5 py-4">
         <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-          {c.inspectTitle}
+          {CHROME.inspect.open}
         </h3>
         <p className="text-[10px] leading-snug text-slate-500">{c.inspectIntro}</p>
-        <DropZone onFile={onOpen} hint={c.dropBackup} />
+        <DropZone onFile={onOpen} hint={CHROME.drop.file} />
         {fileError && <p className="text-[10px] leading-snug text-red-400">{fileError}</p>}
         <p className="text-[10px] leading-snug text-slate-600">{c.inspectNoDevice}</p>
       </div>
@@ -119,7 +120,7 @@ export function InspectPanel({
       {/* ------------------------------- edit ------------------------------ */}
       <div className="flex flex-col gap-2 border-b border-slate-800 px-5 py-4">
         <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-          {c.inspectEdit}
+          {CHROME.inspect.edit}
         </h3>
         {selected === null ? (
           <p className="text-[10px] text-slate-600">{c.inspectPickByte}</p>
@@ -152,7 +153,7 @@ export function InspectPanel({
                          uppercase tracking-widest text-blue-400 transition
                          hover:bg-blue-500/10 disabled:opacity-30"
             >
-              {c.inspectSet}
+              {CHROME.inspect.set}
             </button>
           </div>
         )}
@@ -169,7 +170,7 @@ export function InspectPanel({
                        disabled:opacity-25"
           >
             <Undo2 className="h-3 w-3" />
-            {c.inspectUndo}
+            {CHROME.inspect.undo}
           </button>
           <button
             onClick={() => onChange(revertAll(workspace))}
@@ -179,7 +180,7 @@ export function InspectPanel({
                        disabled:opacity-25"
           >
             <RotateCcw className="h-3 w-3" />
-            {c.inspectRevert}
+            {CHROME.inspect.revert}
           </button>
           <button
             onClick={() => downloadImage(image, editedFilename(workspace.name, new Date()))}
@@ -188,7 +189,7 @@ export function InspectPanel({
                        transition hover:bg-blue-500/10"
           >
             <Download className="h-3 w-3" />
-            {c.inspectSave}
+            {CHROME.inspect.saveAs}
           </button>
         </div>
         {/* Saving never lands on the source file. These dumps are often the

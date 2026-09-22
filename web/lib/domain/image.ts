@@ -149,16 +149,18 @@ export function diagnoseImage(image: Uint8Array, statusRaw?: number): ImageDiagn
     : { kind: 'no-response', value: first, status: statusRaw };
 }
 
-/** Parse a backup file. Refuses anything that is not exactly one image. */
+/**
+ * Parse a backup file. Refuses anything that is not exactly one image.
+ *
+ * The refusal carries the SIZE, not a sentence. The sentence is prose and
+ * belongs to the reader's language (lib/i18n.ts); what the parser knows is a
+ * number, and a refusal that drops it cannot tell "an empty file" from "a
+ * 2 KB dump of a different chip" from "a text file".
+ */
 export function parseImageFile(
   buffer: ArrayBuffer,
-): { ok: true; image: Uint8Array } | { ok: false; reason: string } {
-  if (buffer.byteLength !== IMAGE_SIZE) {
-    return {
-      ok: false,
-      reason: `expected exactly ${IMAGE_SIZE} bytes, got ${buffer.byteLength}`,
-    };
-  }
+): { ok: true; image: Uint8Array } | { ok: false; size: number } {
+  if (buffer.byteLength !== IMAGE_SIZE) return { ok: false, size: buffer.byteLength };
   return { ok: true, image: new Uint8Array(buffer) };
 }
 

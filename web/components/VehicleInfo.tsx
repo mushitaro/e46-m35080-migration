@@ -14,6 +14,7 @@ import type { VinRead } from '@/lib/domain/vin';
 import type { ChipAssessment } from '@/lib/domain/image';
 import { STATUS_BIT_DEFS, type StatusBits } from '@/lib/domain/status';
 import { t } from '@/lib/i18n';
+import { CHROME } from '@/lib/copy/chrome';
 
 export type VehicleInfoProps = {
   odometer: OdometerDecode | null;
@@ -28,7 +29,7 @@ export function VehicleInfo({ odometer, vin, chip, status }: VehicleInfoProps) {
   return (
     <div className="flex h-full flex-col justify-center gap-5 px-5 py-4">
       {/* Odometer - the headline reading */}
-      <Readout icon={<Gauge className="h-3 w-3" />} label={copy.odometer}>
+      <Readout icon={<Gauge className="h-3 w-3" />} label={CHROME.readout.odometer}>
         {odometer === null ? (
           <Dim>—</Dim>
         ) : odometer.ok ? (
@@ -67,11 +68,11 @@ export function VehicleInfo({ odometer, vin, chip, status }: VehicleInfoProps) {
       )}
 
       {/* VIN */}
-      <Readout icon={<Fingerprint className="h-3 w-3" />} label={copy.vin}>
+      <Readout icon={<Fingerprint className="h-3 w-3" />} label={CHROME.readout.vin}>
         {vin === null ? (
           <Dim>—</Dim>
         ) : vin.found === null ? (
-          <span className="font-mono text-[11px] text-emerald-400">{copy.vinBlank}</span>
+          <span className="font-mono text-[11px] text-emerald-400">{CHROME.readout.none}</span>
         ) : (
           <span className="flex items-baseline gap-2">
             <span className="font-mono text-base font-bold tracking-wider text-slate-200">
@@ -94,14 +95,14 @@ export function VehicleInfo({ odometer, vin, chip, status }: VehicleInfoProps) {
       {/* Chip */}
       <Readout icon={<Cpu className="h-3 w-3" />} label="CHIP">
         {chip === null ? (
-          <Dim>{copy.chipUnknown}</Dim>
+          <Dim>{CHROME.status.notRead}</Dim>
         ) : (
           <span
             className={`font-mono text-[11px] ${
               chip.blank ? 'text-emerald-400' : 'text-slate-300'
             }`}
           >
-            {chip.blank ? copy.chipBlank : copy.chipUsed}
+            {chip.blank ? CHROME.status.blank : CHROME.status.used}
           </span>
         )}
       </Readout>

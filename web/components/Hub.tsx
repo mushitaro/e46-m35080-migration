@@ -39,7 +39,10 @@ export function Hub({ config, busy }: { config: HubConfig; busy: boolean }) {
       <button
         onClick={onClick}
         disabled={disabled || busy}
-        className={`relative flex h-20 w-20 flex-col items-center justify-center gap-1
+        /* 72, declared (tsunagi-m-design section 7). The reference fit-scales
+           an 80px ring to 0.9 on every screen; transform would keep the 80px
+           box while drawing 72, so the size is stated instead. */
+        className={`relative flex size-[72px] flex-col items-center justify-center gap-1
                     rounded-full bg-slate-900 ring-1 ring-slate-800 shadow-2xl
                     transition-colors disabled:opacity-40
                     ${
@@ -48,7 +51,7 @@ export function Hub({ config, busy }: { config: HubConfig; busy: boolean }) {
                         : 'text-blue-500 hover:bg-slate-800 hover:text-blue-400'
                     }`}
       >
-        <Icon className={`h-5 w-5 stroke-[1.5] ${spin ? 'animate-spin' : ''}`} />
+        <Icon className={`size-[18px] stroke-[1.5] ${spin ? 'animate-spin' : ''}`} />
         <span className="text-[8px] font-bold uppercase tracking-widest">{label}</span>
       </button>
     </div>

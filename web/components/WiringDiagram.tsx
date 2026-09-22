@@ -23,6 +23,7 @@
 
 import { M35080_PINS, PASSIVES, type ChipPin } from '@/lib/domain/hardware';
 import { g } from '@/lib/copy/guide';
+import { CHROME } from '@/lib/copy/chrome';
 
 /* ---- geometry: one pitch, everything aligned to it ---- */
 const VIEW_W = 760;
@@ -132,7 +133,7 @@ export function WiringDiagram({ highlight = null, onSelectPin }: WiringDiagramPr
       })}
       {/* 5V is an output, not something you feed */}
       <text x={UNO_X - 20} y={168} textAnchor="middle" fill={RED} fontSize={10} fontFamily="monospace">
-        {c.outputLabel}
+        {CHROME.setup.out}
       </text>
 
       {/* ================= Breadboard ================= */}

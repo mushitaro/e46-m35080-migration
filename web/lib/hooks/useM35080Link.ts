@@ -256,7 +256,10 @@ export function useM35080Link() {
          unlocked writing, while the .bin on disk counted for nothing. The
          durable copy has to be part of taking a backup, not a separate button
          someone might not press. */
-      downloadImage(image, backupFilename(vin.found?.text ?? null, decoded.ok ? decoded.km : null));
+      downloadImage(
+        image,
+        backupFilename(vin.found?.text ?? null, decoded.ok ? decoded.km : null, new Date(), state.practice),
+      );
       patch({ backedUpHash: record.hash, notice: null });
       return record;
     } catch (e) {

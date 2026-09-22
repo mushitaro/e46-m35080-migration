@@ -62,6 +62,8 @@ export type Refusal = {
   maxKm?: number;
   /** How many characters the VIN already on the chip has. */
   vinLength?: number;
+  /** How many bytes a refused file actually had. */
+  fileSize?: number;
 };
 
 const refuse = (code: RefusalCode, extra: Omit<Refusal, 'ok' | 'code'> = {}): Refusal => ({

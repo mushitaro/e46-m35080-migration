@@ -10,6 +10,7 @@ import { AssemblyGuide, type GuideStepId } from '@/components/AssemblyGuide';
 import { WiringLegend } from '@/components/WiringDiagram';
 import { PartsList } from '@/components/PartsList';
 import { g } from '@/lib/copy/guide';
+import { CHROME } from '@/lib/copy/chrome';
 
 export function SetupPanel({
   guideStep,
@@ -38,7 +39,7 @@ export function SetupPanel({
 
       <div className="flex flex-col gap-2 border-t border-slate-800 pt-4">
         <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-          {c.wiringTitle}
+          {CHROME.setup.wiring}
         </h3>
         <WiringLegend selected={wire} onSelect={onWire} />
         {/* The question everyone asks first, answered where the wiring is. */}

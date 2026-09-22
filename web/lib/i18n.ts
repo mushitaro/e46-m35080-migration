@@ -26,11 +26,22 @@ export type RefusalInfo = {
   backupKm?: number;
   maxKm?: number;
   vinLength?: number;
+  /** How many bytes a refused file actually had. */
+  fileSize?: number;
 };
 
 /** Whatever layout.tsx puts in <html lang>. The server snapshot. */
 export const STATIC_LANG: Lang = 'ja';
-const STORAGE_KEY = 'm35080-odo.lang';
+
+/**
+ * The key an earlier build wrote when it still had a ja/en toggle.
+ *
+ * It is not read. It is DELETED at boot, because tsunagi-m-ux section 13
+ * names this exact trap: take the toggle away but keep reading what it saved,
+ * and every reader who ever pressed it is frozen in that language with no
+ * control left to change it. The browser is now the only source.
+ */
+const RETIRED_KEY = 'm35080-odo.lang';
 
 function fromNavigator(): Lang {
   if (typeof navigator === 'undefined') return STATIC_LANG; // prerender, not a reader
@@ -38,37 +49,36 @@ function fromNavigator(): Lang {
   return navigator.language?.toLowerCase().startsWith('ja') ? 'ja' : 'en';
 }
 
-function readStored(): Lang | null {
-  try {
-    const v = localStorage.getItem(STORAGE_KEY);
-    return v === 'ja' || v === 'en' ? v : null;
-  } catch {
-    return null; // private mode: fall back to the navigator rule
-  }
-}
-
 let current: Lang = STATIC_LANG;
 if (typeof window !== 'undefined') {
-  current = readStored() ?? fromNavigator();
+  current = fromNavigator();
+  try {
+    localStorage.removeItem(RETIRED_KEY);
+  } catch {
+    /* private mode: there is nothing stored to retire */
+  }
 }
 
 /**
  * A plain function, NOT a hook: the native confirm/alert call sites fire from
- * event handlers that have no hook to read, and a stored choice can change
- * while the tab is open, so they must not re-derive from `navigator` either.
+ * event handlers that have no hook to read.
+ *
+ * There is no setter in the app. A reader who wants the other language
+ * changes their browser's, which is the right place and fixes every other
+ * site as well.
  */
 export function getLang(): Lang {
   return current;
 }
 
-export function setLang(lang: Lang): void {
+/**
+ * TESTS ONLY - render one catalog, then the other, in the same process.
+ *
+ * Never persisted and never called from the app: a language control is a
+ * question the instrument's chrome has no room for (section 13).
+ */
+export function setLangForTest(lang: Lang): void {
   current = lang;
-  try {
-    localStorage.setItem(STORAGE_KEY, lang);
-  } catch {
-    /* private mode: the choice just does not persist */
-  }
-  applyLangToDocument();
   listeners.forEach((l) => l(lang));
 }
 
@@ -103,23 +113,11 @@ export function subscribeLang(fn: Listener): () => void {
    the same string in every language is an invitation to drift. */
 const JA = {
   // hub / status
-  connect: '接続',
-  connecting: '接続中',
-  disconnect: '切断',
-  read: '読み出し',
-  reading: '読み出し中',
-  writing: '書き込み中',
-  verifying: '検証中',
 
-  linkIdle: '未接続',
-  linkReady: '接続済み',
   bridgeConnectionFailed: (detail: string) =>
     'Arduinoとの接続確認に失敗しました。UNOのポートを選び、付属の m35080_bridge.ino を書き込んでください。' +
     '確認用PINGはEEPROMなしでも応答します。専用スケッチが書き込み済みの場合はUSB接続と電源を確認してください。' +
     ` 詳細: ${detail}`,
-  chipUnknown: '未読み出し',
-  chipBlank: 'ブランク（新品）',
-  chipUsed: '使用済み',
 
   /* 1024バイトが全部同じ値 = チップではなくバスを読んでいる。これを受け入れた
      結果、浮いた配線が「1,048,560 km」として表示されたことがある。 */
@@ -153,15 +151,9 @@ const JA = {
   practiceMode: 'PRACTICE モード — 実機には書き込みません',
 
   // odometer
-  odometer: '走行距離',
-  currentKm: '現在値',
-  targetKm: '目標値',
   odometerUnreadable: 'セキュア領域を解読できません',
 
   // vin
-  vin: 'VIN',
-  vinBlank: 'ブランク（工場出荷状態）',
-  vinNone: '検出なし',
 
   // confirms - the concrete consequence, stated
   confirmWriteTitle: 'チップへ書き込みます',
@@ -188,8 +180,6 @@ const JA = {
     `書き込まないのは走行距離 0x00–0x1F だけです。\n` +
     `VIN もバックアップと違っていれば書き戻します。\n\n` +
     `セキュア領域を上げないため、この操作は何度でもやり直せます。`,
-  confirmProceed: '実行する',
-  confirmCancel: 'キャンセル',
   noCancelDuringWrite: '書き込み中はキャンセルできません',
 
   // refusals
@@ -250,7 +240,15 @@ const JA = {
           detail: r.maxKm === undefined ? undefined : `上限 ${r.maxKm.toLocaleString()} km`,
         };
       case 'backup-size':
-        return { reason: 'バックアップファイルは 1024 バイトである必要があります' };
+        return {
+          reason: 'M35080 のイメージではありません。',
+          detail:
+            r.fileSize === undefined
+              ? '1024 バイトちょうどのファイルが必要です。'
+              : r.fileSize === 0
+                ? 'ファイルが空です（0 バイト）。'
+                : `${r.fileSize.toLocaleString()} バイトのファイルです。1024 バイトちょうどのファイルが必要です。`,
+        };
       case 'backup-no-data':
         return {
           reason: 'このバックアップにはクラスターのデータが入っていません。',
@@ -274,23 +272,11 @@ const JA = {
    cannot reach a confirm dialog about erasing a chip as `undefined`. */
 
 const EN: typeof JA = {
-  connect: 'CONNECT',
-  connecting: 'CONNECTING',
-  disconnect: 'DISCONNECT',
-  read: 'READ',
-  reading: 'READING',
-  writing: 'WRITING',
-  verifying: 'VERIFYING',
 
-  linkIdle: 'Not connected',
-  linkReady: 'Connected',
   bridgeConnectionFailed: (detail: string) =>
     'The Arduino handshake failed. Select the UNO port and upload the included m35080_bridge.ino. ' +
     'PING works without an EEPROM. If that sketch is already installed, check the USB connection and power. ' +
     `Details: ${detail}`,
-  chipUnknown: 'Not read',
-  chipBlank: 'Blank (new)',
-  chipUsed: 'Used',
 
   imageNotFromChip: (d: ImageFault): string => {
     const b = (v: number | undefined) =>
@@ -319,14 +305,8 @@ const EN: typeof JA = {
 
   practiceMode: 'PRACTICE mode — nothing is written to hardware',
 
-  odometer: 'Odometer',
-  currentKm: 'Current',
-  targetKm: 'Target',
   odometerUnreadable: 'Cannot decode the secure area',
 
-  vin: 'VIN',
-  vinBlank: 'Blank (factory state)',
-  vinNone: 'None found',
 
   confirmWriteTitle: 'Write to the chip',
   confirmOdometer: (from: number | null, to: number, ops: number) =>
@@ -348,8 +328,6 @@ const EN: typeof JA = {
     `The odometer (0x00-0x1F) is the only thing not written.\n` +
     `The VIN is written too, if it differs from the backup.\n\n` +
     `Nothing raises the secure counter, so this can be repeated.`,
-  confirmProceed: 'Proceed',
-  confirmCancel: 'Cancel',
   noCancelDuringWrite: 'Cannot cancel during a write',
 
   refuseNoBackup: 'Run BACKUP first.',
@@ -410,7 +388,15 @@ const EN: typeof JA = {
           detail: r.maxKm === undefined ? undefined : `Maximum ${r.maxKm.toLocaleString()} km`,
         };
       case 'backup-size':
-        return { reason: 'A backup file must be exactly 1024 bytes' };
+        return {
+          reason: 'This is not an M35080 image.',
+          detail:
+            r.fileSize === undefined
+              ? 'The file must be exactly 1024 bytes.'
+              : r.fileSize === 0
+                ? 'The file is empty (0 bytes).'
+                : `The file is ${r.fileSize.toLocaleString()} bytes; it must be exactly 1024.`,
+        };
       case 'backup-no-data':
         return {
           reason: 'This backup holds no cluster data.',

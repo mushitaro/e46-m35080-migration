@@ -21,6 +21,7 @@ import { useMemo, useState } from 'react';
 import { ExternalLink, Megaphone } from 'lucide-react';
 import { resolvedParts, priceFetchedAt, relFor, type ResolvedPart } from '@/lib/domain/partsData';
 import { g, partName, partNote } from '@/lib/copy/guide';
+import { CHROME } from '@/lib/copy/chrome';
 
 export function PartsList() {
   const c = g();
@@ -64,7 +65,7 @@ export function PartsList() {
 
       <div className="flex items-center gap-3">
         <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-          {c.partsTitle}
+          {CHROME.parts.title}
         </h3>
         <button
           onClick={() => {
@@ -73,7 +74,7 @@ export function PartsList() {
           }}
           className="text-[9px] font-bold uppercase tracking-widest text-blue-400 transition-colors hover:text-blue-300"
         >
-          {c.partsSelectAll}
+          {CHROME.parts.selectAll}
         </button>
         <button
           onClick={() => {
@@ -82,7 +83,7 @@ export function PartsList() {
           }}
           className="text-[9px] font-bold uppercase tracking-widest text-slate-600 transition-colors hover:text-slate-400"
         >
-          {c.partsClear}
+          {CHROME.parts.clear}
         </button>
       </div>
 
@@ -147,7 +148,7 @@ function PartRow({
               part.required ? 'text-blue-400' : 'text-slate-600'
             }`}
           >
-            {part.required ? c.partsRequired : c.partsOptional}
+            {part.required ? CHROME.parts.required : CHROME.parts.optional}
           </span>
           {part.qty > 1 && (
             <span className="shrink-0 font-mono text-[9px] text-slate-500">x{part.qty}</span>

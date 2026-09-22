@@ -20,6 +20,7 @@ import {
 } from '@/lib/domain/addressMap';
 import { readVin } from '@/lib/domain/vin';
 import { g } from '@/lib/copy/guide';
+import { CHROME } from '@/lib/copy/chrome';
 
 const addr = (a: number) => a.toString(16).toUpperCase().padStart(3, '0');
 const u16 = (v: number) => v.toString(16).toUpperCase().padStart(4, '0');
@@ -49,7 +50,7 @@ export function AddressPanel({
       {/* ---------------------------- odometer ---------------------------- */}
       <section className="flex flex-col gap-1.5">
         <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-          {c.mapOdoTitle}
+          {CHROME.map.odometer}
         </h3>
         <p className="text-[10px] leading-snug text-slate-500">{c.mapOdoNote}</p>
 
@@ -75,7 +76,7 @@ export function AddressPanel({
                 </span>
                 <span className={roleTone(s.role)}>{u16(s.value)}</span>
                 <span className="ml-auto text-[9px] text-slate-600">
-                  {s.role === 'bumped' ? c.mapSlotBumped : s.role === 'base' ? c.mapSlotBase : '?'}
+                  {s.role === 'bumped' ? CHROME.map.bumped : s.role === 'base' ? CHROME.map.base : '?'}
                 </span>
               </button>
             </li>
@@ -91,7 +92,7 @@ export function AddressPanel({
       {/* ------------------------------- VIN ------------------------------ */}
       <section className="flex flex-col gap-1.5">
         <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-          {c.mapVinTitle}
+          {CHROME.map.vin}
         </h3>
         {vin.found === null ? (
           <p className="text-[10px] leading-snug text-slate-500">{c.mapVinNone}</p>
@@ -127,7 +128,7 @@ export function AddressPanel({
       {/* --------------------------- the rest ----------------------------- */}
       <section className="flex flex-col gap-1.5">
         <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-          {c.mapRestTitle}
+          {CHROME.map.rest}
         </h3>
         <p className="text-[10px] leading-snug text-slate-500">{c.mapRestNote}</p>
       </section>

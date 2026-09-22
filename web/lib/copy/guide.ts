@@ -15,20 +15,11 @@ import { getLang } from '@/lib/i18n';
 
 const JA = {
   /* ---- workflow strip ---- */
-  stepSetup: '準備',
-  stepRead: '読み出し',
-  stepRestore: '復旧',
-  stepRewrite: '書き換え',
-  stepRecords: '記録',
 
   blockedNeedImage: '先にチップを読み出してください',
   blockedNeedConnection: 'Arduino を接続してください',
 
-  awaitingConnection: '接続を待っています',
-  awaitingRead: '読み出しを待っています',
   noRecords: '記録はまだありません',
-  practiceButton: 'PRACTICE（実機なし）',
-  dropBackup: 'バックアップ .BIN を置く（1024バイト）',
 
   /* 復旧はフォーク元 README の原則を新品チップに当てはめたもの。
      ・0x20–0x3FF はバックアップから（新品は全FFで、クラスターのデータが無い）
@@ -71,18 +62,11 @@ const JA = {
 
   /* 固定マップは作れない（実チップ4枚に共通の領域が無い）。だからバイト列から
      観測できることだけを出す。0x2E8=VIN と決め打って8バイト消していた失敗の再発防止。 */
-  structTitle: 'このダンプの構造',
   structNote:
     'バイト列から検出した内容です。E46 KOMBI の固定マップではありません（実チップ4枚を比べても共通の領域がなく、固定マップは推測になります）。行をクリックするとHEXがその位置に移動します。',
-  structSecure: 'セキュア',
   structSecureNote: '走行距離。増加方向にのみ書き込み可',
-  structId: 'ID',
-  structIdVin: 'ID (VIN形)',
-  structRepeat: '冗長',
   structRepeatNote: (hex: string, copies: number, stride: number) =>
     `${hex} が ${copies} 箇所（間隔 ${stride}）。1つ失っても残りで復元できます`,
-  structUnused: '未使用',
-  structZero: 'ゼロ',
   structRunNote: (len: number, value: number) =>
     `0x${value.toString(16).toUpperCase().padStart(2, '0')} が ${len} バイト連続`,
 
@@ -99,8 +83,6 @@ const JA = {
     `現在 ${cur.toLocaleString()} km で、目標 ${target.toLocaleString()} km より進んでいます。セキュア領域は下げられないため、新品チップへの交換が必要です。`,
 
   /* ---- assembly guide ---- */
-  guideTitle: '組み立て手順',
-  guideDone: '完了の目安',
   stepOf: (n: number, total: number) => `ステップ ${n} / ${total}`,
 
   g1Title: '部品を揃える',
@@ -133,13 +115,8 @@ const JA = {
   g7Done: 'BRIDGE にバージョンが表示された',
 
   /* ---- wiring ---- */
-  wiringTitle: '配線',
-  wiringPin: 'ピン',
-  wiringSignal: '信号',
-  wiringUno: 'UNO',
   bbColumnNote: '縦5穴＝内部でつながって1点／赤・青のレールは横一列でつながっています',
   unoPoweredByUsbShort: '電源はUSB（PCから）',
-  outputLabel: '出力',
   unoPower:
     'Arduino UNO の電源は PC につなぐ USB ケーブルです。外部電源は要りません。UNO の「5V」ピンは入力ではなく出力で、そこから M35080 へ 5V を供給します。',
   wiringNotStandard:
@@ -148,11 +125,6 @@ const JA = {
     '3.3V のボード（ESP32 / RP2040 など）では動きません。このチップは 4.5〜5.5V が必要で、レベル変換なしでは MCU 側を壊す恐れがあります。',
 
   /* ---- parts list ---- */
-  partsTitle: 'パーツリスト',
-  partsRequired: '必須',
-  partsOptional: '任意',
-  partsSelectAll: 'すべて選択',
-  partsClear: '選択解除',
   partsOpen: (n: number) => `選択した ${n} 件を開く`,
   partsOpenNext: (i: number, n: number) => `次を開く（${i} / ${n}）`,
   partsOpenDone: 'すべて開きました',
@@ -186,9 +158,7 @@ const JA = {
   nDesolderSo8: 'SO8 の取り外しに使用',
   /* --------------------------- address meanings --------------------------- */
 
-  mapTitle: 'アドレスの意味',
 
-  mapOdoTitle: '走行距離 0x000-0x01F',
   mapOdoNote:
     'M35080 のセキュア領域。16 個の 16 ビットレジスタがビッグエンディアンで並びます。' +
     'これはチップのデータシートで決まっている配置なので、車種によらず同じです。',
@@ -197,10 +167,7 @@ const JA = {
     `そこから +1 されたレジスタが ${bumped} 個あり、これが 1 km 単位の端数になります。` +
     'ハードウェア的に増加しかできないため、下げられません。',
   mapOdoUndecodable: (reason: string) => `この領域は解読できません（${reason}）`,
-  mapSlotBase: 'ベース',
-  mapSlotBumped: '+1',
 
-  mapVinTitle: 'VIN',
   mapVinNote:
     'VIN の位置は固定ではありません。クラスターの世代で変わるため、' +
     '大文字英数字が 7 文字以上連続する箇所を探索して特定します。' +
@@ -210,16 +177,13 @@ const JA = {
     '車両接続後に NCS Expert で書き込みます。',
   mapVinOthers: (others: string[]) => `他の候補: ${others.join(' / ')}`,
 
-  mapRestTitle: 'それ以外',
   mapRestNote:
     'ここでは命名しません。実チップ 4 個を 1 バイトずつ比較したところ、' +
     '0xFF を除いて全個体で一致するアドレスは 1 つもありませんでした。' +
     '固定マップは作れません。バイトの「形」については構造パネルを参照してください。',
   /* ------------------------------ file inspect ---------------------------- */
 
-  stepInspect: '検査',
 
-  inspectTitle: 'ダンプファイルを開く',
   inspectIntro:
     '手元の .BIN を読み込み、中身を確認して編集できます。実機は不要です。',
   inspectNoDevice:
@@ -239,34 +203,20 @@ const JA = {
     + '解読はできてしまいますが、その値は配線の状態であってチップの内容ではないためです。'
     + 'HEX ビューと編集は使えます。',
 
-  inspectEdit: '編集',
   inspectPickByte: 'HEX ビューでバイトを選んでください。',
-  inspectSet: '書き換え',
   inspectChanged: (n: number) => `元ファイルとの差分 ${n} バイト`,
   inspectUnchanged: '元ファイルと同一',
-  inspectUndo: '一つ戻す',
-  inspectRevert: '全て戻す',
-  inspectSave: '別名で保存',
   inspectSaveNote:
     '保存は必ず別名です。元ファイルには上書きしません — そのダンプが、' +
     '既に書き換えたチップの唯一の記録であることがあるためです。',
 };
 
 const EN: typeof JA = {
-  stepSetup: 'SETUP',
-  stepRead: 'READ',
-  stepRestore: 'RESTORE',
-  stepRewrite: 'REWRITE',
-  stepRecords: 'RECORDS',
 
   blockedNeedImage: 'Read the chip first',
   blockedNeedConnection: 'Connect the Arduino first',
 
-  awaitingConnection: 'Awaiting connection',
-  awaitingRead: 'Awaiting read',
   noRecords: 'No records yet',
-  practiceButton: 'PRACTICE (no hardware)',
-  dropBackup: 'Drop a backup .bin (1024 bytes)',
 
   restoreLead:
     "Write a backup's cluster data to a new chip, byte for byte. If the backup carries " +
@@ -299,20 +249,13 @@ const EN: typeof JA = {
     'Write it back, leave it a while, then read again: that tests whether the chip holds data at ' +
     'all. If the bytes return to 0xFF, that chip cannot be used.',
 
-  structTitle: 'What is in this dump',
   structNote:
     'Read out of the bytes themselves. This is not a fixed map of the E46 KOMBI - four real chips ' +
     'were compared and no region was common to all of them, so a fixed map would be a guess. ' +
     'Click a row to jump the hex view there.',
-  structSecure: 'SECURE',
   structSecureNote: 'the odometer; writable upward only',
-  structId: 'ID',
-  structIdVin: 'ID (VIN-shaped)',
-  structRepeat: 'REDUNDANT',
   structRepeatNote: (hex: string, copies: number, stride: number) =>
     `${hex} stored ${copies} times (stride ${stride}) - one lost copy is survivable`,
-  structUnused: 'UNUSED',
-  structZero: 'ZERO',
   structRunNote: (len: number, value: number) =>
     `0x${value.toString(16).toUpperCase().padStart(2, '0')} repeated ${len} bytes`,
 
@@ -324,8 +267,6 @@ const EN: typeof JA = {
   recNeedsNewChip: (cur: number, target: number) =>
     `Currently ${cur.toLocaleString()} km, which is above the target ${target.toLocaleString()} km. The secure area cannot be lowered, so this needs a new chip.`,
 
-  guideTitle: 'Assembly',
-  guideDone: 'Done when',
   stepOf: (n: number, total: number) => `Step ${n} of ${total}`,
 
   g1Title: 'Gather the parts',
@@ -357,13 +298,8 @@ const EN: typeof JA = {
   g7Body: 'Upload firmware/m35080_bridge to the UNO with the Arduino IDE, then press CONNECT here and pick the port.',
   g7Done: 'BRIDGE shows a version',
 
-  wiringTitle: 'Wiring',
-  wiringPin: 'Pin',
-  wiringSignal: 'Signal',
-  wiringUno: 'UNO',
   bbColumnNote: 'Five holes in a column are one node; each rail is one node along its length',
   unoPoweredByUsbShort: 'Powered by USB (from the PC)',
-  outputLabel: 'output',
   unoPower:
     'The UNO is powered by the USB cable to your PC - there is no separate supply to connect. Its "5V" pin is an OUTPUT, and that is what feeds the M35080.',
   wiringNotStandard:
@@ -371,11 +307,6 @@ const EN: typeof JA = {
   wiringVoltage:
     'A 3.3 V board (ESP32, RP2040) will not do. This chip needs 4.5-5.5 V, and without level shifting its output can damage the MCU.',
 
-  partsTitle: 'Parts',
-  partsRequired: 'Required',
-  partsOptional: 'Optional',
-  partsSelectAll: 'Select all',
-  partsClear: 'Clear',
   partsOpen: (n: number) => `Open ${n} selected`,
   partsOpenNext: (i: number, n: number) => `Open next (${i} of ${n})`,
   partsOpenDone: 'All opened',
@@ -406,9 +337,7 @@ const EN: typeof JA = {
   nDesolderSo8: 'For lifting the SO8',
   /* --------------------------- address meanings --------------------------- */
 
-  mapTitle: 'What the addresses hold',
 
-  mapOdoTitle: 'Odometer 0x000-0x01F',
   mapOdoNote:
     "The M35080's secure area: sixteen 16-bit registers, big-endian. This " +
     'layout comes from the chip datasheet, not from BMW, so it is the same in ' +
@@ -418,10 +347,7 @@ const EN: typeof JA = {
     `counts 16 km a step. ${bumped} register(s) hold base + 1, and that is the ` +
     '1 km remainder. The registers only count up in hardware, so this cannot be lowered.',
   mapOdoUndecodable: (reason: string) => `This area cannot be decoded (${reason})`,
-  mapSlotBase: 'base',
-  mapSlotBumped: '+1',
 
-  mapVinTitle: 'VIN',
   mapVinNote:
     'The VIN is not at a fixed address - it moves between cluster generations, ' +
     'so it is found by scanning for a run of 7 or more uppercase alphanumerics. ' +
@@ -431,16 +357,13 @@ const EN: typeof JA = {
     'is coded in with NCS Expert once the car is connected.',
   mapVinOthers: (others: string[]) => `Other candidates: ${others.join(' / ')}`,
 
-  mapRestTitle: 'Everything else',
   mapRestNote:
     'Not named here. Four real chips were compared byte for byte and, outside ' +
     '0xFF, not one address held the same value on all four - so there is no ' +
     'fixed map to write down. The structure panel reports their shape instead.',
   /* ------------------------------ file inspect ---------------------------- */
 
-  stepInspect: 'INSPECT',
 
-  inspectTitle: 'Open a dump file',
   inspectIntro:
     'Load a .BIN from disk, see what is in it, and edit it. No hardware needed.',
   inspectNoDevice:
@@ -461,14 +384,9 @@ const EN: typeof JA = {
     + 'that is the problem - but the value would describe the wiring, not a chip. '
     + 'The hex view and the editor still work.',
 
-  inspectEdit: 'Edit',
   inspectPickByte: 'Pick a byte in the hex view.',
-  inspectSet: 'SET',
   inspectChanged: (n: number) => `${n} byte(s) differ from the file`,
   inspectUnchanged: 'identical to the file',
-  inspectUndo: 'UNDO',
-  inspectRevert: 'REVERT',
-  inspectSave: 'SAVE AS',
   inspectSaveNote:
     'A save always writes a new name, never the source. These dumps are often ' +
     'the only record of a chip that has since been written over.',

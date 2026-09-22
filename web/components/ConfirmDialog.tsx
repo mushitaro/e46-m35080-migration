@@ -11,6 +11,7 @@
 
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { t } from '@/lib/i18n';
+import { CHROME } from '@/lib/copy/chrome';
 
 export type ConfirmDialogProps = {
   open: boolean;
@@ -92,7 +93,7 @@ export function ConfirmDialog({
           {inProgress ? (
             <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-amber-400">
               <Loader2 className="h-3 w-3 animate-spin" />
-              {progressLabel ?? copy.writing}
+              {progressLabel ?? CHROME.hub.writing}
               <span className="ml-2 font-normal normal-case tracking-normal text-slate-500">
                 {copy.noCancelDuringWrite}
               </span>
@@ -104,14 +105,14 @@ export function ConfirmDialog({
                 className="text-[10px] font-bold uppercase tracking-widest text-slate-500
                            transition-colors hover:text-slate-300"
               >
-                {copy.confirmCancel}
+                {CHROME.cancel}
               </button>
               <button
                 onClick={onConfirm}
                 className="rounded bg-red-600 px-3 py-1 text-[10px] font-bold uppercase
                            tracking-widest text-white transition-colors hover:bg-red-500"
               >
-                {confirmLabel ?? copy.confirmProceed}
+                {confirmLabel ?? CHROME.proceed}
               </button>
             </>
           )}

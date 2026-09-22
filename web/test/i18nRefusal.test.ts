@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { setLang, getLang, t } from '@/lib/i18n';
+import { setLangForTest, getLang, t } from '@/lib/i18n';
 import type { RefusalCode } from '@/lib/domain/operations';
 
 /**
@@ -41,12 +41,12 @@ const CODE_TABLE: Record<RefusalCode, true> = {
 const ALL_CODES = Object.keys(CODE_TABLE) as RefusalCode[];
 
 const original = getLang();
-afterAll(() => setLang(original));
+afterAll(() => setLangForTest(original));
 
 describe('refusal copy', () => {
   for (const lang of ['ja', 'en'] as const) {
     it(`renders a non-empty reason for every code in ${lang}`, () => {
-      setLang(lang);
+      setLangForTest(lang);
       for (const code of ALL_CODES) {
         const r = t().refusal({
           code,
@@ -67,29 +67,29 @@ describe('refusal copy', () => {
   it('actually translates - ja and en differ for the safety-critical codes', () => {
     const safety: RefusalCode[] = ['cannot-lower', 'not-blank', 'restore-lower'];
     for (const code of safety) {
-      setLang('ja');
+      setLangForTest('ja');
       const ja = t().refusal({ code, floorKm: 1, backupKm: 2 });
-      setLang('en');
+      setLangForTest('en');
       const en = t().refusal({ code, floorKm: 1, backupKm: 2 });
       expect(ja.reason, `${code} is identical in both languages`).not.toBe(en.reason);
     }
   });
 
   it('formats the floor into the cannot-lower detail', () => {
-    setLang('en');
+    setLangForTest('en');
     const r = t().refusal({ code: 'cannot-lower', floorKm: 155_940 });
     expect(r.detail).toContain('155,940');
   });
 
   it('omits a detail when the value it needs is absent', () => {
-    setLang('en');
+    setLangForTest('en');
     expect(t().refusal({ code: 'cannot-lower' }).detail).toBeUndefined();
     expect(t().refusal({ code: 'restore-lower' }).detail).toBeUndefined();
   });
 
   it('the no-data backup refusal tells the reader what to pick instead', () => {
     for (const lang of ['ja', 'en'] as const) {
-      setLang(lang);
+      setLangForTest(lang);
       const r = t().refusal({ code: 'backup-no-data' });
       expect(r.detail, `${lang} backup-no-data has no actionable detail`).toBeTruthy();
       expect(r.detail).toMatch(/0x20/);
@@ -98,7 +98,7 @@ describe('refusal copy', () => {
 
   it('the non-blank refusal always tells the reader what to do instead', () => {
     for (const lang of ['ja', 'en'] as const) {
-      setLang(lang);
+      setLangForTest(lang);
       const r = t().refusal({ code: 'not-blank' });
       expect(r.detail, `${lang} not-blank has no actionable detail`).toBeTruthy();
       expect(r.detail).toMatch(/M35080/);

@@ -67,7 +67,7 @@ export function RecordsTable({
               <td className="px-3 py-1 text-right">
                 <button
                   onClick={() =>
-                    downloadImage(r.bytes, backupFilename(r.vin, r.km, new Date(r.createdAt)))
+                    downloadImage(r.bytes, backupFilename(r.vin, r.km, new Date(r.createdAt), r.practice))
                   }
                   className="mr-2 text-slate-600 transition-colors hover:text-blue-400"
                   title="download .bin"

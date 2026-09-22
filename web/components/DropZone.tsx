@@ -3,6 +3,11 @@
 /**
  * A dashed drop area that doubles as a click target (a transparent file input
  * sits over it). Reused for every file input in the app.
+ *
+ * tsunagi-m-chrome section 5. `accept` stays `.bin`: application/octet-stream
+ * is what Android maps it to and what a chip image actually is, so the broad-
+ * MIME/narrow-extension split that CSV needs does not apply here. The real
+ * check is the caller's, after the pick - and it has to say what was wrong.
  */
 
 import { useCallback, useRef, useState } from 'react';
@@ -22,8 +27,12 @@ export function DropZone({
 
   const take = useCallback(
     (files: FileList | null) => {
-      const f = files?.[0];
+      const f = files?.[0]; // one file, always the first
       if (f) onFile(f);
+      /* Clear the input, or picking the SAME file again after a refusal fires
+         no change event: the reader fixes nothing, re-picks, and the tool does
+         nothing at all - which reads as broken, not as refused. */
+      if (inputRef.current) inputRef.current.value = '';
     },
     [onFile],
   );
@@ -37,8 +46,10 @@ export function DropZone({
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         setOver(false);
         take(e.dataTransfer.files);
+        e.dataTransfer.clearData();
       }}
       className={`relative flex h-28 cursor-pointer flex-col items-center justify-center gap-2
                   rounded border-2 border-dashed transition-colors
@@ -51,7 +62,7 @@ export function DropZone({
         type="file"
         accept={accept}
         onChange={(e) => take(e.target.files)}
-        className="absolute inset-0 cursor-pointer opacity-0"
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
       />
     </div>
   );

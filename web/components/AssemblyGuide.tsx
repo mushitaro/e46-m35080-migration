@@ -14,6 +14,7 @@
 
 import { Check, ChevronRight } from 'lucide-react';
 import { g } from '@/lib/copy/guide';
+import { CHROME } from '@/lib/copy/chrome';
 
 export type GuideStepId = 'parts' | 'open' | 'remove' | 'adapter' | 'power' | 'signals' | 'flash';
 
@@ -72,7 +73,7 @@ export function AssemblyGuide({
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-        {c.guideTitle}
+        {CHROME.setup.assembly}
       </h3>
 
       <ol className="space-y-1">
@@ -115,7 +116,7 @@ export function AssemblyGuide({
                   <p className="text-[11px] leading-relaxed text-slate-400">{copy.body}</p>
                   <div className="flex items-start gap-2 rounded bg-slate-900 px-2 py-1.5">
                     <span className="shrink-0 text-[8px] font-bold uppercase tracking-widest text-slate-600">
-                      {c.guideDone}
+                      {CHROME.setup.doneWhen}
                     </span>
                     <span className="font-mono text-[10px] leading-snug text-slate-300">
                       {copy.done}
