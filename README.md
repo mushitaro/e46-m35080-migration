@@ -212,7 +212,9 @@ cd web && npm install && npm run dev
 ```
 
 Then open <http://localhost:5049> in **Chrome or Edge on desktop** (Web Serial is
-not in Firefox or Safari) and click CONNECT.
+not in Firefox or Safari) and click CONNECT. `PORT`, when set, takes the place of 5049
+(`web/scripts/dev.mjs`) — the desktop app's preview pane sets it when another worktree's dev server
+already holds 5049.
 
 **No hardware? Tick PRACTICE.** It runs the whole workflow — including the
 destructive paths — against a simulated chip that really enforces the
@@ -220,9 +222,16 @@ increment-only rule, and TEST against a simulated cluster. INSPECT's USE AS PRAC
 a file you opened the chip PRACTICE reads.
 
 `next dev` draws what a release draws. CODING and TEST are experimental and appear in a preview
-build (`npm run build:preview`), served as in [Running the gate and SYNC locally](#running-the-gate-and-sync-locally)
-— or from any static server for PRACTICE, where there is no `/api/ref` and the reference data is
-opened as a file.
+build:
+
+```bash
+npm run build:preview && npm run serve:out   # http://localhost:5050 (or PORT)
+```
+
+That server has no functions — no gate, no SYNC, no `/api/ref` — so CODING's definitions and
+TEST's names are opened as files (`kombi-coding.json`, `kombi-names.json`). localhost is a
+secure context, so the UNO and the K+DCAN cable work there as on the deployed preview. For the
+gate and SYNC, see [Running the gate and SYNC locally](#running-the-gate-and-sync-locally).
 
 ```bash
 npm run test        # token rules → BMW-data guard → ds2-core vendor check → the vitest suite

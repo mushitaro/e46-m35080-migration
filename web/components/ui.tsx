@@ -218,11 +218,14 @@ export function EmptyState({
   Icon,
   label,
   hint,
+  children,
 }: {
   Icon: LucideIcon;
   label: string;
-  /** One line, in the reader's language, saying what would fill this. */
+  /** In the reader's language: why this is empty and what would fill it. */
   hint?: string;
+  /** The one thing that fills it, when it can be done right here (a drop zone). */
+  children?: React.ReactNode;
 }) {
   return (
     <div className="flex h-full min-h-[160px] flex-col items-center justify-center px-6 text-center text-slate-700">
@@ -230,7 +233,8 @@ export function EmptyState({
         <Icon className="size-6 opacity-50" />
       </div>
       <p className="font-mono text-xs uppercase tracking-wider opacity-50">{label}</p>
-      {hint && <p className="mt-2 max-w-[36ch] text-[11px] leading-relaxed text-slate-600">{hint}</p>}
+      {hint && <p className="mt-2 max-w-[48ch] text-[11px] leading-relaxed text-slate-400">{hint}</p>}
+      {children && <div className="mt-4 w-full max-w-sm">{children}</div>}
     </div>
   );
 }

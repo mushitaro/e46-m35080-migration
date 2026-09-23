@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev -p 5049",
+    "dev": "node scripts/dev.mjs",
+    "serve:out": "node scripts/serve-out.mjs",
     "build": "next build && node scripts/build-id.mjs && node scripts/gen-sw.mjs && node scripts/verify-export.mjs",
     "start": "next start",
     "deploy": "node scripts/deploy.mjs",

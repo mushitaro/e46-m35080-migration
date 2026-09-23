@@ -141,6 +141,8 @@ export const CHROME = {
     data: 'REFERENCE DATA',
     reload: 'RELOAD',
     loading: 'LOADING',
+    notLoaded: 'NOT LOADED',
+    none: 'NONE',
     definition: 'DEFINITION',
     fit: 'FIT',
     index: 'INDEX',

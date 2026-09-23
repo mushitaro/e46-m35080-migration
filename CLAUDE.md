@@ -46,7 +46,8 @@ npm run build       # 出力をパイプに通さない（終了コードが gre
 
 ほかに `python -m unittest discover -s tools/refdata`（repo の根で。CI も走らせる）、コミット前の
 `--staged` の二つ。CODING と TEST は experimental で `next dev` には出ないので、画面の確認は
-`npm run build:preview` を静的に配信して行う（参照データはファイルで開く）。
+`npm run build:preview && npm run serve:out`（http://localhost:5050、`.claude/launch.json` の
+`m35080-preview-build`）で行う。関数が無いので参照データはファイルで開く。
 
 ## vendoring と参照データ
 

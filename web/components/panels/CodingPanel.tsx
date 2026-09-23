@@ -11,7 +11,6 @@
 
 import { RefreshCw, Trash2 } from 'lucide-react';
 
-import { DropZone } from '@/components/DropZone';
 import { STATUS_TONE } from '@/components/CodingTable';
 import { Callout, LABEL, MicroLabel, TextButton } from '@/components/ui';
 import { CHROME } from '@/lib/copy/chrome';
@@ -32,7 +31,6 @@ export type DonorState = { kind: 'none' } | { kind: 'layout' } | { kind: 'ok'; c
 export function CodingPanel({
   lang,
   refLoad,
-  onOpenFile,
   onReload,
   image,
   choice,
@@ -45,9 +43,8 @@ export function CodingPanel({
   donor,
 }: {
   lang: Lang;
-  /** The reference data, or null while it is being fetched. */
+  /** The reference data, or null while it is being fetched. Opened from the work surface. */
   refLoad: RefLoad<'kombi-coding'> | null;
-  onOpenFile: (file: File) => void;
   onReload: () => void;
   image: Uint8Array | null;
   choice: Choice | null;
@@ -81,17 +78,11 @@ export function CodingPanel({
           )}
         </div>
         {refLoad === null ? (
-          <p className="font-mono text-[10px] text-slate-500">{CHROME.coding.loading} · {c.loading}</p>
+          <p className="font-mono text-[10px] text-slate-500">{CHROME.coding.loading}</p>
         ) : refLoad.ok ? (
           <p className="truncate font-mono text-[10px] text-emerald-400">{describeOrigin(refLoad.origin)}</p>
         ) : (
-          <>
-            <p className="text-[10px] leading-snug text-amber-400">
-              {c.ref[refLoad.reason]}
-              {refLoad.detail && <span className="ml-1 font-mono text-slate-500">({refLoad.detail})</span>}
-            </p>
-            <DropZone onFile={onOpenFile} hint={CHROME.drop.coding} accept=".json,application/json" />
-          </>
+          <p className="font-mono text-[10px] text-amber-400">{CHROME.coding.notLoaded}</p>
         )}
         <p className="text-[10px] leading-snug text-slate-600">{c.dataNote}</p>
       </div>
@@ -103,14 +94,15 @@ export function CodingPanel({
           {!image || !choice ? (
             <p className="text-[10px] leading-snug text-slate-500">{c.needImage}</p>
           ) : choice.kind === 'none' ? (
-            <>
-              <Callout tone="caution">{c.none[choice.reason]}</Callout>
+            /* The reason is written on the work surface, where the rows would be; here, the facts. */
+            <p className="font-mono text-[10px] text-amber-400">
+              {CHROME.coding.none}
               {choice.best && (
-                <p className="font-mono text-[10px] text-slate-500">
+                <span className="ml-2 text-slate-500">
                   {CHROME.coding.closest} {choice.best.file} · {CHROME.coding.fit} {choice.best.fit.matched}/{choice.best.fit.informative}
-                </p>
+                </span>
               )}
-            </>
+            </p>
           ) : (
             <>
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 font-mono text-[11px]">

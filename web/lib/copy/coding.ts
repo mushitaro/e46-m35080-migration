@@ -22,10 +22,11 @@ const JA = {
   dataNote: '定義は NCS Expert のものです。このリポジトリにもビルドにも入っておらず、メモリ上だけで使います。',
 
   ref: {
-    'not-preview': 'このビルドは参照データを配信しません。kombi-coding.json を開くと使えます。',
-    unauthorized: 'サインインしていないため、参照データを受け取れません。サインインするか、ファイルを開いてください。',
-    absent: '参照データがまだアップロードされていません。ファイルを開いてください。',
-    unreachable: '参照データを取得できませんでした。',
+    'not-preview': 'このビルドは参照データを配信しません。kombi-coding.json をここに開いてください。',
+    unauthorized: 'サインインしていないため、参照データを受け取れません。サインインするか、kombi-coding.json をここに開いてください。',
+    absent:
+      'この配信元には参照データがありません（プレビューにはまだアップロードされていないか、API の無いローカル配信です）。kombi-coding.json をここに開いてください。',
+    unreachable: '参照データを取得できませんでした。kombi-coding.json をここに開いてください。',
     invalid: 'この JSON は kombi-coding の形式ではありません。',
   } satisfies Record<RefFailure, string>,
   loading: '参照データを取得しています。',
@@ -38,6 +39,8 @@ const JA = {
     'no-fit': 'チップ自身のコーディングインデックスで、完全に当てはまる定義がありません。',
     ambiguous: '当てはまる定義が 2 つ以上あり、1 つに絞れません。',
   } satisfies Record<NoneReason, string>,
+  practicePreset:
+    'PRACTICE の既定の模擬チップは作り物の値なので、どの定義にも当てはまりません。INSPECT で実チップのダンプを開いて USE AS PRACTICE CHIP を押し、接続し直して READ すると、実際の定義で試せます。',
   fitNote: (anyValue: number, oneValue: number, arrays: number) =>
     `選択肢で値を区別できる項目だけを数えます（どの値でも一致する項目 ${anyValue}、値が 1 つの項目 ${oneValue}、配列 ${arrays} は数えません）。`,
   indexNote: (index: number) => `チップが持つコーディングインデックス ${index} と、定義のインデックスが一致しています。`,
@@ -84,10 +87,11 @@ const EN: typeof JA = {
   dataNote: "The definitions are NCS Expert's. They are in neither this repository nor its build, and are held in memory only.",
 
   ref: {
-    'not-preview': 'This build does not serve the reference data. Open kombi-coding.json to use it.',
-    unauthorized: 'Not signed in, so the reference data is not served. Sign in, or open the file.',
-    absent: 'The reference data has not been uploaded yet. Open the file instead.',
-    unreachable: 'Could not fetch the reference data.',
+    'not-preview': 'This build does not serve the reference data. Open kombi-coding.json here.',
+    unauthorized: 'Not signed in, so the reference data is not served. Sign in, or open kombi-coding.json here.',
+    absent:
+      'This server has no reference data (not uploaded to the preview yet, or a local server with no API). Open kombi-coding.json here.',
+    unreachable: 'Could not fetch the reference data. Open kombi-coding.json here.',
     invalid: 'This JSON is not kombi-coding.',
   },
   loading: 'Fetching the reference data.',
@@ -100,6 +104,8 @@ const EN: typeof JA = {
     'no-fit': "No definition fits completely with the chip's own coding index.",
     ambiguous: 'More than one definition fits, and they cannot be narrowed to one.',
   },
+  practicePreset:
+    "PRACTICE's default chip holds made-up values, so no definition fits it. Open a real chip's dump in INSPECT, press USE AS PRACTICE CHIP, reconnect and READ to try the real definitions.",
   fitNote: (anyValue: number, oneValue: number, arrays: number) =>
     `Only parameters whose options tell values apart are counted (not the ${anyValue} any value matches, the ${oneValue} with one value, or the ${arrays} arrays).`,
   indexNote: (index: number) => `The chip's own coding index, ${index}, is the definition's.`,

@@ -76,6 +76,8 @@ export type LinkState = {
   notice: string | null;
   progress: Progress;
   practice: boolean;
+  /** The file INSPECT made the practice chip, or null: a preset, or a real chip. */
+  practiceFile: string | null;
   /** Hash of the image that has been backed up, if any. */
   backedUpHash: string | null;
 };
@@ -90,6 +92,7 @@ const INITIAL: LinkState = {
   notice: null,
   progress: null,
   practice: false,
+  practiceFile: null,
   backedUpHash: null,
 };
 
@@ -176,6 +179,7 @@ export function useM35080Link() {
           phase: 'connected',
           info,
           practice: mode === 'practice',
+          practiceFile: mode === 'practice' && typeof preset !== 'string' ? preset.name : null,
           notice: mode !== 'practice' ? null : typeof preset === 'string' ? t().practiceMode : t().practiceModeFile(preset.name),
         });
       } catch (e) {

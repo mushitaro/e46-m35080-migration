@@ -26,6 +26,8 @@ import { ClusterDiagram } from '@/components/ClusterDiagram';
 import { TestPanel, type TestView } from '@/components/panels/TestPanel';
 import { CodingTable } from '@/components/CodingTable';
 import { CodingPanel, type DonorState } from '@/components/panels/CodingPanel';
+import { DropZone } from '@/components/DropZone';
+import { cc } from '@/lib/copy/coding';
 import { useRefData } from '@/lib/refdata/useRefData';
 import { chooseDefinition, optionValue, rowsFor } from '@/lib/ncs/decode';
 import { planCoding } from '@/lib/ncs/encode';
@@ -556,8 +558,30 @@ export default function Page() {
       case 'coding':
         /* Every parameter of the chip's own definition, or what is missing before there can be. */
         if (!image) return chipView;
-        if (!codingDoc) return <EmptyState Icon={FileCode} label={CHROME.awaiting.definition} />;
-        if (!codingDef || !codingRows) return <EmptyState Icon={FileCode} label={CHROME.hub.noDefinition} />;
+        /* Why there is nothing to list, said where the list would be - and the definitions are
+           opened right here, the one place to open them. */
+        if (!codingDoc) {
+          const ref = codingRef.state;
+          const why = ref === null ? cc().loading : ref.ok ? '' : `${cc().ref[ref.reason]}${ref.detail ? ` (${ref.detail})` : ''}`;
+          return (
+            <EmptyState Icon={FileCode} label={CHROME.awaiting.definition} hint={why}>
+              {ref !== null && (
+                <DropZone onFile={(file) => void codingRef.openFile(file)} hint={CHROME.drop.coding} accept=".json,application/json" />
+              )}
+            </EmptyState>
+          );
+        }
+        if (!codingDef || !codingRows) {
+          /* PRACTICE's preset chips carry made-up values, which no real definition fits. */
+          const preset = link.practice && link.practiceFile === null ? ` ${cc().practicePreset}` : '';
+          return (
+            <EmptyState
+              Icon={FileCode}
+              label={CHROME.hub.noDefinition}
+              hint={codingChoice?.kind === 'none' ? `${cc().none[codingChoice.reason]}${preset}` : undefined}
+            />
+          );
+        }
         return (
           <CodingTable
             doc={codingDoc}
@@ -648,7 +672,6 @@ export default function Page() {
           <CodingPanel
             lang={lang}
             refLoad={codingRef.state}
-            onOpenFile={(file) => void codingRef.openFile(file)}
             onReload={codingRef.reload}
             image={image}
             choice={codingChoice}
