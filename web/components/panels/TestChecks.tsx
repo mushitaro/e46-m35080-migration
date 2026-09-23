@@ -14,6 +14,7 @@
 
 import { Eye, EyeOff, FileDown, Pause, Play, Radio } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { DropZone } from '@/components/DropZone';
 import { MicroLabel, Pill, TextButton, type Tone } from '@/components/ui';
 import { CHROME } from '@/lib/copy/chrome';
 import { tc } from '@/lib/copy/test';
@@ -32,6 +33,22 @@ import {
 } from '@/lib/kombi/checks';
 import { GAUGES, type GaugeId, type KombiRequest, type KombiVariant } from '@/lib/kombi/protocol';
 import { mayRun, type GateRefusal } from '@/lib/kombi/runGate';
+import { bitName, namesFor, type BitGroup } from '@/lib/kombi/names';
+import { describeOrigin, type RefLoad } from '@/lib/refdata/load';
+import type { VariantNames } from '@/lib/refdata/types';
+
+type Lang = 'ja' | 'en';
+
+/** A bit's position, and its name beside it when the reference data has one. */
+function BitLabel({ names, group, id, lang }: { names: VariantNames | null; group: BitGroup; id: string; lang: Lang }) {
+  const n = bitName(names, group, id, lang);
+  return (
+    <span className="inline-flex min-w-0 items-baseline gap-1.5">
+      <span className="shrink-0 font-mono">{id}</span>
+      {n && <span className="min-w-0 truncate font-sans text-slate-400">{n.text}</span>}
+    </span>
+  );
+}
 
 const COMPARE_TONE: Record<Compare, Tone> = { equal: 'ok', different: 'danger', 'not-compared': 'neutral' };
 const COMPARE_WORD: Record<Compare, string> = {
@@ -40,10 +57,24 @@ const COMPARE_WORD: Record<Compare, string> = {
   'not-compared': CHROME.test.notCompared,
 };
 
-export function TestChecks({ kombi, reference }: { kombi: UseKombiLink; reference: Reference | null }) {
+export function TestChecks({
+  kombi,
+  reference,
+  lang,
+  namesLoad,
+  onOpenNames,
+}: {
+  kombi: UseKombiLink;
+  reference: Reference | null;
+  lang: Lang;
+  /** The names reference data, or null while it is being fetched. */
+  namesLoad: RefLoad<'kombi-names'> | null;
+  onOpenNames: (file: File) => void;
+}) {
   const c = tc();
   const s = kombi.session;
   const variant: KombiVariant | null = s?.variant ?? null;
+  const names = namesFor(namesLoad?.ok ? namesLoad.doc : null, variant);
   const open = kombi.phase === 'connected' && kombi.sessionOpen;
   const v = variant ?? 'KOMBI46';
 
@@ -139,9 +170,28 @@ export function TestChecks({ kombi, reference }: { kombi: UseKombiLink; referenc
             )
           }
         >
-          <CheckResult id={id} kombi={kombi} refusal={refusal} canRun={canRun} item={item} />
+          <CheckResult id={id} kombi={kombi} refusal={refusal} canRun={canRun} item={item} names={names} lang={lang} />
         </Check>
       ))}
+
+      {/* ---- where the names come from ---- */}
+      <div className="flex flex-col gap-2 border-t border-slate-800 pt-4">
+        <MicroLabel as="h3">{CHROME.test.names}</MicroLabel>
+        {namesLoad === null ? (
+          <p className="font-mono text-[10px] text-slate-500">{CHROME.coding.loading}</p>
+        ) : namesLoad.ok ? (
+          <p className="truncate font-mono text-[10px] text-emerald-400">{describeOrigin(namesLoad.origin)}</p>
+        ) : (
+          <>
+            <p className="text-[10px] leading-snug text-amber-400">
+              {c.names[namesLoad.reason]}
+              {namesLoad.detail && <span className="ml-1 font-mono text-slate-500">({namesLoad.detail})</span>}
+            </p>
+            <DropZone onFile={onOpenNames} hint={CHROME.drop.names} accept=".json,application/json" />
+          </>
+        )}
+        <p className="text-[10px] leading-snug text-slate-600">{c.namesNote}</p>
+      </div>
 
       {/* ---- the report ---- */}
       <div className="flex flex-col gap-1 border-t border-slate-800 pt-4">
@@ -213,12 +263,16 @@ function CheckResult({
   refusal,
   canRun,
   item,
+  names,
+  lang,
 }: {
   id: CheckId;
   kombi: UseKombiLink;
   refusal: (req: KombiRequest) => GateRefusal | null;
   canRun: boolean;
   item: (key: string) => ItemResult | undefined;
+  names: VariantNames | null;
+  lang: Lang;
 }) {
   const c = tc();
   const s = kombi.session;
@@ -241,10 +295,16 @@ function CheckResult({
             const port = `P${p.port.toString(16).toUpperCase()}`;
             const bits = Array.from({ length: 8 }, (_, bit) => bit).filter((bit) => (p.value >> bit) & 1);
             return (
-              <li key={p.port} className="flex gap-2">
-                <span className="w-7 text-slate-600">{port}</span>
-                <span className="text-slate-300">{`0x${p.value.toString(16).toUpperCase().padStart(2, '0')}`}</span>
-                <span className="truncate text-slate-500">{bits.map((bit) => `${port}.b${bit}`).join(' ')}</span>
+              <li key={p.port} className="flex min-w-0 flex-col">
+                <span className="flex gap-2">
+                  <span className="w-7 text-slate-600">{port}</span>
+                  <span className="text-slate-300">{`0x${p.value.toString(16).toUpperCase().padStart(2, '0')}`}</span>
+                </span>
+                {bits.map((bit) => (
+                  <span key={bit} className="flex min-w-0 pl-9 text-slate-500">
+                    <BitLabel names={names} group="inputs" id={`${port}.b${bit}`} lang={lang} />
+                  </span>
+                ))}
               </li>
             );
           })}
@@ -307,23 +367,27 @@ function CheckResult({
       return (
         <div className="flex flex-col gap-1">
           {st && (
-            <span className="flex items-center gap-2">
-              <span className="font-mono text-[11px] text-indigo-300">{st.keys[st.index]}</span>
-              <span className="font-mono text-[10px] text-slate-500">{`${st.index + 1}/${st.keys.length}`}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="min-w-0 text-[11px] text-indigo-300">
+                <BitLabel names={names} group={id} id={st.keys[st.index]!} lang={lang} />
+              </span>
+              <span className="shrink-0 font-mono text-[10px] text-slate-500">{`${st.index + 1}/${st.keys.length}`}</span>
               <span className="ml-auto">
                 <Answer result={item(st.keys[st.index]!)} onAnswer={(o) => kombi.observe(st.keys[st.index]!, o)} />
               </span>
             </span>
           )}
           {keys.length > 0 && (
-            <span className="font-mono text-[10px] text-slate-500">
-              {`${CHROME.test.seen} ${seen} · ${CHROME.test.notSeen} ${notSeen}`}
-              {keys
-                .filter((x) => x.observed === 'not-seen')
-                .map((x) => ` ${x.item}`)
-                .join('')}
-            </span>
+            <span className="font-mono text-[10px] text-slate-500">{`${CHROME.test.seen} ${seen} · ${CHROME.test.notSeen} ${notSeen}`}</span>
           )}
+          {/* What was NOT seen is the finding: each one, by position and name. */}
+          {keys
+            .filter((x) => x.observed === 'not-seen')
+            .map((x) => (
+              <span key={x.item} className="flex min-w-0 text-[10px] text-red-400">
+                <BitLabel names={names} group={id} id={x.item} lang={lang} />
+              </span>
+            ))}
         </div>
       );
     }

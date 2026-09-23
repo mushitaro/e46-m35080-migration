@@ -17,6 +17,7 @@ import { BENCH_PARTS } from '@/lib/domain/partsData';
 import type { BenchWireId } from '@/lib/domain/clusterBench';
 import type { UseKombiLink } from '@/lib/hooks/useKombiLink';
 import type { Reference } from '@/lib/kombi/checks';
+import type { RefLoad } from '@/lib/refdata/load';
 
 export type TestView = 'bench' | 'checks';
 
@@ -31,6 +32,9 @@ export function TestPanel({
   onBenchWire,
   kombi,
   reference,
+  lang,
+  namesLoad,
+  onOpenNames,
 }: {
   view: TestView;
   onView: (v: TestView) => void;
@@ -43,6 +47,10 @@ export function TestPanel({
   kombi: UseKombiLink;
   /** What the next CONNECT will compare against; the session keeps its own once connected. */
   reference: Reference | null;
+  lang: 'ja' | 'en';
+  /** The lamp, output and input names (kombi-names.json), or null while fetching. */
+  namesLoad: RefLoad<'kombi-names'> | null;
+  onOpenNames: (file: File) => void;
 }) {
   const c = b();
   return (
@@ -80,7 +88,13 @@ export function TestPanel({
           </div>
         </>
       ) : (
-        <TestChecks kombi={kombi} reference={kombi.session?.reference ?? reference} />
+        <TestChecks
+          kombi={kombi}
+          reference={kombi.session?.reference ?? reference}
+          lang={lang}
+          namesLoad={namesLoad}
+          onOpenNames={onOpenNames}
+        />
       )}
     </div>
   );

@@ -8,6 +8,7 @@
 import { getLang } from '@/lib/i18n';
 import type { GateRefusal } from '@/lib/kombi/runGate';
 import type { CheckId, NotCompared } from '@/lib/kombi/checks';
+import type { RefFailure } from '@/lib/refdata/load';
 
 const JA = {
   checksLead:
@@ -64,6 +65,15 @@ const JA = {
   mappingNote: '語 w ＝ チップの 2w・2w+1 バイト（仮定）',
   referenceFrom: (label: string) => `比較の相手: ${label}`,
   noReference: '比較の相手がありません。チップを読むか、記録があれば比べます。',
+
+  names: {
+    'not-preview': 'このビルドはランプ・入力の名前を配信しません。kombi-names.json を開くと表示します。',
+    unauthorized: 'サインインしていないため、名前を受け取れません。サインインするか、ファイルを開いてください。',
+    absent: '名前のデータがまだアップロードされていません。ファイルを開くと表示します。',
+    unreachable: '名前のデータを取得できませんでした。',
+    invalid: 'この JSON は kombi-names の形式ではありません。',
+  } satisfies Record<RefFailure, string>,
+  namesNote: '名前は SGBD の説明から作った参照データです。送る要求と記録は位置（B2.b5）で表し、名前はその横に添えるだけです。',
 };
 
 const EN: typeof JA = {
@@ -122,6 +132,15 @@ const EN: typeof JA = {
   mappingNote: "word w = chip bytes 2w, 2w+1 (assumed)",
   referenceFrom: (label: string) => `Compared with: ${label}`,
   noReference: 'Nothing to compare with. Read the chip, or keep a record, and TEST compares.',
+
+  names: {
+    'not-preview': 'This build does not serve the lamp and input names. Open kombi-names.json to show them.',
+    unauthorized: 'Not signed in, so the names are not served. Sign in, or open the file.',
+    absent: 'The names have not been uploaded yet. Open the file to show them.',
+    unreachable: 'Could not fetch the names.',
+    invalid: 'This JSON is not kombi-names.',
+  },
+  namesNote: 'The names are reference data made from the SGBD descriptions. What is sent and recorded is the position (B2.b5); the name only goes beside it.',
 };
 
 export function tc(): typeof JA {

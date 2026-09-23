@@ -110,6 +110,7 @@ export const CHROME = {
     backup: 'DROP BACKUP .BIN · 1024 BYTES',
     file: 'DROP .BIN · 1024 BYTES',
     coding: 'DROP .JSON · KOMBI-CODING',
+    names: 'DROP .JSON · KOMBI-NAMES',
   },
 
   /* ---- the two checksums of the late layout (lib/domain/layout.ts) ---- */
@@ -270,6 +271,8 @@ export const CHROME = {
     ended: 'SESSION ENDED',
     part: 'PART',
     diag: 'DIAG',
+    /* the reference data that names lamps, outputs and inputs (lib/kombi/names.ts) */
+    names: 'NAMES',
     name: {
       vin: 'VIN',
       odometer: 'ODOMETER',

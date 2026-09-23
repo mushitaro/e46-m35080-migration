@@ -194,6 +194,8 @@ export default function Page() {
   /* The definitions: asked for the first time CODING is opened (the preview serves them to its
      owner; anywhere else the reader opens the file), then kept in memory. */
   const codingRef = useRefData('kombi-coding', step === 'coding');
+  /* TEST's lamp, output and input names: the same way, the first time TEST opens. */
+  const namesRef = useRefData('kombi-names', step === 'test');
   const codingDoc = codingRef.state?.ok ? codingRef.state.doc : null;
   const codingChoice = useMemo(() => (image && codingDoc ? chooseDefinition(image, codingDoc) : null), [image, codingDoc]);
   const codingDef = codingChoice?.kind === 'chosen' ? codingChoice : null;
@@ -682,6 +684,9 @@ export default function Page() {
             onBenchWire={setBenchWire}
             kombi={kombi}
             reference={reference}
+            lang={lang}
+            namesLoad={namesRef.state}
+            onOpenNames={(file) => void namesRef.openFile(file)}
           />
         );
       case 'rewrite':
