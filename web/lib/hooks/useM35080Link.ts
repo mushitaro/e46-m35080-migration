@@ -43,6 +43,7 @@ import {
 } from '@/lib/domain/records';
 import { t } from '@/lib/i18n';
 import { setLinkBusy } from '@/lib/pwa/linkBusy';
+import { reportLinkFailure } from '@/lib/sync/errorRecords';
 
 export type Phase =
   | 'disconnected'
@@ -103,6 +104,29 @@ export function useM35080Link() {
     setLinkBusy(state.phase !== 'disconnected');
   }, [state.phase]);
 
+  /* The state as last rendered, for the error record a failure files. Read
+     from the two sinks below, which every failure and refusal passes through;
+     the record is the preview's only (lib/sync/errorRecords.ts - production
+     sends nothing) and is fire-and-forget, so it can never add a second
+     failure to the one it describes. */
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+  const fileErrorRecord = useCallback((error: string, errorKind: ErrorKind) => {
+    const s = stateRef.current;
+    reportLinkFailure({
+      phase: s.phase,
+      error,
+      errorKind,
+      practice: s.practice,
+      image: s.image,
+      status: s.status,
+      firmware: s.info?.firmware ?? null,
+      progress: s.progress,
+    });
+  }, []);
+
   const patch = useCallback((p: Partial<LinkState>) => {
     setState((s) => ({ ...s, ...p }));
   }, []);
@@ -116,13 +140,18 @@ export function useM35080Link() {
         ? t().bridgeConnectionFailed(e.message)
         : e instanceof Error ? e.message : String(e);
       setState((s) => ({ ...s, error: message, errorKind: kind, progress: null }));
+      fileErrorRecord(message, kind);
     },
-    [],
+    [fileErrorRecord],
   );
 
-  const refuse = useCallback((reason: string) => {
-    setState((s) => ({ ...s, error: reason, errorKind: 'refused', progress: null }));
-  }, []);
+  const refuse = useCallback(
+    (reason: string) => {
+      setState((s) => ({ ...s, error: reason, errorKind: 'refused', progress: null }));
+      fileErrorRecord(reason, 'refused');
+    },
+    [fileErrorRecord],
+  );
 
   const clearError = useCallback(() => {
     setState((s) => ({ ...s, error: null, errorKind: null }));

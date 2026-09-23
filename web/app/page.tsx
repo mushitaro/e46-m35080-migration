@@ -31,8 +31,10 @@ import { deriveSteps, recommend, type StepId } from '@/lib/domain/workflow';
 import { enabledSurfaces } from '@/lib/domain/features';
 import { usePreviewSurfaces } from '@/lib/domain/variant';
 import { VariantBadge } from '@/components/VariantBadge';
+import { PrivacyLink } from '@/components/PrivacyLink';
+import { SyncPanel } from '@/components/SyncPanel';
 import { parseImageFile } from '@/lib/domain/image';
-import { openWorkspace, type Workspace } from '@/lib/domain/inspect';
+import { isDirty, openWorkspace, type Workspace } from '@/lib/domain/inspect';
 import { vinRange } from '@/lib/domain/addressMap';
 import { VIN_LENGTH } from '@/lib/domain/vin';
 import { listRecords, deleteRecord, type DeviceRecord } from '@/lib/domain/records';
@@ -438,6 +440,7 @@ export default function Page() {
           </span>
         </div>
         <div className="ml-auto flex items-center gap-3">
+          <PrivacyLink />
           <VariantBadge />
         </div>
       </header>
@@ -665,6 +668,20 @@ export default function Page() {
                   )}
                   <p className="text-[10px] leading-snug text-slate-600">{c.restoreBasis}</p>
                 </JobPanel>
+              ) : step === 'records' && previewSurfaces ? (
+                /* Preview only: the account copy of these records, and the
+                   error records the app sent by itself. */
+                <SyncPanel
+                  records={records}
+                  onRecordsChanged={() => {
+                    void listRecords()
+                      .then(setRecords)
+                      .catch(() => setRecords([]));
+                  }}
+                  linkPhase={phase}
+                  linkBusy={busy}
+                  unsavedWork={workspace ? isDirty(workspace) : false}
+                />
               ) : (
                 <div className="flex flex-col">
                   <VehicleInfo odometer={odometer} vin={vin} chip={chip} status={status} />

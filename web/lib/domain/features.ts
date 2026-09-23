@@ -91,6 +91,16 @@ export const FEATURES: Feature[] = [
     stage: 'stable',
     surfaces: ['records'],
   },
+  {
+    /* RECORDS › SYNC, the error records, and the PRIVACY link. No tab of its
+       own: the SYNC panel sits beside the RECORDS table, and its surfaces are
+       gated on the variant where they are drawn (tsunagi-m-chrome section 6). */
+    id: 'owner-sync',
+    stage: 'permanently-closed',
+    surfaces: [],
+    reason:
+      'Production is local-only: nothing leaves the device. The preview, for owners holding owner_preview on m3, sends the records an owner SYNCs and error records to their own account (operator, 2026-09-23). Promoting it would make that promise false.',
+  },
 ];
 
 /**
