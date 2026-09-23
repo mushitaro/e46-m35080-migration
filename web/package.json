@@ -8,7 +8,7 @@
     "build": "next build && node scripts/build-id.mjs && node scripts/gen-sw.mjs && node scripts/verify-export.mjs",
     "start": "next start",
     "deploy": "node scripts/deploy.mjs",
-    "test": "node tools/check_ui_tokens.mjs && node ../scripts/check-bmw-data.mjs && vitest run",
+    "test": "node tools/check_ui_tokens.mjs && node ../scripts/check-bmw-data.mjs && node scripts/verify-ds2-core-sync.mjs --missing-ok && vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && tsc --noEmit -p functions",
     "check:public": "cd .. && node scripts/check-public-tree.mjs",

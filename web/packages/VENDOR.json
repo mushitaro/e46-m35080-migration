@@ -1,0 +1,40 @@
+{
+  "//": "Written by scripts/verify-ds2-core-sync.mjs --update from the UPSTREAM bytes. Do not edit, and do not edit packages/ds2-core/ - change it upstream and update.",
+  "ds2-core": {
+    "upstream": "E46M3 /// MONITORING, packages/ds2-core",
+    "repository": "https://github.com/mushitaro/E46M3-Monitoring",
+    "commit": "2468cf2e241e86c8c004de9940be775e5e50ae3b",
+    "hash": "sha256 of LF-normalised text",
+    "files": {
+      "package.json": "ea8f6853ce399a8229aeaef72229194e4dfda46f998d73154780fec7152237d3",
+      "src/blockDecoder.test.ts": "d27db40c85709908e5ea074c3a8b705ecf3a05f4103b55fd986d08ea4d0a4f2c",
+      "src/blockDecoder.ts": "deb65a246b662002940fd2d8b188536c68da7cfaddd3589d77a59f340a797ec9",
+      "src/bufferedByteTransport.ts": "c9e4d05ac8d089d3ea26d4ed882fae4bed6f09313879bc9d868c8f787578a746",
+      "src/byteTransport.ts": "c4f605c25774a05fb2866e259e8886a56be8db052ec689241efbac1220ad3de3",
+      "src/echo.test.ts": "6e69ddb849465004958acdd307c10157156d7b40e38086c76ad90b94035bc566",
+      "src/echo.ts": "e3ce644c0c35bd1998f8eba0137d9154baeadf2117fb295037169d0b83b3ac7d",
+      "src/errors.ts": "749b73b63c690ed78bcf689583b49958ba2a058cb431b7b682032c974acde8b6",
+      "src/frame.test.ts": "67fdbcb7cac2f67fc6e9c60222c27f550a36501baf8bec2bd3ff461366276587",
+      "src/frame.ts": "f2bd1d33459f512a70b3ca3604f58d012484af9a0ae4fd57f2bdc8fc93060110",
+      "src/ftdiSimulator.ts": "449c7041e6ce4ffc4878ec1f693af4ccdf85e346a4ecc83f18d1c81c5b58cba9",
+      "src/index.ts": "7f5129afa180c4ae854795c3cef06b41f6867828ece676f811630b6e2f982afc",
+      "src/link.test.ts": "c912072aabcd5a7f8ce1d01aa24cab3f4d2216edc632c48d1579dd8463f5942f",
+      "src/link.ts": "50fb1139dfa9525b6588e9c763a3309bc42205566999be9db0e66c970d2cee0e",
+      "src/login.test.ts": "48d84e171f69fab7fbe5e0704ec651e730a2b0cf1e38883a5c1f8a6986cfeec5",
+      "src/login.ts": "be9cf9c594eb20b51f7da0c0b7d8cfaa4aa9f853944d24e5ba224f43cadfddd4",
+      "src/memory.test.ts": "f5f0ac16f01a83afec5b91379b06a1c39363909e014b96eb6ce0e4b81fffd1f3",
+      "src/memory.ts": "d0d593cdcfa661306ce65d0d0cfe8b5bdf01074ffc52c9f2a0d28f8cd61444e9",
+      "src/pollLoop.test.ts": "9158fb31374cbb2313540e0a5e40e4807a38d816e554e2b71f9ff67532bb2fb5",
+      "src/simulator.ts": "d07feb70b65320e2b929554a8f89768e869545f88327bedde16984d60f8313db",
+      "src/throughput.test.ts": "81800d2324b63212cf6ed5f083e35bad834abc3f1de3e90509741b2b9337f5cf",
+      "src/timing.ts": "2e1fb6be3df0cb793e2bee437e65308fa3eae4eb26e74df03349c0f198f3431e",
+      "src/transport.ts": "053835dfda818797d507d82b769c3241c92474bccfd536cae346a82b27e67616",
+      "src/transportSelect.test.ts": "3e45cd205575eef042a6d00b8dd7966cfeef948e22a18468a7c3a87cb9e0bfe6",
+      "src/transportSelect.ts": "66cf87776906fffb43f90eb3da1bd80705af6fe2d642c645b8ff99a66ada2f0e",
+      "src/webSerialTypes.ts": "2264f254fa7755c83ee1b6b445e7599acbd80044f866b3c29858e335531c80b8",
+      "src/webUsbFtdi.test.ts": "ea029b9a3ddf0940b873393d369b7d399b0f96d8b31e62953f88e460530ce45d",
+      "src/webUsbFtdiTransport.ts": "b8a6b0690cdda5260a4860f5b786cbc7b0a3e2b9ad2d22542073594e8f4ffdb1",
+      "src/webUsbTypes.ts": "10192252a5d969f9783a9d3c4a9dd61f9e673277fe2b5c0453e99a4e21863473"
+    }
+  }
+}

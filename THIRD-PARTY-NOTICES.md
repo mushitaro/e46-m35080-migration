@@ -58,6 +58,13 @@ which states the Unlicense, and which was itself forked from
 `kaeferfreund/m35080_Read_BitBang`. The jumper colours in the wiring diagram are the ones
 that repository's comments use, so the two can be compared side by side.
 
+`web/packages/ds2-core/` is a vendored copy of `packages/ds2-core` from
+[`mushitaro/E46M3-Monitoring`](https://github.com/mushitaro/E46M3-Monitoring) (MIT, the same
+author), the DS2 link that tool measured on a car. TEST uses it to talk to a cluster on the
+bench. It is copied, never edited: `web/packages/VENDOR.json` records the upstream commit and a
+hash of every file, and `web/scripts/verify-ds2-core-sync.mjs` (run by `npm run test`) fails when
+the copy and the record disagree.
+
 ---
 
 ## 3. Not in this repository

@@ -25,6 +25,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@tsunagi/ds2-core": [
+        "./packages/ds2-core/src/index.ts"
       ]
     }
   },
