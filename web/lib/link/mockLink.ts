@@ -61,29 +61,39 @@ function fillLateLayout(memory: Uint8Array): void {
   memory.set(recomputeChecksums(memory).image);
 }
 
+/**
+ * The bytes a practice chip starts with. Pure, so PRACTICE's cluster (lib/kombi/simulatedKombi.ts)
+ * can be built around the same made-up chip the practice bridge reads.
+ */
+export function presetImage(preset: MockChipPreset): Uint8Array {
+  const memory = new Uint8Array(IMAGE_SIZE);
+  if (preset === 'blank') {
+    memory.fill(0xff);
+    memory.fill(0x00, 0, SECURE_BYTES); // virgin counter reads zero
+    return memory;
+  }
+  memory.fill(preset === 'late' ? 0xff : 0x00);
+  if (preset === 'late') fillLateLayout(memory);
+  // A plausible donor cluster: 155,940 km and a VIN in the E46 location.
+  memory.set(slotsToBytes(encodeOdometer(155_940)), 0);
+  // The V6 layout, byte for byte: a VIN-shaped neighbour, seven VIN
+  // characters, NUL. PRACTICE has to exercise the SCAN - including the
+  // letter in front that is not part of the VIN - not a constant.
+  memory[MOCK_VIN_OFFSET - 1] = MOCK_VIN_LEAD;
+  memory.set(encodeVin(MOCK_VIN), MOCK_VIN_OFFSET);
+  memory[MOCK_VIN_OFFSET + MOCK_VIN.length] = 0x00; // NUL terminator
+  return memory;
+}
+
 /** A simulated M35080 with the behaviour that actually matters. */
 class SimulatedChip {
-  readonly memory = new Uint8Array(IMAGE_SIZE);
+  readonly memory: Uint8Array;
   private incFailed = false;
   private erased: boolean;
 
   constructor(preset: MockChipPreset) {
     this.erased = preset === 'blank';
-    if (preset === 'blank') {
-      this.memory.fill(0xff);
-      this.memory.fill(0x00, 0, SECURE_BYTES); // virgin counter reads zero
-    } else {
-      this.memory.fill(preset === 'late' ? 0xff : 0x00);
-      if (preset === 'late') fillLateLayout(this.memory);
-      // A plausible donor cluster: 155,940 km and a VIN in the E46 location.
-      this.memory.set(slotsToBytes(encodeOdometer(155_940)), 0);
-      // The V6 layout, byte for byte: a VIN-shaped neighbour, seven VIN
-      // characters, NUL. PRACTICE has to exercise the SCAN - including the
-      // letter in front that is not part of the VIN - not a constant.
-      this.memory[MOCK_VIN_OFFSET - 1] = MOCK_VIN_LEAD;
-      this.memory.set(encodeVin(MOCK_VIN), MOCK_VIN_OFFSET);
-      this.memory[MOCK_VIN_OFFSET + MOCK_VIN.length] = 0x00; // NUL terminator
-    }
+    this.memory = presetImage(preset);
   }
 
   status(): number {

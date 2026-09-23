@@ -114,20 +114,25 @@ export async function deleteRecord(id: string): Promise<void> {
  * evidence for a VIN offset the app had written itself - the name was the only
  * thing that could have said otherwise, and it did not.
  */
+/** YYYYMMDD-HHMM, local time: the stamp every file this tool saves ends with. */
+export function fileStamp(when: Date): string {
+  return (
+    when.getFullYear().toString() +
+    String(when.getMonth() + 1).padStart(2, '0') +
+    String(when.getDate()).padStart(2, '0') +
+    '-' +
+    String(when.getHours()).padStart(2, '0') +
+    String(when.getMinutes()).padStart(2, '0')
+  );
+}
+
 export function backupFilename(
   vin: string | null,
   km: number | null,
   when = new Date(),
   practice = false,
 ): string {
-  const stamp =
-    when.getFullYear().toString() +
-    String(when.getMonth() + 1).padStart(2, '0') +
-    String(when.getDate()).padStart(2, '0') +
-    '-' +
-    String(when.getHours()).padStart(2, '0') +
-    String(when.getMinutes()).padStart(2, '0');
-  const parts = [practice ? 'PRACTICE_Backup' : 'Backup', vin ?? 'noVIN', km === null ? 'noKM' : `${km}km`, stamp];
+  const parts = [practice ? 'PRACTICE_Backup' : 'Backup', vin ?? 'noVIN', km === null ? 'noKM' : `${km}km`, fileStamp(when)];
   return `${parts.join('_')}.bin`;
 }
 

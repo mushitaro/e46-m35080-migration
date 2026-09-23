@@ -24,9 +24,14 @@ describe('deriveSteps - the strip is a sequence', () => {
       'read',
       'restore',
       'rewrite',
+      'test',
       'inspect',
       'records',
     ]);
+  });
+
+  it('never gates TEST on the bridge or an image: it talks to the cluster, and an image only gives it something to compare with', () => {
+    expect(stepById(deriveSteps(EMPTY), 'test')).toMatchObject({ enabled: true, blockedBy: null });
   });
 
   it('never gates INSPECT on a chip or a connection', () => {

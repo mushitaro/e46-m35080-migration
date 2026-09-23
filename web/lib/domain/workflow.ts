@@ -13,7 +13,7 @@
  * I on" is stored, so the strip cannot disagree with the device.
  */
 
-export type StepId = 'setup' | 'read' | 'restore' | 'rewrite' | 'inspect' | 'records';
+export type StepId = 'setup' | 'read' | 'restore' | 'rewrite' | 'test' | 'inspect' | 'records';
 
 /** Why a step cannot be entered yet. Rendered from i18n, never as prose here. */
 export type BlockedReason = 'need-image' | 'need-connection';
@@ -34,7 +34,7 @@ export type Step = {
   blockedBy: BlockedReason | null;
 };
 
-const ORDER: StepId[] = ['setup', 'read', 'restore', 'rewrite', 'inspect', 'records'];
+const ORDER: StepId[] = ['setup', 'read', 'restore', 'rewrite', 'test', 'inspect', 'records'];
 
 /**
  * Derive the whole strip from state.
@@ -56,6 +56,12 @@ export function deriveSteps(s: WorkflowState): Step[] {
       case 'restore':
       case 'rewrite':
         return { id, enabled: s.hasImage, blockedBy: s.hasImage ? null : 'need-image' };
+
+      /* The cluster, not the chip: the chip is back on its board by now, and TEST talks to it
+         through the cluster over the K+DCAN cable. It needs neither the UNO nor an image - an
+         image only gives it something to compare with. */
+      case 'test':
+        return { id, enabled: true, blockedBy: null };
 
       /* A file on disk, not the chip. Never gated on a connection or an
          image, because needing neither is the whole point: it is how a pile of

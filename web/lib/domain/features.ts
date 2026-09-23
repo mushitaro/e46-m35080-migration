@@ -87,6 +87,14 @@ export const FEATURES: Feature[] = [
     surfaces: ['inspect'],
   },
   {
+    /* TEST: the cluster on the bench over DS2, through the K+DCAN cable (lib/kombi). */
+    id: 'cluster-test-ds2',
+    stage: 'experimental',
+    surfaces: ['test'],
+    reason:
+      'Not yet run on a real cluster. Every telegram and the variant rule are read out of the SGBDs, and the X11175 pin numbers come from one public pinout - none of it measured (docs/BENCH.md). Promote after the first bench session confirms them.',
+  },
+  {
     id: 'records',
     stage: 'stable',
     surfaces: ['records'],

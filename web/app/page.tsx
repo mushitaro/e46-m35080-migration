@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Unplug, FileCode } from 'lucide-react';
 
 import { useM35080Link, type WriteJob } from '@/lib/hooks/useM35080Link';
+import { useKombiLink } from '@/lib/hooks/useKombiLink';
 import { Tabs, type TabDef } from '@/components/Tabs';
 import { Hub, SubActionRow, NoticeLine, type HubConfig, type SubAction } from '@/components/Hub';
 import { StatusRow, type LedState } from '@/components/StatusLED';
@@ -19,6 +20,12 @@ import { InspectPanel } from '@/components/panels/InspectPanel';
 import { RewritePanel } from '@/components/panels/RewritePanel';
 import { RestorePanel } from '@/components/panels/RestorePanel';
 import { GUIDE_STEPS, type GuideStepId } from '@/components/AssemblyGuide';
+import { ClusterBenchDiagram } from '@/components/ClusterBenchDiagram';
+import { BENCH_STEPS, type BenchStepId } from '@/components/ClusterBenchGuide';
+import { ClusterDiagram } from '@/components/ClusterDiagram';
+import { TestPanel, type TestView } from '@/components/panels/TestPanel';
+import type { BenchWireId } from '@/lib/domain/clusterBench';
+import { pickReference } from '@/lib/kombi/checks';
 import {
   planRewrite,
   planReset,
@@ -49,6 +56,8 @@ import { isWebSerialSupported } from '@/lib/transport/webSerialTransport';
 import { CHROME } from '@/lib/copy/chrome';
 import { EmptyState, LABEL, WORDMARK } from '@/components/ui';
 import { bridgeHubFor } from '@/lib/hub/bridgeHub';
+import { kombiHubFor } from '@/lib/hub/kombiHub';
+import { linkOwnerOf } from '@/lib/hub/owner';
 import { practiceBoxFor } from '@/lib/hub/practiceBox';
 
 /**
@@ -73,6 +82,9 @@ export default function Page() {
   const lang = useLang();
   const copy = t();
   const link = useM35080Link();
+  /* The K+DCAN cable to a cluster on the bench: TEST's link. Independent of the bridge - two
+     cables to two different things - and never acted on from any other tab (lib/hub/owner.ts). */
+  const kombi = useKombiLink();
 
   /* Whether this render may draw non-stable surfaces. A release always says
      false; in preview the badge can force it false too. */
@@ -100,6 +112,12 @@ export default function Page() {
   const [guideStep, setGuideStep] = useState<GuideStepId>('parts');
   const [guideDone, setGuideDone] = useState<Set<GuideStepId>>(new Set());
   const [wire, setWire] = useState<string | null>(null);
+
+  /* TEST-local: BENCH or CHECKS, the bench procedure step, and a wire singled out. */
+  const [testView, setTestView] = useState<TestView>('bench');
+  const [benchStep, setBenchStep] = useState<BenchStepId>('parts');
+  const [benchDone, setBenchDone] = useState<Set<BenchStepId>>(new Set());
+  const [benchWire, setBenchWire] = useState<BenchWireId | null>(null);
 
   /* Web Serial support is a CLIENT-ONLY fact; seeded true so SSR and the first
      client render agree, then corrected on mount. */
@@ -169,6 +187,7 @@ export default function Page() {
     read: CHROME.tab.read,
     restore: CHROME.tab.restore,
     rewrite: CHROME.tab.rewrite,
+    test: CHROME.tab.test,
     inspect: CHROME.tab.inspect,
     records: CHROME.tab.records,
   };
@@ -214,7 +233,7 @@ export default function Page() {
     setPending({ job, body, details });
   }, []);
 
-  const hub: HubConfig = useMemo(
+  const bridgeHub: HubConfig = useMemo(
     () =>
       bridgeHubFor({
         busy,
@@ -240,6 +259,35 @@ export default function Page() {
     [busy, phase, practiceIntent, image, backedUp, step, rewritePlan, restorePlan, repairPlan, chip, backupFile, copy, link, ask],
   );
 
+  /* ----------------------------- the owner ---------------------------- */
+
+  /* The hub, the status rows, the notice line and the PRACTICE box all speak for the link that
+     owns the tab on screen, so no control on TEST can act on the UNO and none elsewhere on the
+     cluster. */
+  const owner = linkOwnerOf(step);
+
+  /* What TEST compares the cluster with: this session's chip read, else the newest record of the
+     same kind (practice or real). Fixed into the session at CONNECT. */
+  const reference = useMemo(
+    () => pickReference(image ? { image, practice: link.practice } : null, records, practiceIntent),
+    [image, link.practice, records, practiceIntent],
+  );
+
+  const hub: HubConfig =
+    owner === 'cluster'
+      ? kombiHubFor({
+          phase: kombi.phase,
+          sessionOpen: kombi.sessionOpen,
+          act: {
+            // Straight from the click: the port picker opens only inside a user gesture.
+            connect: () => void kombi.connect(practiceIntent ? 'practice' : 'serial', reference),
+            stop: () => void kombi.stop(),
+            saveReport: kombi.saveReport,
+          },
+        })
+      : bridgeHub;
+  const ownerBusy = owner === 'cluster' ? kombi.busy : busy;
+
   /**
    * There is exactly one way to save an image, and it is BACKUP.
    *
@@ -250,16 +298,17 @@ export default function Page() {
    */
   const subActions: SubAction[] = useMemo(() => {
     const out: SubAction[] = [];
-    if (phase !== 'disconnected') {
+    const ownerPhase = owner === 'cluster' ? kombi.phase : phase;
+    if (ownerPhase !== 'disconnected') {
       out.push({
         label: CHROME.disconnect,
         Icon: Unplug,
         danger: true,
-        onClick: () => void link.disconnect(),
+        onClick: () => void (owner === 'cluster' ? kombi.disconnect() : link.disconnect()),
       });
     }
     return out;
-  }, [phase, copy, link]);
+  }, [owner, kombi, phase, link]);
 
   /* ----------------------------- records ------------------------------- */
 
@@ -292,11 +341,37 @@ export default function Page() {
   /* ------------------------------ render -------------------------------- */
 
   const linkLed: LedState =
-    phase === 'disconnected' ? 'idle' : busy ? 'busy' : link.error ? 'error' : 'ok';
+    owner === 'cluster'
+      ? kombi.phase === 'disconnected'
+        ? kombi.error
+          ? 'error'
+          : 'idle'
+        : kombi.busy
+          ? 'busy'
+          : kombi.error
+            ? 'error'
+            : 'ok'
+      : phase === 'disconnected'
+        ? 'idle'
+        : busy
+          ? 'busy'
+          : link.error
+            ? 'error'
+            : 'ok';
   const chipLed: LedState = !image ? 'idle' : chip?.blank ? 'ok' : 'idle';
+  const clusterLed: LedState = kombi.phase === 'disconnected' ? 'idle' : kombi.session?.variant ? 'ok' : 'error';
 
-  const noticeText = link.error ?? link.notice;
-  const noticeTone = link.error ? 'error' : link.notice === copy.writeOk ? 'ok' : 'info';
+  const noticeText = owner === 'cluster' ? (kombi.error ?? kombi.notice) : (link.error ?? link.notice);
+  const noticeTone =
+    owner === 'cluster'
+      ? kombi.error
+        ? 'error'
+        : 'info'
+      : link.error
+        ? 'error'
+        : link.notice === copy.writeOk
+          ? 'ok'
+          : 'info';
 
   /** The wire the diagram should light: an explicit pick beats the step's set. */
   const diagramHighlight =
@@ -304,7 +379,14 @@ export default function Page() {
       ? [wire]
       : (GUIDE_STEPS.find((s) => s.id === guideStep)?.highlight ?? null);
 
-  const practiceBox = practiceBoxFor({ phase, practice: link.practice, busy, intent: practiceIntent });
+  const practiceBox =
+    owner === 'cluster'
+      ? practiceBoxFor({ phase: kombi.phase, practice: kombi.practice, busy: kombi.busy, intent: practiceIntent })
+      : practiceBoxFor({ phase, practice: link.practice, busy, intent: practiceIntent });
+
+  /** The bench wire the TEST diagram should light: an explicit pick beats the step's set. */
+  const benchHighlight =
+    benchWire !== null ? [benchWire] : (BENCH_STEPS.find((s) => s.id === benchStep)?.highlight ?? null);
 
   /** The image view READ, RESTORE and REWRITE share: the chip, or the chip as it WILL be. */
   const chipView = !image ? (
@@ -370,6 +452,12 @@ export default function Page() {
           </div>
         ) : (
           <EmptyState Icon={FileCode} label={CHROME.awaiting.file} />
+        );
+      case 'test':
+        return testView === 'bench' ? (
+          <ClusterBenchDiagram highlight={benchHighlight} onSelectWire={setBenchWire} />
+        ) : (
+          <ClusterDiagram variant={kombi.session?.variant ?? null} commanded={kombi.commanded} stepping={kombi.stepping} />
         );
       case 'records':
         return (
@@ -447,6 +535,31 @@ export default function Page() {
               setWorkspace(null);
               setInspectError(null);
             }}
+          />
+        );
+      case 'test':
+        return (
+          <TestPanel
+            view={testView}
+            onView={setTestView}
+            benchStep={benchStep}
+            onBenchStep={(id) => {
+              setBenchStep(id);
+              setBenchWire(null); // an explicit pick is per-step, not sticky
+            }}
+            benchDone={benchDone}
+            onToggleBenchDone={(id) =>
+              setBenchDone((prev) => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+                return next;
+              })
+            }
+            benchWire={benchWire}
+            onBenchWire={setBenchWire}
+            kombi={kombi}
+            reference={reference}
           />
         );
       case 'rewrite':
@@ -567,25 +680,37 @@ export default function Page() {
                 label={CHROME.status.link}
                 state={linkLed}
                 value={
-                  phase === 'disconnected'
+                  (owner === 'cluster' ? kombi.phase : phase) === 'disconnected'
                     ? serialSupported
                       ? CHROME.status.idle
                       : CHROME.status.noWebSerial
-                    : link.practice
+                    : (owner === 'cluster' ? kombi.practice : link.practice)
                       ? CHROME.status.practice
                       : CHROME.status.ready
                 }
               />
-              <StatusRow
-                label={CHROME.status.chip}
-                state={chipLed}
-                value={!image ? CHROME.status.notRead : chip?.blank ? CHROME.status.blank : CHROME.status.used}
-                reason={chip?.reasons.join(' · ')}
-              />
+              {owner === 'cluster' ? (
+                <StatusRow
+                  label={CHROME.status.cluster}
+                  state={clusterLed}
+                  value={
+                    kombi.phase === 'disconnected'
+                      ? CHROME.status.idle
+                      : (kombi.session?.variant ?? CHROME.test.unknown)
+                  }
+                />
+              ) : (
+                <StatusRow
+                  label={CHROME.status.chip}
+                  state={chipLed}
+                  value={!image ? CHROME.status.notRead : chip?.blank ? CHROME.status.blank : CHROME.status.used}
+                  reason={chip?.reasons.join(' · ')}
+                />
+              )}
 
               <NoticeLine
-                text={progress ? `${progress.label} ${progress.done}/${progress.total}` : noticeText}
-                tone={progress ? 'info' : noticeTone}
+                text={owner === 'bridge' && progress ? `${progress.label} ${progress.done}/${progress.total}` : noticeText}
+                tone={owner === 'bridge' && progress ? 'info' : noticeTone}
               />
 
               <div className="relative flex min-h-0 flex-1 items-center justify-center">
@@ -613,7 +738,7 @@ export default function Page() {
                   />
                   {CHROME.practice}
                 </label>
-                <Hub config={hub} busy={busy} />
+                <Hub config={hub} busy={ownerBusy} />
               </div>
 
               <SubActionRow actions={subActions} />

@@ -18,19 +18,26 @@ export type HubConfig = {
   onClick: () => void;
   /** A write action - the ring takes the danger accent. */
   danger?: boolean;
+  /**
+   * Something is being held that this press releases - TEST's STOP while the cluster may be
+   * showing what this tool set. The ring pulses (the armed state, tsunagi-m-design section 1.5)
+   * and the button stays pressable even while an operation runs: STOP has to be able to end a
+   * sweep in the middle.
+   */
+  armed?: boolean;
   disabled?: boolean;
   spin?: boolean;
 };
 
 export function Hub({ config, busy }: { config: HubConfig; busy: boolean }) {
-  const { label, Icon, onClick, danger, disabled, spin } = config;
+  const { label, Icon, onClick, danger, armed, disabled, spin } = config;
   return (
     <div className="relative">
       <div
         aria-hidden="true"
         className={`pointer-events-none absolute -inset-1 rounded-full border transition
           ${
-            busy
+            busy || armed
               ? 'animate-pulse border-amber-500/50'
               : danger
                 ? 'border-red-500/40'
@@ -39,7 +46,7 @@ export function Hub({ config, busy }: { config: HubConfig; busy: boolean }) {
       />
       <button
         onClick={onClick}
-        disabled={disabled || busy}
+        disabled={disabled || (busy && !armed)}
         /* 72, declared (tsunagi-m-design section 7). The reference fit-scales
            an 80px ring to 0.9 on every screen; transform would keep the 80px
            box while drawing 72, so the size is stated instead. */
@@ -47,9 +54,11 @@ export function Hub({ config, busy }: { config: HubConfig; busy: boolean }) {
                     rounded-full bg-slate-900 ring-1 ring-slate-800 shadow-2xl
                     transition-colors disabled:opacity-40
                     ${
-                      danger
-                        ? 'text-red-500 hover:bg-slate-800 hover:text-red-400'
-                        : 'text-blue-500 hover:bg-slate-800 hover:text-blue-400'
+                      armed
+                        ? 'text-amber-400 hover:bg-slate-800 hover:text-amber-300'
+                        : danger
+                          ? 'text-red-500 hover:bg-slate-800 hover:text-red-400'
+                          : 'text-blue-500 hover:bg-slate-800 hover:text-blue-400'
                     }`}
       >
         <Icon className={`size-[18px] stroke-[1.5] ${spin ? 'animate-spin' : ''}`} />
