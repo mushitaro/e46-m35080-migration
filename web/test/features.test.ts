@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { FEATURES, enabledSurfaces, ownerOf, type Surface } from '@/lib/domain/features';
+import { deriveSteps } from '@/lib/domain/workflow';
 
 /**
  * The release set, written out as a literal.
@@ -43,6 +44,16 @@ describe('the feature registry', () => {
     for (const f of FEATURES) {
       if (f.stage === 'stable') continue;
       expect(f.reason, `${f.id} is ${f.stage} with no reason`).toBeTruthy();
+    }
+  });
+
+  it('gives every tab the workflow can produce exactly one owner', () => {
+    /* A tab with no feature entry is filtered out of every build without a word - it exists in
+       workflow.ts and never appears. So every StepId, not just the release set, needs an owner. */
+    const ids = deriveSteps({ connected: false, hasImage: false, chipBlank: false, odometerKm: null }).map((s) => s.id);
+    for (const id of ids) {
+      const owners = FEATURES.filter((f) => f.surfaces.includes(id));
+      expect(owners.map((f) => f.id), `${id} owners`).toHaveLength(1);
     }
   });
 

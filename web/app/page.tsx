@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plug, Zap, Loader2, Save, Upload, Unplug, FileCode } from 'lucide-react';
+import { Unplug, FileCode } from 'lucide-react';
 
 import { useM35080Link, type WriteJob } from '@/lib/hooks/useM35080Link';
 import { Tabs, type TabDef } from '@/components/Tabs';
@@ -10,13 +10,14 @@ import { StatusRow, type LedState } from '@/components/StatusLED';
 import { HexView, HexLegend } from '@/components/HexView';
 import { VehicleInfo } from '@/components/VehicleInfo';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { DropZone } from '@/components/DropZone';
 import { WiringDiagram } from '@/components/WiringDiagram';
 import { SetupPanel } from '@/components/panels/SetupPanel';
 import { RecordsTable } from '@/components/panels/RecordsPanel';
 import { StructurePanel } from '@/components/panels/StructurePanel';
 import { AddressPanel } from '@/components/panels/AddressPanel';
 import { InspectPanel } from '@/components/panels/InspectPanel';
+import { RewritePanel } from '@/components/panels/RewritePanel';
+import { RestorePanel } from '@/components/panels/RestorePanel';
 import { GUIDE_STEPS, type GuideStepId } from '@/components/AssemblyGuide';
 import {
   planRewrite,
@@ -24,7 +25,6 @@ import {
   planRepairStandard,
   applyPlanPreview,
   type VinAction,
-  type Refusal,
   type RefusalCode,
 } from '@/lib/domain/operations';
 import { deriveSteps, recommend, type StepId } from '@/lib/domain/workflow';
@@ -36,7 +36,6 @@ import { SyncPanel } from '@/components/SyncPanel';
 import { parseImageFile } from '@/lib/domain/image';
 import { isDirty, openWorkspace, type Workspace } from '@/lib/domain/inspect';
 import { vinRange } from '@/lib/domain/addressMap';
-import { VIN_LENGTH } from '@/lib/domain/vin';
 import { listRecords, deleteRecord, type DeviceRecord } from '@/lib/domain/records';
 import {
   applyLangToDocument,
@@ -46,10 +45,11 @@ import {
   STATIC_LANG,
   type Lang,
 } from '@/lib/i18n';
-import { g } from '@/lib/copy/guide';
 import { isWebSerialSupported } from '@/lib/transport/webSerialTransport';
 import { CHROME } from '@/lib/copy/chrome';
 import { EmptyState, LABEL, WORDMARK } from '@/components/ui';
+import { bridgeHubFor } from '@/lib/hub/bridgeHub';
+import { practiceBoxFor } from '@/lib/hub/practiceBox';
 
 /**
  * Re-render chrome when the resolved language changes.
@@ -72,7 +72,6 @@ function useLang(): Lang {
 export default function Page() {
   const lang = useLang();
   const copy = t();
-  const c = g();
   const link = useM35080Link();
 
   /* Whether this render may draw non-stable surfaces. A release always says
@@ -215,137 +214,29 @@ export default function Page() {
     setPending({ job, body, details });
   }, []);
 
-  const hub: HubConfig = useMemo(() => {
-    if (busy) {
-      const label =
-        phase === 'connecting'
-          ? CHROME.hub.connecting
-          : phase === 'reading'
-            ? CHROME.hub.reading
-            : phase === 'verifying'
-              ? CHROME.hub.verifying
-              : CHROME.hub.writing;
-      return { label, Icon: Loader2, onClick: () => {}, spin: true, disabled: true };
-    }
-    if (phase === 'disconnected') {
-      return {
-        label: CHROME.hub.connect,
-        Icon: Plug,
-        onClick: () => void link.connect(practiceIntent ? 'practice' : 'serial', 'used'),
-      };
-    }
-    /* Reading lands the user on the tab that shows the result. Pressing READ
-       from SETUP used to leave them on the wiring diagram with the image
-       silently loaded behind it. Only on success - a refused read keeps the
-       PREVIOUS image, so navigating would show the wrong chip's data. */
-    if (!image) {
-      return {
-        label: CHROME.hub.read,
-        Icon: Zap,
-        onClick: () => void link.read().then((ok) => ok && setStep('read')),
-      };
-    }
-
-    // Backup is not a side quest: it is the next step in the sequence, and
-    // gating it here is what makes "backup before write" structural.
-    if (!backedUp) return { label: CHROME.hub.backup, Icon: Save, onClick: () => void link.backup() };
-
-    if (step === 'rewrite' && rewritePlan?.ok) {
-      return {
-        label: CHROME.hub.writeOdometer,
-        Icon: Zap,
-        danger: true,
-        disabled: rewritePlan.secureOps.length === 0 && rewritePlan.byteWrites.length === 0,
-        onClick: () =>
-          ask(
-            { kind: 'rewrite', byteWrites: rewritePlan.byteWrites, secureOps: rewritePlan.secureOps },
-            copy.confirmOdometer(
-              /* NOT `?? 0`. When the secure area does not decode, the same
-                 screen says so in red - printing "from 0 km" on the one dialog
-                 whose job is to state the true consequence made the tool assert
-                 a reading it had just refused to give. */
-              rewritePlan.currentKm,
-              rewritePlan.targetKm,
-              rewritePlan.secureOps.length,
-            ),
-            [
-              ...rewritePlan.secureOps.map(
-                (o) =>
-                  `WRINC 0x${o.address.toString(16).padStart(2, '0').toUpperCase()}  0x${o.from
-                    .toString(16)
-                    .toUpperCase()} -> 0x${o.to.toString(16).toUpperCase()}`,
-              ),
-              ...rewritePlan.byteWrites.map((w) => w.label),
-            ],
-          ),
-      };
-    }
-    /* RESTORE: one path. The backup's cluster data onto a new chip, the VIN
-       blanked, the odometer untouched (planReset). */
-    if (step === 'restore' && chip?.blank && restorePlan?.ok) {
-      return {
-        label: CHROME.hub.writeChip,
-        Icon: Upload,
-        danger: true,
-        onClick: () =>
-          ask(
-            { kind: 'restore', byteWrites: restorePlan.byteWrites, secureOps: [] },
-            copy.confirmReset,
-            [
-              ...restorePlan.byteWrites.map((w) => w.label),
-              'odometer 0x00-0x1F: not written (stays 0 km)',
-            ],
-          ),
-      };
-    }
-    /* Not blank: repair what the array has lost instead. Same backup, same
-       "never touch the odometer" rule - and repeatable, because it raises no
-       counter, which is what lets it be used as a retention test. */
-    if (step === 'restore' && !chip?.blank && repairPlan?.ok && repairPlan.byteWrites.length > 0) {
-      return {
-        label: CHROME.hub.repair,
-        Icon: Upload,
-        danger: true,
-        onClick: () =>
-          ask(
-            { kind: 'restore', byteWrites: repairPlan.byteWrites, secureOps: [] },
-            copy.confirmRepair(repairPlan.addresses.length),
-            [
-              ...repairPlan.byteWrites.map((w) => w.label),
-              'odometer 0x00-0x1F: not written',
-            ],
-          ),
-      };
-    }
-    if (step === 'restore') {
-      const label = !backupFile
-        ? CHROME.hub.selectBackup
-        : !chip?.blank && repairPlan?.ok
-          ? CHROME.hub.nothingToRepair
-          : CHROME.hub.checkBackup;
-      return { label, Icon: Upload, onClick: () => {}, disabled: true };
-    }
-    return {
-      label: CHROME.hub.read,
-      Icon: Zap,
-      onClick: () => void link.read().then((ok) => ok && setStep('read')),
-    };
-  }, [
-    busy,
-    phase,
-    practiceIntent,
-    image,
-    backedUp,
-    step,
-    rewritePlan,
-    restorePlan,
-    repairPlan,
-    chip,
-    backupFile,
-    copy,
-    link,
-    ask,
-  ]);
+  const hub: HubConfig = useMemo(
+    () =>
+      bridgeHubFor({
+        busy,
+        phase,
+        step,
+        hasImage: !!image,
+        backedUp,
+        chipBlank: chip?.blank ?? false,
+        hasBackupFile: backupFile !== null,
+        rewritePlan,
+        restorePlan,
+        repairPlan,
+        copy,
+        act: {
+          connect: () => void link.connect(practiceIntent ? 'practice' : 'serial', 'used'),
+          read: () => void link.read().then((ok) => ok && setStep('read')),
+          backup: () => void link.backup(),
+          ask,
+        },
+      }),
+    [busy, phase, practiceIntent, image, backedUp, step, rewritePlan, restorePlan, repairPlan, chip, backupFile, copy, link, ask],
+  );
 
   /**
    * There is exactly one way to save an image, and it is BACKUP.
@@ -411,6 +302,205 @@ export default function Page() {
       ? [wire]
       : (GUIDE_STEPS.find((s) => s.id === guideStep)?.highlight ?? null);
 
+  const practiceBox = practiceBoxFor({ phase, practice: link.practice, busy, intent: practiceIntent });
+
+  /** The image view READ, RESTORE and REWRITE share: the chip, or the chip as it WILL be. */
+  const chipView = !image ? (
+    <EmptyState
+      Icon={FileCode}
+      label={phase === 'disconnected' ? CHROME.awaiting.connection : CHROME.awaiting.read}
+    />
+  ) : (
+    <div className="flex h-full flex-col gap-2">
+      <HexLegend changedCount={changedCount} vin={vinRange(preview ?? image)} />
+      <div className="min-h-0 flex-1">
+        <HexView
+          vin={vinRange(preview ?? image)}
+          image={preview ?? image}
+          reference={preview ? image : null}
+          changeMode="pending"
+          selected={selected}
+          onSelect={setSelected}
+        />
+      </div>
+    </div>
+  );
+
+  /** What was read, and what each address holds for the things that are actually known. */
+  const vehiclePanel = (
+    <div className="flex flex-col">
+      <VehicleInfo odometer={odometer} vin={vin} chip={chip} status={status} />
+      {image && (
+        <>
+          {/* Above the structure list because a reader wants the meaning before the shape. */}
+          <div className="border-t border-slate-800 px-5 py-4">
+            <AddressPanel image={image} onSelect={setSelected} />
+          </div>
+          <div className="border-t border-slate-800 px-5 py-4">
+            <StructurePanel image={image} onSelect={setSelected} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  /** The work surface (left, 61.8%). Every StepId is a case, so a new tab cannot fall through. */
+  function workSurface(): React.ReactNode {
+    switch (step) {
+      case 'setup':
+        return <WiringDiagram highlight={diagramHighlight} onSelectPin={setWire} />;
+      case 'inspect':
+        return workspace ? (
+          <div className="flex h-full flex-col gap-2">
+            <HexLegend changedCount={null} vin={vinRange(workspace.current)} />
+            <div className="min-h-0 flex-1">
+              {/* reference is the file as opened, so every edit is marked against what was
+                  actually on disk. */}
+              <HexView
+                image={workspace.current}
+                reference={workspace.original}
+                changeMode="pending"
+                vin={vinRange(workspace.current)}
+                selected={selected}
+                onSelect={setSelected}
+              />
+            </div>
+          </div>
+        ) : (
+          <EmptyState Icon={FileCode} label={CHROME.awaiting.file} />
+        );
+      case 'records':
+        return (
+          <RecordsTable
+            records={records}
+            onDelete={async (id) => {
+              await deleteRecord(id);
+              setRecords(await listRecords());
+            }}
+          />
+        );
+      case 'read':
+      case 'restore':
+      case 'rewrite':
+        return chipView;
+      default: {
+        const unreachable: never = step;
+        return unreachable;
+      }
+    }
+  }
+
+  /** The side panel (right, above the controls). */
+  function sidePanel(): React.ReactNode {
+    switch (step) {
+      case 'setup':
+        return (
+          <SetupPanel
+            guideStep={guideStep}
+            onGuideStep={(id) => {
+              setGuideStep(id);
+              setWire(null); // an explicit pick is per-step, not sticky
+            }}
+            doneIds={guideDone}
+            onToggleDone={(id) =>
+              setGuideDone((prev) => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+                return next;
+              })
+            }
+            wire={wire}
+            onWire={setWire}
+          />
+        );
+      case 'inspect':
+        return (
+          <InspectPanel
+            workspace={workspace}
+            fileError={inspectError}
+            selected={selected}
+            onSelect={setSelected}
+            onOpen={(file) => {
+              setInspectError(null);
+              void file
+                .arrayBuffer()
+                .then((buf) => {
+                  const r = parseImageFile(buf);
+                  if (!r.ok) {
+                    const why = copy.refusal({ code: 'backup-size', fileSize: r.size });
+                    setInspectError(`${why.reason} ${why.detail ?? ''}`.trim());
+                    return;
+                  }
+                  setWorkspace(openWorkspace(file.name, r.image));
+                  setSelected(null);
+                })
+                .catch(() => {
+                  const why = copy.refusal({ code: 'backup-size' });
+                  setInspectError(`${why.reason} ${why.detail ?? ''}`.trim());
+                });
+            }}
+            onChange={setWorkspace}
+            onClose={() => {
+              setWorkspace(null);
+              setInspectError(null);
+            }}
+          />
+        );
+      case 'rewrite':
+        return (
+          <RewritePanel
+            rec={rec}
+            step={step}
+            odometer={odometer}
+            targetKm={targetKm}
+            onTargetKm={setTargetKm}
+            vinAction={vinAction}
+            onVinAction={setVinAction}
+            vinInput={vinInput}
+            onVinInput={setVinInput}
+            plan={rewritePlan}
+          />
+        );
+      case 'restore':
+        return (
+          <RestorePanel
+            rec={rec}
+            step={step}
+            chipBlank={chip?.blank ?? false}
+            restorePlan={restorePlan}
+            repairPlan={repairPlan}
+            onBackupFile={onBackupFile}
+            fileError={fileError}
+          />
+        );
+      case 'records':
+        /* Preview only: the account copy of these records, and the error records the app sent
+           by itself. A release shows what was read instead. */
+        return previewSurfaces ? (
+          <SyncPanel
+            records={records}
+            onRecordsChanged={() => {
+              void listRecords()
+                .then(setRecords)
+                .catch(() => setRecords([]));
+            }}
+            linkPhase={phase}
+            linkBusy={busy}
+            unsavedWork={workspace ? isDirty(workspace) : false}
+          />
+        ) : (
+          vehiclePanel
+        );
+      case 'read':
+        return vehiclePanel;
+      default: {
+        const unreachable: never = step;
+        return unreachable;
+      }
+    }
+  }
+
   return (
     <main className="flex h-screen flex-col overflow-hidden">
       <header className="relative flex h-[48px] shrink-0 items-center gap-4 bg-slate-950/80 px-6 backdrop-blur-md">
@@ -453,56 +543,7 @@ export default function Page() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden px-4 py-2">
-            {step === 'setup' ? (
-              <WiringDiagram highlight={diagramHighlight} onSelectPin={setWire} />
-            ) : step === 'inspect' ? (
-              workspace ? (
-                <div className="flex h-full flex-col gap-2">
-                  <HexLegend changedCount={null} vin={vinRange(workspace.current)} />
-                  <div className="min-h-0 flex-1">
-                    {/* reference is the file as opened, so every edit is marked
-                        against what was actually on disk. */}
-                    <HexView
-                      image={workspace.current}
-                      reference={workspace.original}
-                      changeMode="pending"
-                      vin={vinRange(workspace.current)}
-                      selected={selected}
-                      onSelect={setSelected}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <EmptyState Icon={FileCode} label={CHROME.awaiting.file} />
-              )
-            ) : step === 'records' ? (
-              <RecordsTable
-                records={records}
-                onDelete={async (id) => {
-                  await deleteRecord(id);
-                  setRecords(await listRecords());
-                }}
-              />
-            ) : !image ? (
-              <EmptyState
-                Icon={FileCode}
-                label={phase === 'disconnected' ? CHROME.awaiting.connection : CHROME.awaiting.read}
-              />
-            ) : (
-              <div className="flex h-full flex-col gap-2">
-                <HexLegend changedCount={changedCount} vin={vinRange(preview ?? image)} />
-                <div className="min-h-0 flex-1">
-                  <HexView
-                    vin={vinRange(preview ?? image)}
-                    image={preview ?? image}
-                    reference={preview ? image : null}
-                    changeMode="pending"
-                    selected={selected}
-                    onSelect={setSelected}
-                  />
-                </div>
-              </div>
-            )}
+            {workSurface()}
           </div>
         </section>
 
@@ -515,191 +556,7 @@ export default function Page() {
           {/* Wrapper so the 38.2% resolves BELOW the 44px bar */}
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="relative min-h-[140px] flex-1 overflow-y-auto">
-              {step === 'setup' ? (
-                <SetupPanel
-                  guideStep={guideStep}
-                  onGuideStep={(id) => {
-                    setGuideStep(id);
-                    setWire(null); // an explicit pick is per-step, not sticky
-                  }}
-                  doneIds={guideDone}
-                  onToggleDone={(id) =>
-                    setGuideDone((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(id)) next.delete(id);
-                      else next.add(id);
-                      return next;
-                    })
-                  }
-                  wire={wire}
-                  onWire={setWire}
-                />
-              ) : step === 'inspect' ? (
-                <InspectPanel
-                  workspace={workspace}
-                  fileError={inspectError}
-                  selected={selected}
-                  onSelect={setSelected}
-                  onOpen={(file) => {
-                    setInspectError(null);
-                    void file
-                      .arrayBuffer()
-                      .then((buf) => {
-                        const r = parseImageFile(buf);
-                        if (!r.ok) {
-                          const why = copy.refusal({ code: 'backup-size', fileSize: r.size });
-                          setInspectError(`${why.reason} ${why.detail ?? ''}`.trim());
-                          return;
-                        }
-                        setWorkspace(openWorkspace(file.name, r.image));
-                        setSelected(null);
-                      })
-                      .catch(() => {
-                        const why = copy.refusal({ code: 'backup-size' });
-                        setInspectError(`${why.reason} ${why.detail ?? ''}`.trim());
-                      });
-                  }}
-                  onChange={setWorkspace}
-                  onClose={() => {
-                    setWorkspace(null);
-                    setInspectError(null);
-                  }}
-                />
-              ) : step === 'rewrite' ? (
-                <JobPanel>
-                  <Recommendation rec={rec} step={step} />
-                  <Field label={CHROME.readout.current}>
-                    <span className="font-mono text-sm text-slate-300">
-                      {odometer?.ok ? `${odometer.km.toLocaleString()} km` : '—'}
-                    </span>
-                  </Field>
-                  <Field label={CHROME.readout.target}>
-                    <input
-                      inputMode="numeric"
-                      value={targetKm}
-                      onChange={(e) => setTargetKm(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="155940"
-                      className="w-full rounded bg-slate-800 px-2 py-1 font-mono text-sm text-blue-400 outline-none
-                                 placeholder:text-slate-700 focus:ring-1 focus:ring-blue-500"
-                    />
-                  </Field>
-                  <Field label={CHROME.readout.vin}>
-                    <div className="flex flex-wrap gap-2">
-                      {(['keep', 'write', 'blank'] as const).map((k) => (
-                        <button
-                          key={k}
-                          onClick={() =>
-                            setVinAction(k === 'write' ? { kind: 'write', vin: vinInput } : { kind: k })
-                          }
-                          className={`rounded px-2 py-0.5 ${LABEL} transition-colors ${
-                            vinAction.kind === k
-                              ? 'bg-blue-900 text-blue-200'
-                              : 'bg-slate-800 text-slate-500 hover:text-slate-300'
-                          }`}
-                        >
-                          {k}
-                        </button>
-                      ))}
-                    </div>
-                    {vinAction.kind === 'write' && (
-                      <input
-                        value={vinInput}
-                        onChange={(e) => setVinInput(e.target.value.toUpperCase())}
-                        placeholder="AB12345"
-                        // The chip holds VIN positions 11-17 and nothing else.
-                        maxLength={VIN_LENGTH}
-                        className="mt-2 w-full rounded bg-slate-800 px-2 py-1 font-mono text-sm tracking-widest
-                                   text-slate-200 outline-none placeholder:text-slate-700 focus:ring-1 focus:ring-blue-500"
-                      />
-                    )}
-                  </Field>
-                  <PlanNote plan={rewritePlan} />
-                </JobPanel>
-              ) : step === 'restore' ? (
-                <JobPanel>
-                  <Recommendation rec={rec} step={step} />
-                  {/* Same backup, same "never touch the odometer" rule; what
-                      differs is the chip. A blank one gets the whole array and
-                      a blanked VIN; a used one gets only the bytes it has lost. */}
-                  {chip?.blank ? (
-                    <>
-                      <p className="text-[11px] leading-relaxed text-slate-300">{c.restoreLead}</p>
-                      <ul className="flex flex-col gap-0.5 rounded bg-slate-900 px-2 py-1.5 font-mono text-[10px] leading-relaxed text-slate-400">
-                        <li>{c.restoreRowData}</li>
-                        <li>{c.restoreRowVin}</li>
-                        <li>{c.restoreRowOdo}</li>
-                      </ul>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-[11px] leading-relaxed text-slate-300">{c.repairLead}</p>
-                      <p className="text-[11px] leading-relaxed text-slate-400">{c.repairSafe}</p>
-                      {repairPlan?.ok && (
-                        <p className="font-mono text-[10px] text-slate-400">
-                          {repairPlan.byteWrites.length > 0
-                            ? c.repairCount(repairPlan.addresses.length)
-                            : c.repairNothing}
-                        </p>
-                      )}
-                    </>
-                  )}
-                  <DropZone onFile={onBackupFile} hint={CHROME.drop.backup} />
-                  {fileError && (
-                    <p className="font-mono text-[10px] text-red-400">
-                      {copy.refusal(fileError).reason}
-                      {copy.refusal(fileError).detail && (
-                        <span className="block text-slate-500">{copy.refusal(fileError).detail}</span>
-                      )}
-                    </p>
-                  )}
-                  <PlanNote plan={chip?.blank ? restorePlan : repairPlan} />
-                  {chip?.blank ? (
-                    <>
-                      <p className="text-[11px] leading-relaxed text-slate-400">
-                        {c.restoreProcedure}
-                      </p>
-                      {/* The sync is conditional, so the promise cannot be. */}
-                      <p className="text-[11px] leading-relaxed text-amber-400">{c.restoreVerify}</p>
-                    </>
-                  ) : (
-                    <p className="text-[11px] leading-relaxed text-amber-400">
-                      {c.repairRetentionTest}
-                    </p>
-                  )}
-                  <p className="text-[10px] leading-snug text-slate-600">{c.restoreBasis}</p>
-                </JobPanel>
-              ) : step === 'records' && previewSurfaces ? (
-                /* Preview only: the account copy of these records, and the
-                   error records the app sent by itself. */
-                <SyncPanel
-                  records={records}
-                  onRecordsChanged={() => {
-                    void listRecords()
-                      .then(setRecords)
-                      .catch(() => setRecords([]));
-                  }}
-                  linkPhase={phase}
-                  linkBusy={busy}
-                  unsavedWork={workspace ? isDirty(workspace) : false}
-                />
-              ) : (
-                <div className="flex flex-col">
-                  <VehicleInfo odometer={odometer} vin={vin} chip={chip} status={status} />
-                  {image && (
-                    <>
-                      {/* What each address holds, for the two things that are
-                          actually known. Above the structure list because a
-                          reader wants the meaning before the shape. */}
-                      <div className="border-t border-slate-800 px-5 py-4">
-                        <AddressPanel image={image} onSelect={setSelected} />
-                      </div>
-                      <div className="border-t border-slate-800 px-5 py-4">
-                        <StructurePanel image={image} onSelect={setSelected} />
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+              {sidePanel()}
             </div>
 
             {/* Control panel - declared 38.2%, floor wins on a short viewport */}
@@ -742,17 +599,13 @@ export default function Page() {
                     link cannot be retargeted, so a live box would lie. */}
                 <label
                   className={`absolute right-0 top-0 inline-flex items-center gap-1.5 ${LABEL} transition-colors
-                    ${
-                      (phase === 'disconnected' ? practiceIntent : link.practice)
-                        ? 'text-amber-400'
-                        : 'text-slate-500'
-                    }
-                    ${phase === 'disconnected' && !busy ? 'cursor-pointer hover:text-slate-300' : 'opacity-60'}`}
+                    ${practiceBox.checked ? 'text-amber-400' : 'text-slate-500'}
+                    ${practiceBox.locked ? 'opacity-60' : 'cursor-pointer hover:text-slate-300'}`}
                 >
                   <input
                     type="checkbox"
-                    checked={phase === 'disconnected' ? practiceIntent : link.practice}
-                    disabled={phase !== 'disconnected' || busy}
+                    checked={practiceBox.checked}
+                    disabled={practiceBox.locked}
                     onChange={(e) => setPracticeIntent(e.target.checked)}
                     className="h-3 w-3 accent-amber-500"
                   />
@@ -785,77 +638,5 @@ export default function Page() {
         }}
       />
     </main>
-  );
-}
-
-/* ------------------------------- pieces --------------------------------- */
-
-function JobPanel({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-4 px-5 py-4">{children}</div>;
-}
-
-/**
- * What this chip allows, stated by the tool.
- *
- * The increment-only rule is the one thing a reader must not have to work out
- * for themselves, so the comparison is made here rather than left implicit in a
- * refusal they meet later.
- */
-function Recommendation({
-  rec,
-  step,
-}: {
-  rec: ReturnType<typeof recommend>;
-  step: StepId;
-}) {
-  const c = g();
-  if (rec.kind === 'unknown') return <div className="min-h-[28px]" />;
-
-  /* A blank chip means something different per tab. On REWRITE the useful fact
-     is that any value is reachable; saying that on RESTORE contradicts the
-     procedure directly beneath it, which is that no mileage is written here. */
-  const text =
-    rec.kind === 'restore-ready'
-      ? step === 'restore'
-        ? c.recBlankForRestore
-        : c.recRestoreReady
-      : rec.kind === 'rewrite-possible'
-        ? c.recRewritePossible(rec.currentKm, rec.targetKm)
-        : c.recNeedsNewChip(rec.currentKm, rec.targetKm);
-
-  const tone = rec.kind === 'needs-new-chip' ? 'text-amber-400' : 'text-emerald-400';
-
-  return (
-    <div className="min-h-[28px] rounded bg-slate-900 px-2 py-1.5">
-      <p className={`${LABEL} text-slate-600`}>{c.recTitle}</p>
-      <p className={`mt-0.5 text-[10px] leading-snug ${tone}`}>{text}</p>
-    </div>
-  );
-}
-
-type PlanLike = { ok: true } | Refusal | null;
-
-/**
- * A refusal is RENDERED, in the reader's language, with the actionable detail.
- * The domain layer never writes prose, so a refusal cannot arrive in the
- * author's language.
- */
-function PlanNote({ plan }: { plan: PlanLike }) {
-  if (!plan || plan.ok) return <div className="min-h-[28px]" />;
-  const { reason, detail } = t().refusal(plan);
-  return (
-    <div className="min-h-[28px] rounded bg-red-900/20 px-2 py-1.5">
-      <p className="text-[10px] leading-snug text-red-400">{reason}</p>
-      {detail && <p className="mt-0.5 font-mono text-[10px] text-slate-400">{detail}</p>}
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className={`${LABEL} text-slate-500`}>{label}</span>
-      {children}
-    </div>
   );
 }
