@@ -26,7 +26,10 @@ function checkParameter(p: unknown, at: string): string | null {
   if (!isObj(p)) return `${at}: not an object`;
   if (p.kind !== 'fsw' && p.kind !== 'dir') return `${at}: kind ${String(p.kind)}`;
   if (typeof p.keyword !== 'string' || !isInt(p.id)) return `${at}: keyword or id`;
-  if (!isInt(p.address) || !isInt(p.length, 1, 64)) return `${at}: address or length`;
+  // Inside the 1 KB chip: every address CODING reads or writes has to be one the image has.
+  if (!isInt(p.address) || !isInt(p.length, 1, 0x400) || (p.address as number) + (p.length as number) > 0x400) {
+    return `${at}: address or length`;
+  }
   if (!isBytes(p.mask) || (p.mask as number[]).length === 0) return `${at}: mask`;
   if (!isIntOrNull(p.block) || !isIntOrNull(p.index)) return `${at}: block or index`;
   if (p.kind === 'fsw') {

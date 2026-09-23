@@ -12,8 +12,9 @@
  * For ONE cluster generation the mapping is now measured (layout.ts,
  * docs/CODING.md): its coding definitions' addresses are this array's byte
  * addresses, two checksums hold on real chips, and the coded VIN sits at 0x07A.
- * That knowledge lives in layout.ts and is used only when an image proves it is
- * that layout by its checksums. For every other image - the older generation,
+ * That knowledge lives in layout.ts, and in lib/ncs where a definition is read
+ * against an image, and is used only when an image proves it is that layout by
+ * its checksums (and, for coding, by fitting its own definition). For every other image - the older generation,
  * a blank chip, a file of unknown origin - nothing here establishes what an
  * address means, and naming one would be inventing it.
  *
