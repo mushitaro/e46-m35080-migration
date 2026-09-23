@@ -48,6 +48,12 @@ in Cloudflare D1. What is sent, and for how long, is disclosed on m3's `/preview
 before first use and in its privacy policy
 (<https://m3.tsunagi.app/privacy-policy#preview>), which the preview links from its header.
 
+The preview also READS `/api/ref/kombi-coding` and `/api/ref/kombi-names` — the reference
+data CODING and TEST use (3.3). Nothing is sent to get them but the request itself.
+
+The preview's TEST tab talks to an instrument cluster through the owner's K+DCAN cable,
+over Web Serial. Its report is a file the owner downloads; it is never sent anywhere.
+
 ---
 
 ## 2. Code this project builds on
@@ -96,10 +102,25 @@ was replaced with `ABC12345` before the first public commit.
 
 ### 3.3 BMW data
 
-Nothing here is derived from BMW software or data: no NCS Expert or SGBD files, no coding
-data, no factory images. A feature that needs BMW coding data reads it from files the user
-supplies at run time; those files are never committed (the check refuses the BMW file
-types), because they are BMW's and not ours to publish.
+No BMW software or data is in this repository or in any build of it: no NCS Expert or SGBD
+files, no SGBD dumps, no coding definitions, no keyword tables, no job, lamp, input or fault
+names, no factory images. They are BMW's, and not ours to publish.
+
+What IS here are facts about the wire, each with a comment saying where it was read: the DS2
+control bytes, argument positions and scaling TEST sends to the cluster, which bits of a lamp
+byte exist, and the range rule that tells KOMBI46 from KOMBI46R (`web/lib/kombi/`) — and, as
+code, the record format of NCS Expert's files (`tools/refdata/cabd.py`), whose tests use
+invented names.
+
+The data CODING and TEST need — every E46 cluster coding definition, and names for its
+keywords, lamps, inputs and faults in Japanese and English — is built OUTSIDE the tree by
+`tools/refdata/gen_refdata.py` from the operator's own NCS Expert and SGBD files and a private
+terms repository. The operator uploads it to a private Cloudflare R2 bucket
+(`web/scripts/upload-refdata.mjs`), and the preview hands it only to a signed-in owner, from
+`/api/ref/<name>`, uncached (`private, no-store`). The app holds it in memory and writes it
+nowhere; a user without the preview can open the same JSON from their own disk.
+`scripts/check-bmw-data.mjs` — in the pre-commit hook, in CI and in `npm run test` — refuses
+the BMW file types, the generated JSON and any chip-sized binary.
 
 ### 3.4 Secrets and local state
 

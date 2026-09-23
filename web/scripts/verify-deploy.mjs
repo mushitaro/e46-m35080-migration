@@ -16,8 +16,9 @@
  *   - A session (an owner): the contents are right. The build-id matches the local build,
  *     app-variant=preview, the branded manifest and its -dev- and maskable icons, private caching,
  *     the SYNC routes answer lists, a route with no handler is 404 (5xx would mean the functions
- *     ran without their database - 5.1/5.2), the worker is this app's, and a deployment-hash host
- *     answers 404 with no cookie set.
+ *     ran without their database - 5.1/5.2), the reference data is 200 or not-yet-uploaded 404
+ *     and never cached, the worker is this app's, and a deployment-hash host answers 404 with no
+ *     cookie set.
  *   - Fail closed (with CF_API_TOKEN and CF_ACCOUNT_ID, read-only): both deployment configs have
  *     fail_open=false, or when the Functions quota runs out Pages serves every asset ungated.
  *
@@ -132,7 +133,7 @@ check(
   anonHome.status === 302 && /^https:\/\/m3\.tsunagi\.app\/api\/access\/authorize\?/.test(anonHome.location) && anonHome.location.includes('client_id=m35080-preview'),
   `${anonHome.status} ${anonHome.location.split('?')[0]}`,
 );
-for (const p of ['/sw.js', '/index.html', '/version.json', '/api/sessions', '/api/diagnostics', '/icons/migration-192.png']) {
+for (const p of ['/sw.js', '/index.html', '/version.json', '/api/sessions', '/api/diagnostics', '/api/ref/kombi-coding', '/icons/migration-192.png']) {
   const r = await get(p, { cookie: null });
   check(`no session: ${p} is 401`, r.status === 401, String(r.status));
 }
@@ -221,6 +222,16 @@ check('/api/sessions is 200 with a list', sessions.status === 200 && Array.isArr
 const diags = await get('/api/diagnostics');
 check('/api/diagnostics is 200', diags.status === 200, String(diags.status));
 check('/api/info is 404', (await get('/api/info')).status === 404, 'a route with no handler; 5xx would mean no database');
+
+// The reference data (functions/_lib/refdata.ts): 200 once the operator has uploaded it, 404 until
+// then - never 5xx, which would mean the REFDATA binding is missing - and never cached anywhere.
+for (const name of ['kombi-coding', 'kombi-names']) {
+  const r = await get(`/api/ref/${name}`);
+  check(`/api/ref/${name} is 200 or 404`, r.status === 200 || r.status === 404, `${r.status}${r.status === 404 ? ' (not uploaded yet: node scripts/upload-refdata.mjs)' : ''}`);
+  const cc = r.headers.get('cache-control') || '';
+  check(`/api/ref/${name} is private, no-store`, /private/.test(cc) && /no-store/.test(cc), cc || '(none)');
+}
+check('/api/ref/<not a served name> is 404', (await get('/api/ref/not-a-name')).status === 404, '');
 
 const sw = await get('/sw.js');
 const cache = (sw.text.match(/const CACHE = ['"]([^'"]+)['"]/) || [])[1];

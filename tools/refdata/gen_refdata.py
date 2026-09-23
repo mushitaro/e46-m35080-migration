@@ -341,7 +341,8 @@ def document(kind: str, body: dict, sources: dict, terms: dict, cover: dict) -> 
 
 
 def dumps(doc: dict) -> str:
-    return json.dumps(doc, ensure_ascii=False, indent=1, sort_keys=True) + '\n'
+    # Compact: it travels to the browser every session and is never read as a diff.
+    return json.dumps(doc, ensure_ascii=False, separators=(',', ':'), sort_keys=True) + '\n'
 
 
 def comparable(text: str) -> dict:

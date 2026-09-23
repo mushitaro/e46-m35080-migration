@@ -41,6 +41,19 @@
       "database_id": "caef60dd-7936-44be-9184-b4168791ee4f",
       "migrations_dir": "migrations"
     }
+  ],
+
+  // The reference data CODING and TEST read (functions/_lib/refdata.ts): generated outside the
+  // repository from BMW's files, uploaded by the operator (scripts/upload-refdata.mjs), served only
+  // to a signed-in owner. Never in the build and never committed (THIRD-PARTY-NOTICES.md 3.3).
+  // scripts/deploy.mjs refuses to deploy while the bucket does not exist.
+  //
+  //   npx wrangler r2 bucket create m35080-refdata   (operator, once)
+  "r2_buckets": [
+    {
+      "binding": "REFDATA",
+      "bucket_name": "m35080-refdata"
+    }
   ]
 
   // No `env.*` blocks: environments are separated by having separate projects.

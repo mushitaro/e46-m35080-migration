@@ -211,9 +211,14 @@ connected.
 ### Public repository
 
 This repository is public under the MIT licence (`LICENSE`). No real chip image,
-VIN, BMW data or secret may be committed: `scripts/check-public-tree.mjs` runs
-from the pre-commit hook (`npm run hooks:install` in `web/`), in CI and before a
-deploy. See `THIRD-PARTY-NOTICES.md`.
+VIN, BMW data or secret may be committed: `scripts/check-public-tree.mjs` and
+`scripts/check-bmw-data.mjs` run from the pre-commit hook (`npm run hooks:install`
+in `web/`), in CI and before a deploy. See `THIRD-PARTY-NOTICES.md`.
+
+The coding definitions and names CODING and TEST read are built outside the tree
+(`tools/refdata/gen_refdata.py`), uploaded to a private R2 bucket by the operator
+(`web/scripts/upload-refdata.mjs`) and served only to signed-in owners of the
+preview (`/api/ref/<name>`) — never committed, never in a build.
 
 ## Parts list
 

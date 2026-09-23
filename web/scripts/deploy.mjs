@@ -6,7 +6,9 @@
  *   1. The project is the preview. Its name is READ from wrangler.jsonc (tsunagi-m-release 5.2:
  *      bindings apply only when the config's name matches --project-name, and a mismatch is
  *      silent), and it must be e46-m35080-migration-preview with RUNS_DB bound - otherwise every
- *      SYNC request answers 5xx.
+ *      SYNC request answers 5xx - and REFDATA bound to a bucket that exists on the account:
+ *      a binding to a bucket nobody created deploys with "Success" and then fails every
+ *      /api/ref request, which CODING reads its definitions from.
  *   2. The gate is there. This used to REFUSE a functions/ directory, because the preview was a
  *      static export with no API. It is the opposite now: the whole origin is behind the owner gate
  *      (functions/_middleware.ts), and a preview without it would hand an unreleased EEPROM writer
@@ -84,7 +86,25 @@ const outDir = config.pages_build_output_dir;
 if (project !== PREVIEW_PROJECT) refuse(`wrangler.jsonc names "${project}". This repository deploys ${PREVIEW_PROJECT} and nothing else.`);
 if (!outDir) refuse('wrangler.jsonc has no `pages_build_output_dir`.');
 if (!config.d1_databases?.some((d) => d.binding === 'RUNS_DB')) refuse('wrangler.jsonc binds no RUNS_DB; every SYNC request would answer 5xx.');
-ok(`project ${project}, RUNS_DB bound`);
+const refBucket = config.r2_buckets?.find((b) => b.binding === 'REFDATA')?.bucket_name;
+if (!refBucket) refuse('wrangler.jsonc binds no REFDATA; /api/ref would have nothing behind it.');
+// The account, not the config: wrangler does not check that a bound bucket exists.
+let buckets = '';
+try {
+  buckets = execFileSync('npx', ['--yes', 'wrangler@4', 'r2', 'bucket', 'list'], {
+    cwd: WEB,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: process.platform === 'win32',
+  });
+} catch (e) {
+  const why = String(e.stderr || e.message).trim().split(/\r?\n/)[0];
+  refuse(`wrangler r2 bucket list failed, so the REFDATA bucket cannot be checked: ${why}`);
+}
+if (!buckets.split(/\s+/).includes(refBucket)) {
+  refuse(`the R2 bucket "${refBucket}" does not exist on this account. Create it (npx wrangler r2 bucket create ${refBucket}) and upload the reference data (node scripts/upload-refdata.mjs).`);
+}
+ok(`project ${project}, RUNS_DB bound, REFDATA -> ${refBucket} exists`);
 
 /* ---- 2. the gate ----------------------------------------------------------------------------- */
 if (!existsSync(join(WEB, 'functions', '_middleware.ts'))) {
