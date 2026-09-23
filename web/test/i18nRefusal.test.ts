@@ -32,6 +32,7 @@ const CODE_TABLE: Record<RefusalCode, true> = {
   'vin-no-target': true,
   'vin-coded-shape': true,
   'checksum-broken': true,
+  'backup-checksum-broken': true,
   'not-blank': true,
   'backup-no-data': true,
   'backup-size': true,

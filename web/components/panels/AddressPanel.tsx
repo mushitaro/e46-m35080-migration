@@ -19,6 +19,7 @@ import {
   type OdoSlot,
 } from '@/lib/domain/addressMap';
 import { readVins } from '@/lib/domain/vin';
+import { detectLayout } from '@/lib/domain/layout';
 import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
 import { MicroLabel, Well } from '@/components/ui';
@@ -45,6 +46,7 @@ export function AddressPanel({
   const slots = useMemo(() => odometerSlots(image), [image]);
   const math = useMemo(() => odometerArithmetic(image), [image]);
   const vins = useMemo(() => readVins(image), [image]);
+  const layout = useMemo(() => detectLayout(image), [image]);
   const vin = { found: vins.ascii, candidates: vins.candidates };
 
   return (
@@ -144,6 +146,47 @@ export function AddressPanel({
           </>
         )}
         <p className="text-[10px] leading-snug text-slate-600">{c.mapVinNote}</p>
+      </section>
+
+      {/* ---------------------------- checksums ---------------------------- */}
+      <section className="flex flex-col gap-1.5">
+        <MicroLabel as="h3">{CHROME.checksum.title}</MicroLabel>
+        {layout.kind === 'late' ? (
+          <>
+            <ul className="flex flex-col">
+              {layout.checksums.flatMap((cs) =>
+                [{ at: cs.at, stored: cs.stored }, ...cs.mirrors].map((m) => {
+                  const ok = m.stored === cs.computed;
+                  return (
+                    <li key={m.at}>
+                      <button
+                        onClick={() => onSelect(m.at)}
+                        className="flex w-full items-baseline gap-2 border-b border-slate-900 py-0.5 text-left font-mono
+                                   text-[10px] hover:bg-slate-900/50"
+                      >
+                        <span className="text-slate-600">{addr(m.at)}</span>
+                        <span className={ok ? 'text-slate-300' : 'text-red-400'}>
+                          {m.stored.toString(16).toUpperCase().padStart(2, '0')}
+                        </span>
+                        {!ok && (
+                          <span className="text-slate-500">
+                            &rarr; {cs.computed.toString(16).toUpperCase().padStart(2, '0')}
+                          </span>
+                        )}
+                        <span className={`ml-auto ${ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {ok ? CHROME.checksum.ok : CHROME.checksum.broken}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                }),
+              )}
+            </ul>
+            <p className="text-[10px] leading-snug text-slate-600">{c.checksumNote}</p>
+          </>
+        ) : (
+          <p className="text-[10px] leading-snug text-slate-500">{c.checksumUnknown}</p>
+        )}
       </section>
 
       {/* --------------------------- the rest ----------------------------- */}

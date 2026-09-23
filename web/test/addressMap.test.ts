@@ -122,3 +122,18 @@ describe('explainAddress on the coded VIN', () => {
     expect(explainAddress(img, 0x07a)).toEqual({ kind: 'unidentified' });
   });
 });
+
+describe('explainAddress on the checksums', () => {
+  it('names each checksum byte and its mirror, with stored and computed values', () => {
+    const img = lateImage();
+    expect(explainAddress(img, 0x16e)).toMatchObject({ kind: 'checksum', region: 'coding', ok: true });
+    expect(explainAddress(img, 0x3cd)).toMatchObject({ kind: 'checksum', region: 'maker', ok: true });
+    expect(explainAddress(img, 0x3df)).toMatchObject({ kind: 'checksum', region: 'maker', at: 0x3df, ok: true });
+    img[0x3df] ^= 0x01;
+    expect(explainAddress(img, 0x3df)).toMatchObject({ kind: 'checksum', ok: false });
+  });
+
+  it('does not name them on an image whose layout is not recognised', () => {
+    expect(explainAddress(chip(), 0x16e)).toEqual({ kind: 'unidentified' });
+  });
+});

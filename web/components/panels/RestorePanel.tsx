@@ -65,6 +65,15 @@ export function RestorePanel({
         </p>
       )}
       <PlanNote plan={chipBlank ? restorePlan : repairPlan} />
+      {(() => {
+        const plan = chipBlank ? restorePlan : repairPlan;
+        if (!plan?.ok) return null;
+        return (
+          <p className={`font-mono text-[10px] ${plan.checksums === 'ok' ? 'text-emerald-400' : 'text-slate-500'}`}>
+            {plan.checksums === 'ok' ? c.restoreChecksumsOk : c.restoreChecksumsUnchecked}
+          </p>
+        );
+      })()}
       {chipBlank ? (
         <>
           <p className="text-[11px] leading-relaxed text-slate-400">{c.restoreProcedure}</p>

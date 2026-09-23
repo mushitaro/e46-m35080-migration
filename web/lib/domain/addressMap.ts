@@ -31,6 +31,7 @@ import {
 } from './odometer';
 import { secureOf, type VinSpan } from './image';
 import { readVins } from './vin';
+import { checksumStatus, detectLayout, type ChecksumRegionId } from './layout';
 
 /** One of the sixteen odometer registers, with where it lives. */
 export type OdoSlot = {
@@ -116,6 +117,8 @@ export type AddressMeaning =
       /** The first character this byte holds (a coded byte holds two digits). */
       charIndex: number;
     }
+  /** A checksum byte (or its mirror) of a recognised late layout. */
+  | { kind: 'checksum'; region: ChecksumRegionId; at: number; stored: number; computed: number; ok: boolean }
   /** Inside the standard array, and honestly not identified. */
   | { kind: 'unidentified' };
 
@@ -135,6 +138,15 @@ export function explainAddress(image: Uint8Array, address: number): AddressMeani
       value: slot.value,
       role: slot.role,
     };
+  }
+  if (detectLayout(image).kind === 'late') {
+    for (const c of checksumStatus(image)) {
+      const mirror = c.mirrors.find((m) => m.at === address);
+      if (c.at === address || mirror) {
+        const stored = mirror ? mirror.stored : c.stored;
+        return { kind: 'checksum', region: c.id, at: address, stored, computed: c.computed, ok: stored === c.computed };
+      }
+    }
   }
   const vins = readVins(image);
   const coded = vins.coded;

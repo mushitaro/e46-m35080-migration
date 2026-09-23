@@ -98,6 +98,15 @@ export const CHROME = {
     file: 'DROP .BIN · 1024 BYTES',
   },
 
+  /* ---- the two checksums of the late layout (lib/domain/layout.ts) ---- */
+  checksum: {
+    title: 'CHECKSUMS',
+    ok: 'OK',
+    broken: 'BROKEN',
+    unknown: 'UNKNOWN LAYOUT',
+    fix: 'FIX CHECKSUMS',
+  },
+
   /* ---- the file workbench ---- */
   inspect: {
     open: 'OPEN FILE',

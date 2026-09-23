@@ -13,7 +13,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Download, RotateCcw, Undo2, X } from 'lucide-react';
+import { Download, RotateCcw, Undo2, Wrench, X } from 'lucide-react';
 
 import { DropZone } from '@/components/DropZone';
 import { VehicleInfo } from '@/components/VehicleInfo';
@@ -23,6 +23,7 @@ import {
   changedAddresses,
   editByte,
   editedFilename,
+  fixChecksums,
   isDirty,
   revertAll,
   undoLast,
@@ -33,6 +34,7 @@ import { assessChip, formatAddress, formatByte } from '@/lib/domain/image';
 import { decodeOdometer } from '@/lib/domain/odometer';
 import { secureOf } from '@/lib/domain/image';
 import { readVins } from '@/lib/domain/vin';
+import { detectLayout } from '@/lib/domain/layout';
 import { downloadImage } from '@/lib/domain/records';
 import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
@@ -64,6 +66,15 @@ export function InspectPanel({
   const odometer = useMemo(() => (image ? decodeOdometer(secureOf(image)) : null), [image]);
   const vins = useMemo(() => (image ? readVins(image) : null), [image]);
   const chip = useMemo(() => (image ? assessChip(image) : null), [image]);
+  const layout = useMemo(() => (image ? detectLayout(image) : null), [image]);
+  /** The checksums that do not hold, named by address - the words the FIX and SAVE prompts use. */
+  const brokenList =
+    layout?.kind === 'late'
+      ? layout.checksums
+          .flatMap((cs) => [{ at: cs.at, stored: cs.stored }, ...cs.mirrors].filter((m) => m.stored !== cs.computed))
+          .map((m) => `0x${formatAddress(m.at)}`)
+          .join(', ')
+      : '';
 
   if (!workspace || !image || !verdict) {
     return (
@@ -113,6 +124,33 @@ export function InspectPanel({
             )}
           </p>
         )}
+
+        {/* Always drawn, one line tall: an edit inside a checksummed region breaks a checksum,
+            and the reader has to see that as they make the edit, not when a cluster rejects it. */}
+        <div className="flex min-h-[20px] items-center gap-3 font-mono text-[10px]">
+          <span className="text-slate-600">{CHROME.checksum.title}</span>
+          {layout?.kind !== 'late' ? (
+            <span className="text-slate-500">{CHROME.checksum.unknown}</span>
+          ) : layout.consistent ? (
+            <span className="text-emerald-400">{CHROME.checksum.ok}</span>
+          ) : (
+            <>
+              <span className="truncate text-red-400">
+                {CHROME.checksum.broken} {brokenList}
+              </span>
+              <TextButton
+                Icon={Wrench}
+                className="ml-auto"
+                onClick={() => {
+                  const r = fixChecksums(workspace);
+                  if (r.ok) onChange(r.workspace);
+                }}
+              >
+                {CHROME.checksum.fix}
+              </TextButton>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ------------------------------- edit ------------------------------ */}
@@ -175,7 +213,13 @@ export function InspectPanel({
           </TextButton>
           <TextButton
             Icon={Download}
-            onClick={() => downloadImage(image, editedFilename(workspace.name, new Date()))}
+            onClick={() => {
+              // A short question with a real answer: save a file whose checksums are broken, or not.
+              if (layout?.kind === 'late' && !layout.consistent && !window.confirm(c.inspectSaveBroken(brokenList))) {
+                return;
+              }
+              downloadImage(image, editedFilename(workspace.name, new Date()));
+            }}
             className="ml-auto"
           >
             {CHROME.inspect.saveAs}

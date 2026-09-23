@@ -8,7 +8,10 @@ import {
   revertAll,
   undoLast,
   verdictFor,
+  fixChecksums,
 } from '@/lib/domain/inspect';
+import { detectLayout } from '@/lib/domain/layout';
+import { lateImage } from './support/lateImage';
 import { IMAGE_SIZE, SPI_DUMMY } from '@/lib/domain/image';
 import { encodeOdometer, slotsToBytes } from '@/lib/domain/odometer';
 
@@ -146,5 +149,34 @@ describe('verdictFor - is this file a chip read at all?', () => {
     const v = verdictFor(realish());
     expect(v.secureBlank).toBe(false);
     expect(v.standardErased).toBe(false);
+  });
+});
+
+describe('fixChecksums - the explicit repair', () => {
+  it('puts a broken checksum right as an ordinary, undoable edit', () => {
+    const img = lateImage();
+    const good = img[0x16e]!;
+    let ws = openWorkspace('x.bin', img);
+    const e = editByte(ws, 0x080, img[0x080]! ^ 0x04);
+    expect(e.ok).toBe(true);
+    if (!e.ok) return;
+    ws = e.workspace;
+    expect(detectLayout(ws.current)).toMatchObject({ kind: 'late', consistent: false });
+
+    const f = fixChecksums(ws);
+    expect(f.ok).toBe(true);
+    if (!f.ok) return;
+    expect(detectLayout(f.workspace.current)).toMatchObject({ kind: 'late', consistent: true });
+    expect(f.workspace.edits.at(-1)).toEqual({ address: 0x16e, before: good, after: good ^ 0x04 });
+    // Undo takes the fix back and the checksum is broken again: nothing happened behind the reader.
+    expect(detectLayout(undoLast(f.workspace).current)).toMatchObject({ consistent: false });
+  });
+
+  it('does nothing to a consistent image and refuses an unrecognised one', () => {
+    expect(fixChecksums(openWorkspace('x.bin', lateImage()))).toEqual({ ok: false, reason: 'no-change' });
+    expect(fixChecksums(openWorkspace('x.bin', new Uint8Array(1024).fill(0x11)))).toEqual({
+      ok: false,
+      reason: 'not-late-layout',
+    });
   });
 });

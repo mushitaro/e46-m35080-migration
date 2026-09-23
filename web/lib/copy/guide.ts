@@ -172,6 +172,17 @@ const JA = {
     'チップに入っているのは VIN（17 桁）の最後の 7 桁（11〜17 桁目）で、欄が 2 つあり得ます。' +
     'CODED はコーディング側の欄で、チェックサムで確認できたレイアウトのときだけ 0x07A〜0x07E を読みます。' +
     'ASCII は大文字英数字が 7 文字以上続く箇所を探した末尾 7 文字です（実チップでは 0x184〜0x18A、0x18B が NUL）。',
+  checksumNote:
+    'このレイアウトには 2 つのチェックサムがあります。0x16E は 0x070〜0x16D の XOR、' +
+    '0x3CD は 0x310〜0x3CC の XOR で、0x3DF にも同じ値が入ります。実チップ 2 個で成り立つことを確かめています。',
+  checksumUnknown:
+    'チェックサムで確認できるレイアウトではないため、検査していません（旧世代のクラスターや、由来の分からないファイル）。',
+  checksumBrokenAt: (list: string) => `合っていないチェックサム: ${list}`,
+  inspectSaveBroken: (list: string) =>
+    `チェックサムが合っていません（${list}）。このファイルをチップに書くと、メータが受け付けない可能性があります。` +
+    'FIX CHECKSUMS で直さずに、このまま保存しますか？',
+  restoreChecksumsOk: 'バックアップのチェックサム: 合っています（書いたあとも合います）',
+  restoreChecksumsUnchecked: 'バックアップのチェックサム: 検査できないレイアウトです',
   mapVinCoded:
     '0x07A〜0x07E: 英数字 2 文字のあとに数字 5 桁（BCD）。0x07E の下位 4 ビットは VIN ではありません。' +
     'この欄は 0x16E のチェックサムの範囲に入っているため、書き換えるとチェックサムも計算し直します。',
@@ -361,6 +372,17 @@ const EN: typeof JA = {
     'hold them in two fields. CODED is the coding field at 0x07A-0x07E, read only when the layout is ' +
     "confirmed by its checksums. ASCII is found by scanning for a run of 7 or more uppercase " +
     "alphanumerics and taking the run's last 7 (on the real chip: 0x184-0x18A, NUL at 0x18B).",
+  checksumNote:
+    'This layout carries two checksums. 0x16E is the XOR of 0x070-0x16D; 0x3CD is the XOR of ' +
+    '0x310-0x3CC, and 0x3DF holds the same value. Both are confirmed on two real chips.',
+  checksumUnknown:
+    'Not a layout its checksums can confirm, so nothing was checked (an older-generation cluster, or a file of unknown origin).',
+  checksumBrokenAt: (list: string) => `Checksums that do not hold: ${list}`,
+  inspectSaveBroken: (list: string) =>
+    `The checksums do not hold (${list}). A chip written from this file may be rejected by the cluster. ` +
+    'Save it as it is, without FIX CHECKSUMS?',
+  restoreChecksumsOk: "Backup checksums: they hold (and will after the write)",
+  restoreChecksumsUnchecked: 'Backup checksums: not a layout that can be checked',
   mapVinCoded:
     '0x07A-0x07E: two letters or digits, then five digits as BCD. The low nibble of 0x07E is not ' +
     'part of the VIN. The field is inside the 0x16E checksum region, so rewriting it recomputes that byte.',

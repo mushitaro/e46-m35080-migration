@@ -480,3 +480,46 @@ describe('planRewrite on a late-layout chip - both VIN fields', () => {
     expect(readVins(applyPlanPreview(img, p.byteWrites)).coded?.text).toBe('AB12345');
   });
 });
+
+/* ---------------------- checksums on RESTORE / REPAIR ---------------------- */
+
+describe('RESTORE and REPAIR check the backup checksums', () => {
+  const blankTarget = () => {
+    const img = new Uint8Array(IMAGE_SIZE).fill(0xff);
+    img.fill(0x00, 0, 0x20);
+    return img;
+  };
+
+  it('restores a consistent late-layout backup and says its checksums hold', () => {
+    const p = planReset(blankTarget(), lateImage());
+    expect(p).toMatchObject({ ok: true, checksums: 'ok' });
+    if (!p.ok) return;
+    expect(checksumStatus(applyPlanPreview(blankTarget(), p.byteWrites)).every((c) => c.ok)).toBe(true);
+  });
+
+  it('refuses a late-layout backup whose checksum does not hold', () => {
+    const backup = lateImage();
+    backup[0x0a0] ^= 0x01; // inside 0x070-0x16D: the 0x16E checksum no longer holds
+    expect(planReset(blankTarget(), backup)).toMatchObject({ ok: false, code: 'backup-checksum-broken' });
+    expect(planRepairStandard(lateImage({ seed: 9 }), backup)).toMatchObject({
+      ok: false,
+      code: 'backup-checksum-broken',
+    });
+  });
+
+  it('says "unchecked" for a backup that is not a recognisable layout, instead of implying a check', () => {
+    expect(planReset(blankTarget(), usedChip())).toMatchObject({ ok: true, checksums: 'unchecked' });
+    expect(planRepairStandard(usedChip(), usedChip(100_000))).toMatchObject({ ok: true, checksums: 'unchecked' });
+  });
+
+  it('repairs toward a consistent backup and leaves the chip consistent', () => {
+    const backup = lateImage();
+    const chip = lateImage();
+    chip[0x200] = 0x00; // lost bytes outside any checksum region
+    chip[0x201] = 0x00;
+    const p = planRepairStandard(chip, backup);
+    expect(p).toMatchObject({ ok: true, checksums: 'ok', addresses: [0x200, 0x201] });
+    if (!p.ok) return;
+    expect(checksumStatus(applyPlanPreview(chip, p.byteWrites)).every((c) => c.ok)).toBe(true);
+  });
+});

@@ -25,6 +25,7 @@
  */
 
 import { IMAGE_SIZE, diff } from './image';
+import { detectLayout, recomputeChecksums } from './layout';
 
 /** One byte, changed. `before` is what makes the edit reversible. */
 export type ByteEdit = { address: number; before: number; after: number };
@@ -84,6 +85,30 @@ export function editByte(ws: Workspace, address: number, value: number): EditRes
   return {
     ok: true,
     workspace: { ...ws, current, edits: [...ws.edits, { address, before, after: value }] },
+  };
+}
+
+/**
+ * Put the checksums right, as ordinary edits.
+ *
+ * Explicit, and only here: the reader presses FIX CHECKSUMS after seeing which checksum is broken,
+ * and each corrected byte lands on the undo stack like any other edit, so the fix can be taken
+ * back byte by byte. Refused on an image that is not a recognised layout - there is no rule to
+ * apply to it.
+ */
+export function fixChecksums(
+  ws: Workspace,
+): { ok: true; workspace: Workspace } | { ok: false; reason: 'not-late-layout' | 'no-change' } {
+  if (detectLayout(ws.current).kind !== 'late') return { ok: false, reason: 'not-late-layout' };
+  const { image, writes } = recomputeChecksums(ws.current);
+  if (writes.length === 0) return { ok: false, reason: 'no-change' };
+  return {
+    ok: true,
+    workspace: {
+      ...ws,
+      current: image,
+      edits: [...ws.edits, ...writes.map((w) => ({ address: w.address, before: w.before, after: w.after }))],
+    },
   };
 }
 

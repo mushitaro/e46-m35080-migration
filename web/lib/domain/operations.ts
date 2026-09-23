@@ -28,6 +28,7 @@ import { encodeVin, readVin, readVins, recordVin } from './vin';
 import {
   CODED_VIN_AT,
   detectLayout,
+  type Layout,
   encodeCodedVin,
   fitsCodedVin,
   recomputeChecksums,
@@ -50,6 +51,7 @@ export type RefusalCode =
   | 'vin-no-target'
   | 'vin-coded-shape'
   | 'checksum-broken'
+  | 'backup-checksum-broken'
   | 'not-blank'
   | 'backup-no-data'
   | 'backup-size'
@@ -214,11 +216,33 @@ const hexAddr = (a: number) => `0x${a.toString(16).toUpperCase().padStart(3, '0'
 
 /* ------------------------- RESTORE ONTO A NEW CHIP ------------------------- */
 
+/**
+ * What the plan knows about the checksums of what it will write.
+ *
+ *   ok         the backup is a late-layout image and both its checksums hold, so the chip will
+ *              carry consistent checksums after the write
+ *   unchecked  the backup is not a layout this tool can recognise (the older generation, or a
+ *              file of unknown origin), so there is nothing to check - said, not implied
+ */
+export type ChecksumCheck = 'ok' | 'unchecked';
+
+/**
+ * A late-layout backup whose checksums do not hold is refused: copying it would put a cluster
+ * back together with a checksum it will not accept. The fix is explicit and happens on the
+ * file, in INSPECT (FIX CHECKSUMS), where the reader sees which byte changes - never silently here.
+ */
+function backupChecksums(backup: Uint8Array): ChecksumCheck | Refusal {
+  const layout: Layout = detectLayout(backup);
+  if (layout.kind !== 'late') return 'unchecked';
+  return layout.consistent ? 'ok' : refuse('backup-checksum-broken');
+}
+
 export type ResetPlan = {
   ok: true;
   /** Bytes written to the standard array. The secure area is NOT touched. */
   byteWrites: ByteWrite[];
   resultingKm: 0;
+  checksums: ChecksumCheck;
 };
 
 /**
@@ -252,6 +276,8 @@ export function planReset(image: Uint8Array, backup: Uint8Array): ResetPlan | Re
   if (backup.length !== IMAGE_SIZE) return refuse('backup-size');
   if (!assessChip(image).blank) return refuse('not-blank');
   if (!hasClusterData(backup)) return refuse('backup-no-data');
+  const checksums = backupChecksums(backup);
+  if (typeof checksums !== 'string') return checksums;
 
   /* The whole array, byte for byte.
      This used to force 0x2E8-0x2EF to 0xFF, "blanking the VIN". That address
@@ -269,6 +295,7 @@ export function planReset(image: Uint8Array, backup: Uint8Array): ResetPlan | Re
       },
     ],
     resultingKm: 0,
+    checksums,
   };
 }
 
@@ -297,6 +324,7 @@ export type RepairPlan = {
   byteWrites: ByteWrite[];
   /** Every address this would change, so the confirm dialog can name them. */
   addresses: number[];
+  checksums: ChecksumCheck;
 };
 
 /**
@@ -325,6 +353,8 @@ export function planRepairStandard(
   if (image.length !== IMAGE_SIZE) return refuse('image-size');
   if (backup.length !== IMAGE_SIZE) return refuse('backup-size');
   if (!hasClusterData(backup)) return refuse('backup-no-data');
+  const checksums = backupChecksums(backup);
+  if (typeof checksums !== 'string') return checksums;
 
   /* Every differing byte, including 0x2E8-0x2EF. That range used to be skipped
      as "the VIN"; it is not, and skipping it meant refusing to repair real
@@ -350,7 +380,7 @@ export function planRepairStandard(
     i = j + 1;
   }
 
-  return { ok: true, byteWrites, addresses };
+  return { ok: true, byteWrites, addresses, checksums };
 }
 
 /* ------------------------------ EXACT CLONE ------------------------------ */

@@ -21,13 +21,15 @@ const resetOk: ResetPlan = {
   ok: true,
   byteWrites: [{ address: 0x20, data: new Uint8Array(0x3e0), label: 'standard array 0x20-0x3FF from backup, byte for byte' }],
   resultingKm: 0,
+  checksums: 'ok',
 };
 const repairOk: RepairPlan = {
   ok: true,
   byteWrites: [{ address: 0x100, data: new Uint8Array(2), label: '0x100-0x101 from backup (2 bytes)' }],
   addresses: [0x100, 0x101],
+  checksums: 'unchecked',
 };
-const repairNothing: RepairPlan = { ok: true, byteWrites: [], addresses: [] };
+const repairNothing: RepairPlan = { ok: true, byteWrites: [], addresses: [], checksums: 'unchecked' };
 
 function state(over: Partial<BridgeHubState> = {}): BridgeHubState {
   return {

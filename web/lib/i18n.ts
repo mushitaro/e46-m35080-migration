@@ -238,6 +238,13 @@ const JA = {
             'イメージで計算し直すと、何が壊したのかを隠してしまいます。読み直すか、バックアップを ' +
             'INSPECT で確認してください。',
         };
+      case 'backup-checksum-broken':
+        return {
+          reason: 'このバックアップはチェックサムが合っていません。',
+          detail:
+            'このまま書くと、メータが受け付けないチェックサムのままチップに戻ります。' +
+            'INSPECT でファイルを開き、FIX CHECKSUMS で直してから、そのファイルを使ってください。',
+        };
       case 'km-invalid':
         return { reason: '走行距離は 0 以上の整数で入力してください' };
       case 'km-too-large':
@@ -392,6 +399,13 @@ const EN: typeof JA = {
             'Writing the VIN at 0x07A means recomputing the checksum at 0x16E. Recomputing it over ' +
             'an image that was already inconsistent would hide whatever broke it. Read the chip ' +
             'again, or check the backup in INSPECT.',
+        };
+      case 'backup-checksum-broken':
+        return {
+          reason: "This backup's checksums do not hold.",
+          detail:
+            'Writing it would put the chip back with a checksum the cluster will not accept. Open ' +
+            'the file in INSPECT, press FIX CHECKSUMS, save it, and use that file.',
         };
       case 'km-invalid':
         return { reason: 'Mileage must be a whole number of kilometres, 0 or more' };
