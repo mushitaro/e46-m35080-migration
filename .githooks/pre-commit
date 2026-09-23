@@ -1,0 +1,5 @@
+#!/bin/sh
+# This repository is public. No real chip image, no VIN, nothing BMW-derived and no secret may be
+# committed - scripts/check-public-tree.mjs knows the shapes, and it reads what is STAGED, which is
+# what the commit will actually contain. Installed by `npm run hooks:install` (in web/).
+exec node scripts/check-public-tree.mjs --staged

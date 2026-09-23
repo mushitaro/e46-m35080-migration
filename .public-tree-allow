@@ -1,0 +1,5 @@
+# Deliberate exceptions to scripts/check-public-tree.mjs — one path or one value per line.
+#
+# A made-up VIN (the "XX" and "00000" are not a real plant code and serial). web/test/vin.test.ts
+# needs a full 17-character VIN to prove the chip holds only its last seven.
+WBSXX00000AB12345

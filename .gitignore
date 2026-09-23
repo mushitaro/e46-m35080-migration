@@ -11,4 +11,10 @@ coverage/
 
 # build artifacts
 tsconfig.tsbuildinfo
+
+# wrangler's local state (local D1, bundles) and the local gate secret.
+# This repository is public: scripts/check-public-tree.mjs refuses both, and
+# web/scripts/gate-verify.mjs fails when .dev.vars is not ignored.
 .wrangler/
+.dev.vars
+.dev.vars.*

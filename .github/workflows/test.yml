@@ -14,6 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # First, before anything is installed or built: this repository is
+      # public, and no real chip image, no VIN, nothing BMW-derived and no
+      # secret may be in it. The same check the pre-commit hook runs, here for
+      # a commit made without the hook installed.
+      - run: node scripts/check-public-tree.mjs
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
