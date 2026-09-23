@@ -23,7 +23,8 @@ const JA = {
 
   /* 復旧はフォーク元 README の原則を新品チップに当てはめたもの。
      ・0x20–0x3FF はバックアップから（新品は全FFで、クラスターのデータが無い）
-     ・VIN は 0xFF（README: 工場出荷状態にして OBD で設定）
+     ・VIN の欄（0x07A のコーディング側と 0x184 付近の ASCII）はバックアップのまま複製する。
+       README の「0x2E8 を 0xFF に」は VIN ではない場所を消す指示だった（vin.ts）
      ・走行距離は書かない（README: 新クラスターの距離は車両より低く。0 は常に低い）
      以前は「バックアップ不要・VIN 8バイトだけ」を標準と称していた。それでは
      標準領域が全FFのままで、車両が戻すのは距離と VIN だけなので復旧しない。 */
@@ -254,7 +255,7 @@ const EN: typeof JA = {
     'reads 0 km the sync did not happen - set the mileage on the REWRITE step or with a diagnostic tool.',
   restoreBasis:
     'Basis: a new chip ships at 0 km, and the standard array can only come back from a copy of a ' +
-    'mileage on a new cluster must be lower than the car).',
+    'backup (the car puts back the mileage and the VIN, never the cluster\'s data).',
 
   repairLead:
     'This chip is not blank. Only the standard-array bytes that differ from the backup are written back.',

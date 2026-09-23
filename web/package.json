@@ -4,10 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 5049",
     "build": "next build && node scripts/build-id.mjs && node scripts/gen-sw.mjs && node scripts/verify-export.mjs",
     "start": "next start",
-    "lint": "next lint",
     "deploy": "node scripts/deploy.mjs",
     "test": "node tools/check_ui_tokens.mjs && node ../scripts/check-bmw-data.mjs && vitest run",
     "test:watch": "vitest",
@@ -19,12 +18,10 @@
     "verify:deploy": "node scripts/verify-deploy.mjs"
   },
   "dependencies": {
-    "clsx": "^2.1.1",
     "lucide-react": "^1.45.0",
     "next": "^16.3.5",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "tailwind-merge": "^3.7.0"
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260923.1",

@@ -78,6 +78,17 @@ describe('the part facts that get bought wrong', () => {
   it('runs the bus below the part rating', () => {
     expect(ELECTRICAL.firmwareClockHz).toBeLessThanOrEqual(ELECTRICAL.maxClockHz);
   });
+
+  it('states the clock the firmware actually runs', () => {
+    // The data said 3 MHz while the sketch had long since moved to 1 MHz, and nothing noticed.
+    const ino = fs.readFileSync(
+      path.resolve(__dirname, '../../firmware/m35080_bridge/m35080_bridge.ino'),
+      'utf8',
+    );
+    const m = /SPISettings\s+\w+\((\d+)\s*,/.exec(ino);
+    expect(m, 'SPISettings in m35080_bridge.ino').not.toBeNull();
+    expect(Number(m![1])).toBe(ELECTRICAL.firmwareClockHz);
+  });
 });
 
 /**

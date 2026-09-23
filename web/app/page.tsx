@@ -136,8 +136,8 @@ export default function Page() {
         : null,
     [image, effectiveTargetKm, effectiveVinAction],
   );
-  /* RESTORE = the backup's cluster data onto a new chip, VIN blanked, odometer
-     untouched. It needs a backup: there is no restore without one. */
+  /* RESTORE = the backup's cluster data onto a new chip, byte for byte (the VIN fields with
+     it), odometer untouched. It needs a backup: there is no restore without one. */
   const restorePlan = useMemo(
     () => (image && backupFile ? planReset(image, backupFile) : null),
     [image, backupFile],

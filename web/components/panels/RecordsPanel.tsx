@@ -9,7 +9,7 @@
  */
 
 import { Download, Trash2, FileCode } from 'lucide-react';
-import { backupFilename, downloadImage, type DeviceRecord } from '@/lib/domain/records';
+import { recordFilename, downloadImage, type DeviceRecord } from '@/lib/domain/records';
 import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
 import { EmptyState, LABEL, TableBody } from '@/components/ui';
@@ -62,7 +62,7 @@ export function RecordsTable({
               <td className="px-3 py-1 text-right">
                 <button
                   onClick={() =>
-                    downloadImage(r.bytes, backupFilename(r.vin, r.km, new Date(r.createdAt), r.practice))
+                    downloadImage(r.bytes, recordFilename(r.kind, r.vin, r.km, new Date(r.createdAt), r.practice))
                   }
                   className="mr-2 text-slate-600 transition-colors hover:text-blue-400"
                   title="download .bin"

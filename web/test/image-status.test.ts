@@ -266,4 +266,12 @@ describe('backupFilename - the mode is in the name', () => {
     expect(backupFilename('AB12345', 155_940, at, false)).toMatch(/^Backup_/);
     expect(backupFilename('AB12345', 155_940, at)).toMatch(/^Backup_/);
   });
+
+  it('names a record by what it is, keeping the practice mark', async () => {
+    const { recordFilename } = await import('@/lib/domain/records');
+    const at = new Date(2026, 8, 17, 16, 53);
+    expect(recordFilename('rewrite', 'AB12345', 200_000, at)).toBe('Rewrite_AB12345_200000km_20260917-1653.bin');
+    expect(recordFilename('restore', null, 0, at, true)).toBe('PRACTICE_Restore_noVIN_0km_20260917-1653.bin');
+    expect(recordFilename('backup', 'AB12345', null, at)).toBe('Backup_AB12345_noKM_20260917-1653.bin');
+  });
 });

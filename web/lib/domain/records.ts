@@ -131,6 +131,23 @@ export function backupFilename(
   return `${parts.join('_')}.bin`;
 }
 
+/**
+ * The file name for any record, by what the record IS.
+ *
+ * RECORDS used to download every row as `Backup_...`, so the image a REWRITE left on the chip
+ * came back named as the backup taken before it - the label promised the other file.
+ */
+export function recordFilename(
+  kind: RecordKind,
+  vin: string | null,
+  km: number | null,
+  when = new Date(),
+  practice = false,
+): string {
+  const word: Record<RecordKind, string> = { backup: 'Backup', rewrite: 'Rewrite', reset: 'Reset', restore: 'Restore' };
+  return backupFilename(vin, km, when, practice).replace(/^(PRACTICE_)?Backup/, `$1${word[kind]}`);
+}
+
 /** Trigger a download of an image as a .bin file. */
 export function downloadImage(image: Uint8Array, filename: string): void {
   const buf = new ArrayBuffer(image.byteLength);

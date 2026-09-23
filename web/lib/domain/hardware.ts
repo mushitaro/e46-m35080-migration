@@ -95,9 +95,13 @@ export const ELECTRICAL = {
   /** Budget, not a typical figure - the part draws a few mA. */
   currentBudgetMa: 10,
   spiMode: 0,
-  /** The part is rated 5 MHz; the firmware runs 3 MHz, as the reference did. */
+  /**
+   * The part is rated 5 MHz; the firmware runs 1 MHz. At 3 MHz a bench read differed from a
+   * programmer's dump of the same chip on 3 of 1024 bytes (m35080_bridge.ino). hardware.test.ts
+   * reads the sketch's SPISettings and fails if this and the firmware ever disagree again.
+   */
   maxClockHz: 5_000_000,
-  firmwareClockHz: 3_000_000,
+  firmwareClockHz: 1_000_000,
   bitOrder: 'MSB first',
 } as const;
 

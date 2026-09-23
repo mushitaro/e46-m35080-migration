@@ -18,7 +18,6 @@ covers the code. It does not cover, and cannot relicense, anything in §3.
 |---|---|---|
 | next, react, react-dom | MIT | bundled into the static export |
 | lucide-react | ISC | bundled (the icons the UI draws) |
-| clsx, tailwind-merge | MIT | bundled |
 | Inter, JetBrains Mono (through `next/font/google`) | SIL OFL 1.1 | downloaded at build time and self-hosted in the export |
 | tailwindcss, @tailwindcss/postcss | MIT | build time; its output is the shipped CSS |
 

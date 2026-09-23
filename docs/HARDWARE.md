@@ -110,7 +110,8 @@ So the practical build is rail-based:
 
 - Supply **4.5–5.5 V**. The UNO's 5 V rail powers the chip directly.
 - Current is a few mA; budget ≤10 mA of headroom.
-- SPI **Mode 0**, MSB-first, ≤5 MHz. The firmware runs 3 MHz.
+- SPI **Mode 0**, MSB-first, ≤5 MHz. The firmware runs **1 MHz**: at 3 MHz a bench read differed
+  from a programmer's dump of the same chip on 3 of 1024 bytes, and jumper wires are not a PCB.
 
 ## ⚠ Do not drive it from a 3.3 V board without level shifting
 

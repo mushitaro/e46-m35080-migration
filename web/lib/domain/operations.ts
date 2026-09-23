@@ -339,12 +339,13 @@ export type RepairPlan = {
  * bytes sit in triplicated records, and once all three copies are 0xFF nothing
  * in the car can reconstruct them - but a backup can.
  *
- * Two regions are never touched:
+ * One region is never touched:
  *   0x000-0x01F  The odometer. No WRINC is planned here, ever, so a repair can
  *                be run again and again without raising the counter - which is
  *                what makes it usable as a retention TEST: write, wait, re-read.
- *   0x2E8-0x2EF  The VIN. This tool does not copy an identity out of a file.
- *                A VIN is set deliberately - on REWRITE, or over OBD.
+ * Everything else in the standard array is put back where it differs, the VIN fields
+ * included (0x2E8 was once skipped here as "the VIN"; it is not, see vin.ts). The backup's
+ * checksums must hold first (backupChecksums).
  */
 export function planRepairStandard(
   image: Uint8Array,
