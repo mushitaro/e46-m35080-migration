@@ -21,6 +21,10 @@ jobs:
       # a commit made without the hook installed.
       - run: node scripts/check-public-tree.mjs
 
+      # The shapes only this tool meets: NCS coding data, SGBD tables, the reference data
+      # tools/refdata generates, and any 1024-byte binary (the size of a chip image).
+      - run: node scripts/check-bmw-data.mjs
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -18,3 +18,22 @@ tsconfig.tsbuildinfo
 .wrangler/
 .dev.vars
 .dev.vars.*
+
+# BMW-derived inputs and the reference data generated from them. This repository is public and
+# carries code only: scripts/check-bmw-data.mjs refuses these even if the ignore is bypassed, and
+# tools/refdata writes its output outside the tree by default (THIRD-PARTY-NOTICES.md 3.3).
+*.[cC][0-9A-Fa-f][0-9A-Fa-f]
+SWT*.dat
+*.grp
+*.prg
+*.ipo
+*.jobs.json
+*.telegrams.json
+*.jobtext.json
+kombi-coding.json
+kombi-names.json
+refdata-out/
+__pycache__/
+# Real short VINs and serials a check should refuse by value. Local only - listing them publicly
+# would publish them.
+.public-tree-deny.local
