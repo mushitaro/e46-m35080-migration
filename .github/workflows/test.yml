@@ -25,6 +25,10 @@ jobs:
       # tools/refdata generates, and any 1024-byte binary (the size of a chip image).
       - run: node scripts/check-bmw-data.mjs
 
+      # The reference-data generator's own tests: synthetic records only. The generator itself
+      # needs NCS Expert and the private terms, which CI does not have and must not have.
+      - run: python3 -m unittest discover -s tools/refdata
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
