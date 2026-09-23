@@ -1,4 +1,4 @@
-# E46 Cluster — M35080 Odometer Tool
+# E46 M35080 /// MIGRATION
 
 A browser tool for reading, backing up, rewriting and restoring the **M35080**
 SPI EEPROM in a BMW **E46 instrument cluster (IKE)**, driven through an Arduino
@@ -85,11 +85,16 @@ web/                      Next.js 16 + React 19 + Tailwind v4 PWA
   lib/domain              odometer / VIN / status / image / plans / records
                           workflow (the step machine) · hardware (the pin map)
   lib/copy                bench vocabulary (guide, wiring, parts), ja + en
+  lib/sync                the preview's SYNC client and error records (owner-sync.ts is a kit copy)
   components              ///M UI, incl. the wiring diagram and assembly guide
-  scripts                 sync-aliexpress.mjs — resolves the BOM to links
+  functions               the preview's owner gate (_owner-gate/ is a kit copy) and /api
+  migrations              the preview's D1 tables
+  scripts                 build-id · brand-preview · gen-sw · verify-export · deploy ·
+                          verify-deploy · gate-verify · sync-aliexpress (BOM → links)
   data                    parts.json (the BOM) · aliexpress.json (sync output)
   test                    domain, codec, device simulator, workflow, hardware
 docs/                     HARDWARE.md (wiring, BOM) · PROTOCOL.md (wire format)
+scripts/                  check-public-tree.mjs — what a public repository may not carry
 ```
 
 `lib/domain/hardware.ts` is the single source of truth for the pin map; the
@@ -102,7 +107,7 @@ the three cannot drift.
 cd web && npm install && npm run dev
 ```
 
-Then open `http://localhost:3000` in **Chrome or Edge on desktop** (Web Serial is
+Then open the address `next dev` prints in **Chrome or Edge on desktop** (Web Serial is
 not in Firefox or Safari) and click CONNECT.
 
 **No hardware? Click PRACTICE.** It runs the whole workflow — including the
@@ -111,36 +116,104 @@ increment-only rule.
 
 ```bash
 npm run test        # domain, codec, device simulator, workflow, hardware parity
-npm run build       # static export to web/out
+npm run build       # static export to web/out (production identity)
 ```
 
-This repository is the **PREVIEW** environment: dev icon set, a `PREVIEW`
-badge in the header, and `app-variant=preview` in the served HTML. It is
-published to Cloudflare Pages at
-**<https://e46-m35080-migration-preview.pages.dev>**. Web Serial requires a
-secure context, which that subdomain provides; `localhost` counts as one too,
-so `npm run dev` also works.
+## The preview
+
+There is one environment: the **owner preview** at
+<https://e46-m35080-migration-preview.pages.dev>, for people who hold
+`owner_preview` on [m3.tsunagi.app](https://m3.tsunagi.app) — MILE purchasers
+and the owners whose cars TSUNAGI has worked on. They open it from the APPS
+PREVIEW row of the M menu.
+
+- **The whole origin is gated.** `web/functions/_middleware.ts` is the owner
+  gate (a copy of tsunagi-m3's `tools/owner-gate`): without an m3 session that
+  holds `owner_preview`, a page load goes to m3 to sign in and anything else is
+  401. Only the web app manifest and its icons are public, because browsers
+  fetch those without cookies.
+- **Desktop Chrome or Edge only.** The bridge is reached over Web Serial, which
+  no phone browser and neither Firefox nor Safari has.
+- **SYNC.** RECORDS › SYNC keeps this device's records — each backup, and the
+  image after each rewrite, reset or restore — in the owner's own account, where
+  another device can RESTORE them. When an operation fails, the app sends an
+  error record by itself. Both are stored per owner; nobody else can list, read
+  or delete them. What is sent and for how long is in the privacy policy:
+  <https://m3.tsunagi.app/privacy-policy#preview>
+  (English: <https://m3.tsunagi.app/en/privacy-policy#preview>), linked from the
+  shield in the preview's header.
+- **Production sends nothing.** A build without `app-variant=preview` has no
+  SYNC panel, no PRIVACY link and makes no `/api` or `/_gate` request
+  (`lib/sync/cloud.ts` `canSync()`, pinned by `test/sync.test.ts`).
+
+The source carries production's identity (`E46 M35080 /// MIGRATION`,
+`M35080`, the M ICON `migration` set). The preview is branded after the
+compile:
 
 ```bash
-npm run deploy      # test -> build -> wrangler pages deploy
+npm run build          # next build → build-id → gen-sw → verify-export
+npm run build:preview  # next build → build-id → brand-preview out PREVIEW → gen-sw → verify-export
 ```
 
-**A push does not deploy.** Production is published by pushing to `main`;
-staging and preview are published by a local script, deliberately, because a
-preview is where you work rather than something that should reach the web on
-every commit. `.github/workflows/test.yml` runs the suite and the build on
-push and stops there, so the repository needs no Cloudflare secrets.
+### Deploying
 
-The test gate did not disappear with the deploy step — it moved into
-`web/scripts/deploy.mjs`, which runs the suite itself before it uploads
-anything. That script also reads the project name from `wrangler.jsonc` rather
-than repeating it, pins `--branch` so no branch alias is ever minted, and
-refuses to run if a `functions/` directory exists (this environment serves no
-API, and wrangler would collect one from the working directory).
+```bash
+cd web && npm run deploy            # or: npm run deploy -- --check (stops before the upload)
+```
 
-Installable as a PWA: `public/sw.js` keeps the shell available offline, but
-serves documents network-first — this tool writes to an EEPROM, so running a
-stale build is a hazard, not an inconvenience.
+`web/scripts/deploy.mjs` refuses unless the project in `wrangler.jsonc` is
+`e46-m35080-migration-preview` with `RUNS_DB` bound; the gate is present and
+`npm run gate:verify` passes; `check-public-tree` passes; the tree is clean and
+nothing gitignored sits under `public/` or `functions/`; `origin` is
+`github.com/mushitaro/e46-m35080-migration`, `HEAD` equals `origin/main` after a
+fetch, and GitHub shows an anonymous caller that the repository is public and
+serves that commit. Then it runs the tests (this app writes to an EEPROM:
+nothing deploys unless they pass), typecheck and `build:preview`, checks the
+branding and the build id, and runs wrangler from `web/` with `--branch main`.
+`scripts/verify-deploy.mjs` reads the deployment back; give it an owner session
+from tsunagi-m3's `access-session.mjs` in `GATE_SESSION_FILE` to check behind
+the gate. **A push does not deploy**: `.github/workflows/test.yml` runs the
+public-tree check, the suite and the build, and stops.
+
+The SYNC tables live in the D1 database `tsunagi-m-preview-runs`, shared with
+E46M3 /// MONITORING (`m35080_*` tables, `web/migrations/0001_m35080_sync.sql`).
+
+### Running the gate and SYNC locally
+
+`next dev` has no functions. To see the gate and SYNC, build the preview and
+serve it with wrangler, on localhost only:
+
+```bash
+cd web
+# web/.dev.vars (gitignored — never commit it):
+#   M3_CLIENT_SECRET=<32+ random characters, or `npm run access:client -- --dev-vars` in tsunagi-m3>
+#   GATE_DEV_ACCOUNT=<an account id>   # skip m3 entirely: you are signed in as this account
+npx wrangler@4 d1 migrations apply tsunagi-m-preview-runs --local
+npm run build:preview
+npx wrangler@4 pages dev out --port <a free port>
+```
+
+`GATE_DEV_ACCOUNT` (and `GATE_DEV_M3`) work only on `localhost` and
+`127.0.0.1`; the gate ignores them on any other host. Without
+`GATE_DEV_ACCOUNT` the gate behaves as deployed: a page load is sent to m3.
+
+### Offline
+
+The service worker is generated per build (`scripts/gen-sw.mjs` from
+`scripts/sw.template.js`), its cache named after a hash of the files. Documents
+are network-first — this tool writes to an EEPROM, so running a stale build is a
+hazard, not an inconvenience — and fall back to the installed build offline, or
+when the gate answers with a redirect or any non-2xx. `/_gate/*` and `/api/*`
+always go to the network. There is no `skipWaiting`: an update lands on the next
+cold start, and an install does not even download while a page has the bridge
+connected.
+
+### Public repository
+
+This repository is public under the MIT licence (`LICENSE`). No real chip image,
+VIN, BMW data or secret may be committed: `scripts/check-public-tree.mjs` runs
+from the pre-commit hook (`npm run hooks:install` in `web/`), in CI and before a
+deploy. See `THIRD-PARTY-NOTICES.md`.
 
 ## Parts list
 

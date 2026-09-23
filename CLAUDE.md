@@ -20,3 +20,7 @@ SPI ブリッジとして使う。`web/` がアプリ、`firmware/m35080_bridge/
 - **EEPROM に書く。**CI はテストが通らなければデプロイしない。この門を外さない。
 - `basePath` / `trailingSlash` は GitHub Pages 時代の名残で、他の M ツールの手本ではない。
 - 依存が他の repo から離れている（TypeScript ^7 / vitest ^5）。揃える側はこの repo。
+- **公開リポジトリ（MIT）。**実車のイメージ・VIN・BMW 由来のデータ・秘密はコミットしない。`scripts/check-public-tree.mjs --staged` を通してからコミットする。
+- 環境はオーナー向けプレビュー（`e46-m35080-migration-preview`）だけ。ソースは本番の名前とアイコンを持ち、プレビューは `build:preview` でビルド後に付ける。
+- `web/functions/_owner-gate/*` と `web/lib/sync/owner-sync.ts` は tsunagi-m3 `tools/owner-gate` の複写。ここで編集しない（`npm run gate:verify`）。
+- SYNC の API は持ち主を `ownerOf(context.data)` だけから取り、全クエリに `owner = ?`。配信は `npm run deploy` だけ（公開済みの `origin/main` でなければ拒む）。
