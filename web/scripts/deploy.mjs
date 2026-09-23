@@ -117,7 +117,16 @@ const strays = execFileSync('git', ['ls-files', '--others', '--ignored', '--excl
 if (strays.length > 0) {
   refuse(`gitignored files under web/public or web/functions would be uploaded with the build:\n        ${strays.join('\n        ')}`);
 }
-ok('working tree clean; nothing ignored under public/ or functions/');
+// `next build` also reads web/.env*, which is gitignored. A NEXT_PUBLIC_ value there (a basePath,
+// say) would change the deployed build without appearing in the public source. Other keys in those
+// files (the AliExpress script's) never reach the bundle, so only NEXT_PUBLIC_ is refused.
+const envLeaks = readdirSync(WEB)
+  .filter((f) => /^\.env/.test(f) && statSync(join(WEB, f)).isFile())
+  .filter((f) => /^\s*(export\s+)?NEXT_PUBLIC_/m.test(readFileSync(join(WEB, f), 'utf8')));
+if (envLeaks.length > 0) {
+  refuse(`NEXT_PUBLIC_ values in ${envLeaks.join(', ')} would change the build without being in the public source.`);
+}
+ok('working tree clean; nothing ignored under public/ or functions/; no NEXT_PUBLIC_ in .env files');
 
 /* ---- 5. the source is public ------------------------------------------------------------------ */
 let remote = '';

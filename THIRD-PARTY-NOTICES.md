@@ -82,7 +82,11 @@ gitignored for the same reason.
 
 A full VIN is refused by the check (`WBS` followed by fourteen VIN characters). The one
 full VIN in the tests, `WBSXX00000AB12345`, is made up and is listed in
-`.public-tree-allow`. Short VINs in the tests and in comments are stand-ins.
+`.public-tree-allow`. The short VINs in the tests and comments are not from any car this
+project has handled: `KT17727`, `KP83884` and `AW72288` are the examples published in the
+upstream [`gerchanovsky/m35080_odometer_fix`](https://github.com/gerchanovsky/m35080_odometer_fix)
+(its README and sketch), and `ABC12345` / `CD67890` are made up. The bench chip's own VIN
+was replaced with `ABC12345` before the first public commit.
 
 ### 3.3 BMW data
 

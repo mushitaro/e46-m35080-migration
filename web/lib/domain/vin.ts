@@ -99,7 +99,7 @@ const ascii = (bytes: Uint8Array) => Array.from(bytes, (b) => String.fromCharCod
  * the seven characters that are one.
  *
  * Deliberately imposes no letter/digit pattern inside the seven. `KT17727`
- * (the README's) and the V6's are both two letters and five digits, but two
+ * (the upstream README's example) and the V6's are both two letters and five digits, but two
  * examples are not a rule, and a pattern fitted to too few of them has
  * already rejected a real VIN in this project once.
  */

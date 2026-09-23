@@ -24,17 +24,18 @@ const LIST_COLUMNS = `
 /**
  * GET /api/sessions - this owner's, most recent first.
  *
- * No pagination: one person's own records. A limit that silently dropped the oldest would be worse.
+ * No pagination and no limit: one person's own records, without their images (a few hundred bytes a
+ * row). SYNC decides what to send from this list, so a limit that silently dropped the oldest would
+ * re-send them on every SYNC and hide them from RESTORE and DELETE.
  */
 export const onRequestGet: PagesFunction<Env> = async (ctx) => {
   const owner = ownerOf(ctx.data as Record<string, unknown>);
   if (!owner) return unauthorized();
 
-  const limit = Math.min(500, Math.max(1, Number(new URL(ctx.request.url).searchParams.get('limit') ?? 200) || 200));
   const { results } = await ctx.env.RUNS_DB.prepare(
-    `SELECT ${LIST_COLUMNS} FROM m35080_sessions WHERE owner = ? ORDER BY created_at DESC LIMIT ?`,
+    `SELECT ${LIST_COLUMNS} FROM m35080_sessions WHERE owner = ? ORDER BY created_at DESC`,
   )
-    .bind(owner.id, limit)
+    .bind(owner.id)
     .all();
   return json({ sessions: results });
 };
