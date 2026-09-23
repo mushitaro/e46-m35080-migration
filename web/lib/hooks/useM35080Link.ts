@@ -11,7 +11,7 @@
  * story.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   WebSerialM35080Link,
   BridgeError,
@@ -42,6 +42,7 @@ import {
   type RecordKind,
 } from '@/lib/domain/records';
 import { t } from '@/lib/i18n';
+import { setLinkBusy } from '@/lib/pwa/linkBusy';
 
 export type Phase =
   | 'disconnected'
@@ -94,6 +95,13 @@ export function useM35080Link() {
   const linkRef = useRef<M35080Link | null>(null);
   /** Guards the single write path against re-entry from a second click. */
   const writingRef = useRef(false);
+
+  /* The service worker asks every open page before it installs an update,
+     and a page with the bridge connected says not now (lib/pwa/linkBusy.ts):
+     nothing is downloaded, let alone swapped, while a chip is on the cable. */
+  useEffect(() => {
+    setLinkBusy(state.phase !== 'disconnected');
+  }, [state.phase]);
 
   const patch = useCallback((p: Partial<LinkState>) => {
     setState((s) => ({ ...s, ...p }));

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Registers the service worker, and nothing else.
+ * Registers the service worker, and answers the one question it asks.
  *
  * Mounted from the root layout rather than the page so that PWA install does
  * not depend on which step the reader happens to be on. Renders no markup, so
@@ -13,6 +13,7 @@
  */
 
 import { useEffect } from 'react';
+import { answerBusyProbes } from '@/lib/pwa/linkBusy';
 
 /* Static export bakes this in at build time. Empty for the Cloudflare Pages
    root deploy; a repo prefix if this is ever published under a sub-path. */
@@ -22,6 +23,11 @@ export function ServiceWorkerRegistrar() {
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') return;
     if (!('serviceWorker' in navigator)) return;
+
+    /* An installing worker asks whether the bridge is connected before it
+       downloads anything (scripts/sw.template.js). Listening first, so the
+       answer is ready before the first worker can ask. */
+    answerBusyProbes();
 
     /* A worker's scope cannot rise above its own path, so both have to carry
        the base prefix or registration is rejected under a sub-path deploy. */
