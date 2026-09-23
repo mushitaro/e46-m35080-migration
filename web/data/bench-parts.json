@@ -1,0 +1,72 @@
+{
+  "_comment": "Bill of materials for the TEST bench (docs/BENCH.md): a cluster out of the car on a 12 V supply, reached through the K+DCAN cable. Same schema as parts.json; productId stays null until a product is chosen, and the list then shows the search term.",
+  "parts": [
+    {
+      "id": "bench-psu-12v",
+      "required": true,
+      "qty": 1,
+      "note": "current-limit",
+      "productId": null,
+      "searchQuery": "DC bench power supply adjustable current limit 30V 5A"
+    },
+    {
+      "id": "fuse-holder-1a",
+      "required": true,
+      "qty": 1,
+      "note": "fuse-in-feed",
+      "productId": null,
+      "searchQuery": "inline fuse holder 5x20mm with 1A fuse"
+    },
+    {
+      "id": "toggle-switch",
+      "required": true,
+      "qty": 1,
+      "productId": null,
+      "searchQuery": "SPST toggle switch 12V"
+    },
+    {
+      "id": "obd2-female-socket",
+      "required": true,
+      "qty": 1,
+      "productId": null,
+      "searchQuery": "OBD2 16 pin female connector breakout"
+    },
+    {
+      "id": "cluster-plug-x11175",
+      "required": true,
+      "qty": 1,
+      "note": "pigtail-not-board",
+      "productId": null,
+      "searchQuery": "BMW E46 instrument cluster connector plug 26 pin"
+    },
+    {
+      "id": "terminal-blocks",
+      "required": true,
+      "qty": 3,
+      "productId": null,
+      "searchQuery": "lever terminal block connector 5 way"
+    },
+    {
+      "id": "hookup-wire",
+      "required": true,
+      "qty": 1,
+      "productId": null,
+      "searchQuery": "20AWG silicone hookup wire"
+    },
+    {
+      "id": "kdcan-cable",
+      "required": true,
+      "qty": 1,
+      "note": "kdcan-owned",
+      "productId": null,
+      "searchQuery": "K+DCAN USB cable FT232RL switch BMW"
+    },
+    {
+      "id": "multimeter",
+      "required": true,
+      "qty": 1,
+      "productId": null,
+      "searchQuery": "digital multimeter continuity"
+    }
+  ]
+}

@@ -148,6 +148,22 @@ export const CHROME = {
     out: 'OUT',
   },
 
+  /* ---- the cluster bench (TEST): the labels drawn on it; wire ends come from clusterBench.ts ---- */
+  bench: {
+    title: 'BENCH',
+    wiring: 'WIRING',
+    procedure: 'PROCEDURE',
+    unverified: 'UNVERIFIED',
+    psu: '12 V PSU',
+    fuse: '1 A',
+    toggle: 'KL15',
+    cluster: 'CLUSTER X11175',
+    obd: 'OBD-II',
+    kdcan: 'K+DCAN',
+    plugsIn: 'PLUGS IN HERE',
+    serial: '9600 8E1',
+  },
+
   parts: {
     title: 'PARTS',
     required: 'REQUIRED',

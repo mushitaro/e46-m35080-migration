@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 //
-// Resolve every AliExpress product id in data/parts.json to a title, price and
-// affiliate link, and write data/aliexpress.json, which IS committed.
+// Resolve every AliExpress product id in the bills of materials - data/parts.json (the chip
+// bench) and data/bench-parts.json (TEST's cluster bench) - to a title, price and affiliate
+// link, and write data/aliexpress.json, which IS committed. One cache for both lists: the
+// parts list reads it by product id, whichever list the part is on.
 //
 //   node --env-file=.env.local scripts/sync-aliexpress.mjs
 //   node --env-file=.env.local scripts/sync-aliexpress.mjs --dry
@@ -25,7 +27,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 const ROOT = path.join(import.meta.dirname, '..');
-const PARTS = path.join(ROOT, 'data', 'parts.json');
+const MANIFESTS = ['parts.json', 'bench-parts.json'].map((f) => path.join(ROOT, 'data', f));
 const OUT = path.join(ROOT, 'data', 'aliexpress.json');
 const DRY = process.argv.includes('--dry');
 
@@ -60,11 +62,11 @@ function call(method, appParams) {
   }).then((r) => r.json());
 }
 
-const manifest = JSON.parse(fs.readFileSync(PARTS, 'utf8'));
-const withIds = manifest.parts.filter((p) => p.productId);
-const withoutIds = manifest.parts.filter((p) => !p.productId);
+const allParts = MANIFESTS.flatMap((f) => JSON.parse(fs.readFileSync(f, 'utf8')).parts);
+const withIds = allParts.filter((p) => p.productId);
+const withoutIds = allParts.filter((p) => !p.productId);
 
-console.log(`${manifest.parts.length} parts: ${withIds.length} with a product id, ${withoutIds.length} without`);
+console.log(`${allParts.length} parts: ${withIds.length} with a product id, ${withoutIds.length} without`);
 for (const p of withoutIds) {
   // Named, not silently skipped: a part with no id ships as a search term, and
   // that is a decision someone should be able to see rather than discover.
@@ -89,7 +91,8 @@ if (!APP_KEY || !APP_SECRET) {
   process.exit(1);
 }
 
-const ids = withIds.map((p) => String(p.productId));
+// A part on both lists is one product: fetched once.
+const ids = [...new Set(withIds.map((p) => String(p.productId)))];
 const products = {};
 const missing = [];
 

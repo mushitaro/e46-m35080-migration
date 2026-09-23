@@ -19,14 +19,27 @@
 
 import { useMemo, useState } from 'react';
 import { ExternalLink, Megaphone } from 'lucide-react';
-import { resolvedParts, priceFetchedAt, relFor, type ResolvedPart } from '@/lib/domain/partsData';
-import { g, partName, partNote } from '@/lib/copy/guide';
+import { resolvedParts, priceFetchedAt, relFor, type PartsManifest, type ResolvedPart } from '@/lib/domain/partsData';
+import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
 import { LABEL, MicroLabel } from '@/components/ui';
 
-export function PartsList() {
+/**
+ * `manifest` is the list (the chip bench's or the cluster bench's); `name` and `note` turn its ids
+ * and note keys into the reader's language. Both benches share this one list, so they cannot
+ * drift into two ways of buying parts.
+ */
+export function PartsList({
+  manifest,
+  name,
+  note,
+}: {
+  manifest: PartsManifest;
+  name: (id: string) => string;
+  note: (key: string | undefined) => string | null;
+}) {
   const c = g();
-  const parts = useMemo(() => resolvedParts(), []);
+  const parts = useMemo(() => resolvedParts(manifest), [manifest]);
   // Required parts start ticked: that is the honest default for a BOM.
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(parts.filter((p) => p.required).map((p) => p.id)),
@@ -90,7 +103,14 @@ export function PartsList() {
 
       <ul className="space-y-0.5">
         {parts.map((p) => (
-          <PartRow key={p.id} part={p} checked={selected.has(p.id)} onToggle={() => toggle(p.id)} />
+          <PartRow
+            key={p.id}
+            part={p}
+            name={name(p.id)}
+            note={note(p.note)}
+            checked={selected.has(p.id)}
+            onToggle={() => toggle(p.id)}
+          />
         ))}
       </ul>
 
@@ -124,15 +144,18 @@ export function PartsList() {
 
 function PartRow({
   part,
+  name,
+  note,
   checked,
   onToggle,
 }: {
   part: ResolvedPart;
+  name: string;
+  note: string | null;
   checked: boolean;
   onToggle: () => void;
 }) {
   const c = g();
-  const note = partNote(part.note);
   return (
     <li className="flex items-start gap-2 rounded px-1.5 py-1 hover:bg-slate-800/50">
       <input
@@ -143,7 +166,7 @@ function PartRow({
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <span className="truncate text-[11px] text-slate-300">{partName(part.id)}</span>
+          <span className="truncate text-[11px] text-slate-300">{name}</span>
           <span
             className={`shrink-0 ${LABEL} ${
               part.required ? 'text-blue-400' : 'text-slate-600'

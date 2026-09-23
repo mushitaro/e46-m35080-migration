@@ -9,7 +9,8 @@
 import { AssemblyGuide, type GuideStepId } from '@/components/AssemblyGuide';
 import { WiringLegend } from '@/components/WiringDiagram';
 import { PartsList } from '@/components/PartsList';
-import { g } from '@/lib/copy/guide';
+import { g, partName, partNote } from '@/lib/copy/guide';
+import { SETUP_PARTS } from '@/lib/domain/partsData';
 import { CHROME } from '@/lib/copy/chrome';
 import { MicroLabel } from '@/components/ui';
 
@@ -51,7 +52,7 @@ export function SetupPanel({
       </div>
 
       <div className="border-t border-slate-800 pt-4">
-        <PartsList />
+        <PartsList manifest={SETUP_PARTS} name={partName} note={partNote} />
       </div>
     </div>
   );

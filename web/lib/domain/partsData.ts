@@ -7,7 +7,8 @@
  * back to search links for anything not yet resolved.
  */
 
-import manifest from '@/data/parts.json';
+import setupManifest from '@/data/parts.json';
+import benchManifest from '@/data/bench-parts.json';
 import cache from '@/data/aliexpress.json';
 
 export type PartId = string;
@@ -21,6 +22,12 @@ export type Part = {
   searchQuery: string;
   url?: string;
 };
+
+/** A bill of materials: data/parts.json for the chip bench, data/bench-parts.json for TEST's. */
+export type PartsManifest = { parts: Part[] };
+
+export const SETUP_PARTS: PartsManifest = setupManifest as PartsManifest;
+export const BENCH_PARTS: PartsManifest = benchManifest as PartsManifest;
 
 export type ResolvedPart = Part & {
   /** From the sync, when it resolved. */
@@ -76,8 +83,9 @@ export function relFor(url: string): string {
     : 'noopener noreferrer';
 }
 
-export function resolvedParts(): ResolvedPart[] {
-  return (manifest.parts as Part[]).map((part) => {
+/** The list resolved against the sync. Which list is always named - a default is a list someone forgot to choose. */
+export function resolvedParts(manifest: PartsManifest): ResolvedPart[] {
+  return manifest.parts.map((part) => {
     const p = part.productId ? products[part.productId] : undefined;
     // Preference order: the tracked link, then the product page, then a search.
     // A part with no product chosen still gets somewhere useful to go.
@@ -94,7 +102,7 @@ export function resolvedParts(): ResolvedPart[] {
   });
 }
 
-/** True when any link on the page is paid - drives whether disclosure shows. */
-export function hasAffiliateLinks(): boolean {
-  return resolvedParts().some((p) => p.affiliate);
+/** True when any link in the list is paid - drives whether disclosure shows. */
+export function hasAffiliateLinks(manifest: PartsManifest): boolean {
+  return resolvedParts(manifest).some((p) => p.affiliate);
 }
