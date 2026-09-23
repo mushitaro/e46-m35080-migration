@@ -15,6 +15,7 @@ import { analyzeStructure, type Finding } from '@/lib/domain/structure';
 import { formatAddress } from '@/lib/domain/image';
 import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
+import { MicroLabel } from '@/components/ui';
 
 function label(f: Finding, c: ReturnType<typeof g>): { tag: string; tone: string; text: string } {
   switch (f.kind) {
@@ -53,9 +54,9 @@ export function StructurePanel({
 
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+      <MicroLabel as="h3">
         {CHROME.structure.title}
-      </h3>
+      </MicroLabel>
       <p className="text-[10px] leading-snug text-slate-500">{c.structNote}</p>
 
       <ul className="flex flex-col gap-0.5">
@@ -71,7 +72,7 @@ export function StructurePanel({
                 <span className="shrink-0 font-mono text-[10px] text-slate-500">
                   {formatAddress(f.from)}–{formatAddress(f.to)}
                 </span>
-                <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wider ${tone}`}>
+                <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider ${tone}`}>
                   {tag}
                 </span>
                 <span className="truncate font-mono text-[10px] text-slate-400">{text}</span>

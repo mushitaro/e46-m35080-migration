@@ -12,6 +12,7 @@
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { t } from '@/lib/i18n';
 import { CHROME } from '@/lib/copy/chrome';
+import { LABEL } from '@/components/ui';
 
 export type ConfirmDialogProps = {
   open: boolean;
@@ -44,23 +45,25 @@ export function ConfirmDialog({
 
   return (
     <>
-      {/* Scrim. The blur is load-bearing here: it blurs the app behind it. */}
+      {/* Scrim. Blurred only on a wide layout: on a phone the blur costs about a
+          second to paint, on the one dialog that has to appear at once. */}
       <div
-        className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm"
+        className="fixed inset-0 z-[100] bg-slate-950/70 min-[900px]:backdrop-blur-sm"
         onClick={inProgress ? undefined : onCancel}
       />
-      {/* 560 x 346 is phi. max-h only clamps it on a short viewport. */}
+      {/* 560 x 346 is phi. max-h only clamps it on a short viewport. The one
+          outline in the app: this card floats, detached from the page. */}
       <div
         role="dialog"
         aria-modal="true"
-        className="fixed left-1/2 top-1/2 z-50 flex w-[560px] max-w-[calc(100vw-24px)]
+        className="fixed left-1/2 top-1/2 z-[110] flex w-[560px] max-w-[calc(100vw-24px)]
                    h-[346px] max-h-[80vh] -translate-x-1/2 -translate-y-1/2 flex-col
-                   rounded-lg bg-slate-900 p-4 shadow-xl
+                   rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-xl
                    animate-in fade-in zoom-in-95 duration-200"
       >
         <div className="flex h-6 shrink-0 items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-red-400" />
-          <h2 className="text-[10px] font-bold uppercase tracking-widest text-red-400">
+          <h2 className={`${LABEL} text-red-400`}>
             {title}
           </h2>
         </div>
@@ -91,7 +94,7 @@ export function ConfirmDialog({
             dialog does not resize at the moment it becomes uncancellable. */}
         <div className="flex h-[34px] shrink-0 items-center justify-end gap-3 pt-2">
           {inProgress ? (
-            <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-amber-400">
+            <span className={`flex items-center gap-2 ${LABEL} text-amber-400`}>
               <Loader2 className="h-3 w-3 animate-spin" />
               {progressLabel ?? CHROME.hub.writing}
               <span className="ml-2 font-normal normal-case tracking-normal text-slate-500">
@@ -102,15 +105,15 @@ export function ConfirmDialog({
             <>
               <button
                 onClick={onCancel}
-                className="text-[10px] font-bold uppercase tracking-widest text-slate-500
-                           transition-colors hover:text-slate-300"
+                className={`${LABEL} text-slate-500
+                           transition-colors hover:text-slate-300`}
               >
                 {CHROME.cancel}
               </button>
               <button
                 onClick={onConfirm}
-                className="rounded bg-red-600 px-3 py-1 text-[10px] font-bold uppercase
-                           tracking-widest text-white transition-colors hover:bg-red-500"
+                className={`rounded bg-red-600 px-3 py-1 ${LABEL} text-white
+                           transition-colors hover:bg-red-500`}
               >
                 {confirmLabel ?? CHROME.proceed}
               </button>

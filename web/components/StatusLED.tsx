@@ -13,6 +13,8 @@
  * not, for a colour-vision-impaired user or a glance across the bench.
  */
 
+import { LABEL } from '@/components/ui';
+
 export type LedState = 'idle' | 'busy' | 'error' | 'ok';
 
 const COLOR: Record<LedState, string> = {
@@ -45,7 +47,7 @@ export function StatusRow({
   return (
     <div className="h-[32px] flex items-center gap-2 min-w-0">
       <StatusLED state={state} />
-      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 shrink-0">
+      <span className={`${LABEL} text-slate-500 shrink-0`}>
         {label}
       </span>
       <span className="text-[10px] font-mono text-slate-300 truncate ml-auto" title={reason}>

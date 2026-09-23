@@ -6,8 +6,14 @@
  *
  * tsunagi-m-release section 10.
  *
- *   amber   this is NOT a release            (preview)
- *   violet  this IS the release, one step away (staging, and AS PRODUCTION)
+ *   caution  this is NOT a release              (preview)
+ *   secondary this IS the release, one step away (staging, and AS PRODUCTION)
+ *
+ * Both are ui.tsx tints, not outlines. It used to spell `violet-*`, a namespace
+ * this theme never defines - so the AS PRODUCTION and STAGING badges generated
+ * no colour at all. In this theme both roles are M-violet: `amber-*` is its
+ * lightest step and `indigo-*` the secondary one, so the two badges differ in
+ * lightness and in their word, never in hue.
  *
  * In preview it is a <button>: pressing it closes every non-stable surface so
  * the release can be looked at without deploying one. In staging it is a
@@ -21,6 +27,7 @@
 
 import { useEffect } from 'react';
 import { initScope, initVariant, setScope, useScope, useVariant } from '@/lib/domain/variant';
+import { pillClass } from '@/components/ui';
 
 export function VariantBadge() {
   const variant = useVariant();
@@ -38,13 +45,10 @@ export function VariantBadge() {
 
   const asProduction = scope === 'production';
   const label = variant === 'staging' ? 'STAGING' : asProduction ? 'AS PRODUCTION' : 'PREVIEW';
-  const tone = asProduction || variant === 'staging'
-    ? 'border-violet-500/40 bg-violet-500/10 text-violet-300'
-    : 'border-amber-500/40 bg-amber-500/10 text-amber-300';
-  const shape = 'rounded border px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-widest';
+  const badge = pillClass(asProduction || variant === 'staging' ? 'secondary' : 'caution');
 
   if (variant === 'staging') {
-    return <span className={`${shape} ${tone}`}>{label}</span>;
+    return <span className={badge}>{label}</span>;
   }
 
   return (
@@ -56,7 +60,7 @@ export function VariantBadge() {
           ? 'Showing only what the release shows. Click to go back to the preview build.'
           : 'Preview build. Click to hide everything the release does not have.'
       }
-      className={`${shape} ${tone} transition-colors hover:brightness-125`}
+      className={`${badge} transition-colors hover:brightness-125`}
     >
       {label}
     </button>

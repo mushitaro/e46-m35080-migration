@@ -77,7 +77,7 @@ export function HexView({
           <tr>
             <th
               className="sticky left-0 top-0 z-20 bg-slate-950 px-2 py-1 text-left
-                         text-[9px] uppercase tracking-wider text-slate-600"
+                         text-[10px] uppercase tracking-wider text-slate-600"
             >
               addr
             </th>
@@ -85,14 +85,14 @@ export function HexView({
               <th
                 key={i}
                 className="sticky top-0 z-10 bg-slate-950 px-1 py-1 text-center
-                           text-[9px] tracking-wider text-slate-600"
+                           text-[10px] tracking-wider text-slate-600"
               >
                 {i.toString(16).toUpperCase().padStart(2, '0')}
               </th>
             ))}
             <th
               className="sticky top-0 z-10 bg-slate-950 px-2 py-1 text-left
-                         text-[9px] uppercase tracking-wider text-slate-600"
+                         text-[10px] uppercase tracking-wider text-slate-600"
             >
               ascii
             </th>
@@ -150,7 +150,7 @@ export function HexLegend({
 }) {
   const hx = (a: number) => a.toString(16).toUpperCase().padStart(3, '0');
   return (
-    <div className="flex items-center gap-4 text-[9px] font-mono uppercase tracking-wider">
+    <div className="flex items-center gap-4 text-[10px] font-mono uppercase tracking-wider">
       <Swatch color="rgba(155,132,232,0.4)" label="secure 000-01F" />
       {/* Only when there IS one. This used to read "vin 2E8-2EF" always, which
           named an address that is not the VIN and advertised a colour that

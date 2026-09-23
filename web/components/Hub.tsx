@@ -10,6 +10,7 @@
  */
 
 import type { LucideIcon } from 'lucide-react';
+import { HUB_LABEL, TextButton } from '@/components/ui';
 
 export type HubConfig = {
   label: string;
@@ -52,7 +53,7 @@ export function Hub({ config, busy }: { config: HubConfig; busy: boolean }) {
                     }`}
       >
         <Icon className={`size-[18px] stroke-[1.5] ${spin ? 'animate-spin' : ''}`} />
-        <span className="text-[8px] font-bold uppercase tracking-widest">{label}</span>
+        <span className={`${HUB_LABEL}`}>{label}</span>
       </button>
     </div>
   );
@@ -76,21 +77,15 @@ export function SubActionRow({ actions }: { actions: SubAction[] }) {
   return (
     <div className="mt-1 flex h-[46px] items-center justify-center gap-4">
       {actions.map((a) => (
-        <button
+        <TextButton
           key={a.label}
           onClick={a.onClick}
           disabled={a.disabled}
-          className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase
-                      tracking-widest transition-colors disabled:opacity-25
-                      ${
-                        a.danger
-                          ? 'text-slate-600 hover:text-red-400'
-                          : 'text-blue-400 hover:text-blue-300'
-                      }`}
+          tone={a.danger ? 'danger' : 'primary'}
+          Icon={a.Icon}
         >
-          <a.Icon className="h-3 w-3" />
           {a.label}
-        </button>
+        </TextButton>
       ))}
     </div>
   );
@@ -111,7 +106,7 @@ export function NoticeLine({
     tone === 'error' ? 'text-red-400' : tone === 'ok' ? 'text-emerald-400' : 'text-slate-500';
   return (
     <div className={`mb-4 mt-1 ${tone === 'error' ? 'min-h-[14px]' : 'h-[14px] overflow-hidden'}`}>
-      <p className={`${tone === 'error' ? 'break-words' : 'truncate'} text-center text-[9px] font-mono leading-[14px] ${color}`} title={text ?? undefined} role={tone === 'error' ? 'alert' : undefined}>
+      <p className={`${tone === 'error' ? 'break-words' : 'truncate'} text-center text-[10px] font-mono leading-[14px] ${color}`} title={text ?? undefined} role={tone === 'error' ? 'alert' : undefined}>
         {text ?? ''}
       </p>
     </div>

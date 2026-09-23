@@ -85,6 +85,9 @@ export const CHROME = {
     read: 'AWAITING READ',
     file: 'AWAITING FILE',
   },
+  empty: {
+    records: 'NO RECORDS',
+  },
 
   drop: {
     backup: 'DROP BACKUP .BIN · 1024 BYTES',

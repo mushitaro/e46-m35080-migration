@@ -19,7 +19,7 @@ const JA = {
   blockedNeedImage: '先にチップを読み出してください',
   blockedNeedConnection: 'Arduino を接続してください',
 
-  noRecords: '記録はまだありません',
+  noRecordsHint: 'チップから読んだイメージと、チップへ書いたイメージがここに残ります。',
 
   /* 復旧はフォーク元 README の原則を新品チップに当てはめたもの。
      ・0x20–0x3FF はバックアップから（新品は全FFで、クラスターのデータが無い）
@@ -216,7 +216,7 @@ const EN: typeof JA = {
   blockedNeedImage: 'Read the chip first',
   blockedNeedConnection: 'Connect the Arduino first',
 
-  noRecords: 'No records yet',
+  noRecordsHint: 'Every image read from or written to a chip is kept here.',
 
   restoreLead:
     "Write a backup's cluster data to a new chip, byte for byte. If the backup carries " +

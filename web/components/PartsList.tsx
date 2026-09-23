@@ -22,6 +22,7 @@ import { ExternalLink, Megaphone } from 'lucide-react';
 import { resolvedParts, priceFetchedAt, relFor, type ResolvedPart } from '@/lib/domain/partsData';
 import { g, partName, partNote } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
+import { LABEL, MicroLabel } from '@/components/ui';
 
 export function PartsList() {
   const c = g();
@@ -64,15 +65,15 @@ export function PartsList() {
       </div>
 
       <div className="flex items-center gap-3">
-        <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+        <MicroLabel as="h3">
           {CHROME.parts.title}
-        </h3>
+        </MicroLabel>
         <button
           onClick={() => {
             setSelected(new Set(parts.map((p) => p.id)));
             setOpened(0);
           }}
-          className="text-[9px] font-bold uppercase tracking-widest text-blue-400 transition-colors hover:text-blue-300"
+          className={`${LABEL} text-blue-400 transition-colors hover:text-blue-300`}
         >
           {CHROME.parts.selectAll}
         </button>
@@ -81,7 +82,7 @@ export function PartsList() {
             setSelected(new Set());
             setOpened(0);
           }}
-          className="text-[9px] font-bold uppercase tracking-widest text-slate-600 transition-colors hover:text-slate-400"
+          className={`${LABEL} text-slate-600 transition-colors hover:text-slate-400`}
         >
           {CHROME.parts.clear}
         </button>
@@ -98,9 +99,9 @@ export function PartsList() {
         <button
           onClick={openNext}
           disabled={remaining <= 0}
-          className="inline-flex items-center justify-center gap-1.5 rounded bg-blue-600 px-3 py-1.5
-                     text-[10px] font-bold uppercase tracking-widest text-white transition-colors
-                     hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600"
+          className={`inline-flex items-center justify-center gap-1.5 rounded bg-blue-600 px-3 py-1.5
+                     ${LABEL} text-white transition-colors
+                     hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600`}
         >
           <ExternalLink className="h-3 w-3" />
           {queue.length === 0
@@ -111,10 +112,10 @@ export function PartsList() {
                 ? c.partsOpen(queue.length)
                 : c.partsOpenNext(opened + 1, queue.length)}
         </button>
-        <p className="text-[9px] leading-snug text-slate-600">{c.partsCartNote}</p>
+        <p className="text-[10px] leading-snug text-slate-600">{c.partsCartNote}</p>
       </div>
 
-      <p className="font-mono text-[9px] text-slate-600">
+      <p className="font-mono text-[10px] text-slate-600">
         {priceFetchedAt ? c.partsPriceAsOf(priceFetchedAt) : c.partsNoPrice}
       </p>
     </div>
@@ -144,19 +145,19 @@ function PartRow({
         <div className="flex items-baseline gap-2">
           <span className="truncate text-[11px] text-slate-300">{partName(part.id)}</span>
           <span
-            className={`shrink-0 text-[8px] font-bold uppercase tracking-widest ${
+            className={`shrink-0 ${LABEL} ${
               part.required ? 'text-blue-400' : 'text-slate-600'
             }`}
           >
             {part.required ? CHROME.parts.required : CHROME.parts.optional}
           </span>
           {part.qty > 1 && (
-            <span className="shrink-0 font-mono text-[9px] text-slate-500">x{part.qty}</span>
+            <span className="shrink-0 font-mono text-[10px] text-slate-500">x{part.qty}</span>
           )}
         </div>
-        {note && <p className="text-[9px] leading-snug text-amber-400">{note}</p>}
+        {note && <p className="text-[10px] leading-snug text-amber-400">{note}</p>}
         {!part.productId && (
-          <p className="font-mono text-[9px] text-slate-600">{c.partsSearchFallback}</p>
+          <p className="font-mono text-[10px] text-slate-600">{c.partsSearchFallback}</p>
         )}
       </div>
 

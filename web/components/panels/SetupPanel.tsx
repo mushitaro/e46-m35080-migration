@@ -11,6 +11,7 @@ import { WiringLegend } from '@/components/WiringDiagram';
 import { PartsList } from '@/components/PartsList';
 import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
+import { MicroLabel } from '@/components/ui';
 
 export function SetupPanel({
   guideStep,
@@ -38,15 +39,15 @@ export function SetupPanel({
       />
 
       <div className="flex flex-col gap-2 border-t border-slate-800 pt-4">
-        <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+        <MicroLabel as="h3">
           {CHROME.setup.wiring}
-        </h3>
+        </MicroLabel>
         <WiringLegend selected={wire} onSelect={onWire} />
         {/* The question everyone asks first, answered where the wiring is. */}
-        <p className="text-[9px] leading-snug text-slate-400">{c.unoPower}</p>
+        <p className="text-[10px] leading-snug text-slate-400">{c.unoPower}</p>
         {/* The two mistakes that cost a chip, stated where the wiring is. */}
-        <p className="text-[9px] leading-snug text-amber-400">{c.wiringNotStandard}</p>
-        <p className="text-[9px] leading-snug text-red-400">{c.wiringVoltage}</p>
+        <p className="text-[10px] leading-snug text-amber-400">{c.wiringNotStandard}</p>
+        <p className="text-[10px] leading-snug text-red-400">{c.wiringVoltage}</p>
       </div>
 
       <div className="border-t border-slate-800 pt-4">

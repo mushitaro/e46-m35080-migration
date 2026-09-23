@@ -46,6 +46,7 @@ import {
 import { g } from '@/lib/copy/guide';
 import { isWebSerialSupported } from '@/lib/transport/webSerialTransport';
 import { CHROME } from '@/lib/copy/chrome';
+import { EmptyState, LABEL, WORDMARK } from '@/components/ui';
 
 /**
  * Re-render chrome when the resolved language changes.
@@ -164,7 +165,7 @@ export default function Page() {
   const steps = useMemo(() => deriveSteps(workflow), [workflow]);
   const rec = useMemo(() => recommend(workflow, targetKmNum), [workflow, targetKmNum]);
 
-  const LABEL: Record<StepId, string> = {
+  const STEP_LABEL: Record<StepId, string> = {
     setup: CHROME.tab.setup,
     read: CHROME.tab.read,
     restore: CHROME.tab.restore,
@@ -181,7 +182,7 @@ export default function Page() {
     .filter((s) => visible.has(s.id))
     .map((s, i) => ({
       id: s.id,
-      label: LABEL[s.id],
+      label: STEP_LABEL[s.id],
       enabled: s.enabled,
       ordinal: i + 1,
       complete: s.complete,
@@ -425,7 +426,7 @@ export default function Page() {
               'linear-gradient(to right, #0A9BDB 0 33.333%, #9B84E8 33.333% 66.667%, #F11A22 66.667% 100%)',
           }}
         />
-        <h1 className="text-sm font-bold uppercase tracking-widest text-slate-200">
+        <h1 className={`${WORDMARK} text-slate-200`}>
           E46 M35080{' '}
           <span className="tracking-tight" aria-hidden="true">
             <span className="text-blue-500">/</span>
@@ -434,7 +435,7 @@ export default function Page() {
           </span>{' '}
           Migration
         </h1>
-        <div className="ml-8 flex items-center gap-4 border-l border-slate-800 pl-8 font-mono text-[9px] text-slate-500">
+        <div className="ml-8 flex items-center gap-4 border-l border-slate-800 pl-8 font-mono text-[10px] text-slate-500">
           <span>
             BRIDGE <span className="text-slate-300">{link.info?.firmware ?? '—'}</span>
           </span>
@@ -475,7 +476,7 @@ export default function Page() {
                   </div>
                 </div>
               ) : (
-                <EmptyState label={CHROME.awaiting.file} />
+                <EmptyState Icon={FileCode} label={CHROME.awaiting.file} />
               )
             ) : step === 'records' ? (
               <RecordsTable
@@ -487,6 +488,7 @@ export default function Page() {
               />
             ) : !image ? (
               <EmptyState
+                Icon={FileCode}
                 label={phase === 'disconnected' ? CHROME.awaiting.connection : CHROME.awaiting.read}
               />
             ) : (
@@ -509,8 +511,8 @@ export default function Page() {
 
         {/* Instrument + controls - 38.2% */}
         <aside className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto min-[900px]:w-[38.2%] min-[900px]:flex-none">
-          <div className="flex h-[44px] shrink-0 items-center border-b border-slate-900 bg-slate-900/50 px-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 backdrop-blur-sm">
-            {step === 'read' ? 'VEHICLE' : LABEL[step]}
+          <div className={`flex h-[44px] shrink-0 items-center border-b border-slate-900 bg-slate-900/50 px-4 ${LABEL} text-slate-500 backdrop-blur-sm`}>
+            {step === 'read' ? 'VEHICLE' : STEP_LABEL[step]}
           </div>
 
           {/* Wrapper so the 38.2% resolves BELOW the 44px bar */}
@@ -592,7 +594,7 @@ export default function Page() {
                           onClick={() =>
                             setVinAction(k === 'write' ? { kind: 'write', vin: vinInput } : { kind: k })
                           }
-                          className={`rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest transition-colors ${
+                          className={`rounded px-2 py-0.5 ${LABEL} transition-colors ${
                             vinAction.kind === k
                               ? 'bg-blue-900 text-blue-200'
                               : 'bg-slate-800 text-slate-500 hover:text-slate-300'
@@ -668,7 +670,7 @@ export default function Page() {
                       {c.repairRetentionTest}
                     </p>
                   )}
-                  <p className="text-[9px] leading-snug text-slate-600">{c.restoreBasis}</p>
+                  <p className="text-[10px] leading-snug text-slate-600">{c.restoreBasis}</p>
                 </JobPanel>
               ) : (
                 <div className="flex flex-col">
@@ -729,8 +731,7 @@ export default function Page() {
                     authority, not the intent - and cannot change it: an open
                     link cannot be retargeted, so a live box would lie. */}
                 <label
-                  className={`absolute right-0 top-0 inline-flex items-center gap-1.5 text-[10px]
-                              font-bold uppercase tracking-widest transition-colors
+                  className={`absolute right-0 top-0 inline-flex items-center gap-1.5 ${LABEL} transition-colors
                     ${
                       (phase === 'disconnected' ? practiceIntent : link.practice)
                         ? 'text-amber-400'
@@ -783,17 +784,6 @@ function JobPanel({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-col gap-4 px-5 py-4">{children}</div>;
 }
 
-function EmptyState({ label }: { label: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center text-slate-700">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-slate-800 opacity-50">
-        <FileCode className="h-6 w-6 opacity-50" />
-      </div>
-      <p className="font-mono text-xs opacity-50">{label}</p>
-    </div>
-  );
-}
-
 /**
  * What this chip allows, stated by the tool.
  *
@@ -827,7 +817,7 @@ function Recommendation({
 
   return (
     <div className="min-h-[28px] rounded bg-slate-900 px-2 py-1.5">
-      <p className="text-[8px] font-bold uppercase tracking-widest text-slate-600">{c.recTitle}</p>
+      <p className={`${LABEL} text-slate-600`}>{c.recTitle}</p>
       <p className={`mt-0.5 text-[10px] leading-snug ${tone}`}>{text}</p>
     </div>
   );
@@ -854,7 +844,7 @@ function PlanNote({ plan }: { plan: PlanLike }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">{label}</span>
+      <span className={`${LABEL} text-slate-500`}>{label}</span>
       {children}
     </div>
   );

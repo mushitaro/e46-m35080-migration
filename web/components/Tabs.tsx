@@ -14,6 +14,7 @@
  */
 
 import { Check } from 'lucide-react';
+import { LABEL } from '@/components/ui';
 
 export type TabDef<T extends string> = {
   id: T;
@@ -43,8 +44,8 @@ export function Tabs<T extends string>({
             key={tab.id}
             disabled={!tab.enabled}
             onClick={() => onSelect(tab.id)}
-            className={`flex h-full shrink-0 items-center gap-1.5 border-b-2 text-[10px] font-bold
-                        tracking-widest transition disabled:opacity-20
+            className={`flex h-full shrink-0 items-center gap-1.5 border-b-2 ${LABEL} transition
+                        disabled:opacity-20
               ${
                 isActive
                   ? 'border-blue-400 text-blue-400'

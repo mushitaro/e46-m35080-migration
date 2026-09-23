@@ -15,6 +15,7 @@
 import { Check, ChevronRight } from 'lucide-react';
 import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
+import { LABEL, MicroLabel } from '@/components/ui';
 
 export type GuideStepId = 'parts' | 'open' | 'remove' | 'adapter' | 'power' | 'signals' | 'flash';
 
@@ -72,9 +73,9 @@ export function AssemblyGuide({
 
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+      <MicroLabel as="h3">
         {CHROME.setup.assembly}
-      </h3>
+      </MicroLabel>
 
       <ol className="space-y-1">
         {GUIDE_STEPS.map((s, i) => {
@@ -115,7 +116,7 @@ export function AssemblyGuide({
                 <div className="mb-1 ml-8 mr-2 mt-1 space-y-2">
                   <p className="text-[11px] leading-relaxed text-slate-400">{copy.body}</p>
                   <div className="flex items-start gap-2 rounded bg-slate-900 px-2 py-1.5">
-                    <span className="shrink-0 text-[8px] font-bold uppercase tracking-widest text-slate-600">
+                    <span className={`shrink-0 ${LABEL} text-slate-600`}>
                       {CHROME.setup.doneWhen}
                     </span>
                     <span className="font-mono text-[10px] leading-snug text-slate-300">
@@ -129,7 +130,7 @@ export function AssemblyGuide({
                       onChange={() => onToggleDone(s.id)}
                       className="h-3 w-3 accent-blue-500"
                     />
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                    <span className={`${LABEL} text-slate-500`}>
                       {c.stepOf(i + 1, total)}
                     </span>
                   </label>

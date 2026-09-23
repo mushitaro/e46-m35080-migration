@@ -36,6 +36,7 @@ import { readVin } from '@/lib/domain/vin';
 import { downloadImage } from '@/lib/domain/records';
 import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
+import { Callout, MicroLabel, TextButton } from '@/components/ui';
 
 export function InspectPanel({
   workspace,
@@ -67,9 +68,9 @@ export function InspectPanel({
   if (!workspace || !image || !verdict) {
     return (
       <div className="flex flex-col gap-3 px-5 py-4">
-        <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+        <MicroLabel as="h3">
           {CHROME.inspect.open}
-        </h3>
+        </MicroLabel>
         <p className="text-[10px] leading-snug text-slate-500">{c.inspectIntro}</p>
         <DropZone onFile={onOpen} hint={CHROME.drop.file} />
         {fileError && <p className="text-[10px] leading-snug text-red-400">{fileError}</p>}
@@ -102,10 +103,7 @@ export function InspectPanel({
             reading taken off a dead bus is the failure this screen exists to
             stop - and it looks exactly like a reading. */}
         {verdict.uniform ? (
-          <p className="rounded border border-red-500/30 bg-red-500/5 px-2.5 py-2 text-[10px]
-                        leading-snug text-red-300">
-            {c.inspectNotAChip(verdict.uniformValue ?? 0)}
-          </p>
+          <Callout tone="danger">{c.inspectNotAChip(verdict.uniformValue ?? 0)}</Callout>
         ) : (
           <p className="font-mono text-[10px] text-slate-500">
             {c.inspectDistinct(verdict.distinct)}
@@ -119,9 +117,9 @@ export function InspectPanel({
 
       {/* ------------------------------- edit ------------------------------ */}
       <div className="flex flex-col gap-2 border-b border-slate-800 px-5 py-4">
-        <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+        <MicroLabel as="h3">
           {CHROME.inspect.edit}
-        </h3>
+        </MicroLabel>
         {selected === null ? (
           <p className="text-[10px] text-slate-600">{c.inspectPickByte}</p>
         ) : (
@@ -136,10 +134,10 @@ export function InspectPanel({
               onChange={(e) => setValue(e.target.value.toUpperCase())}
               placeholder="FF"
               maxLength={2}
-              className="w-12 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-center
-                         font-mono text-[11px] text-slate-200 outline-none focus:border-blue-500/50"
+              className="w-12 rounded bg-slate-800 px-2 py-1 text-center font-mono text-[11px]
+                         text-slate-200 outline-none focus:ring-1 focus:ring-blue-500/60"
             />
-            <button
+            <TextButton
               onClick={() => {
                 if (parsed === null) return;
                 const r = editByte(workspace, selected, parsed);
@@ -149,12 +147,9 @@ export function InspectPanel({
                 }
               }}
               disabled={parsed === null || parsed === byteAt}
-              className="rounded border border-blue-500/40 px-2.5 py-1 text-[10px] font-bold
-                         uppercase tracking-widest text-blue-400 transition
-                         hover:bg-blue-500/10 disabled:opacity-30"
             >
               {CHROME.inspect.set}
-            </button>
+            </TextButton>
           </div>
         )}
 
@@ -162,35 +157,29 @@ export function InspectPanel({
           <span className="font-mono text-[10px] text-slate-500">
             {changed.length > 0 ? c.inspectChanged(changed.length) : c.inspectUnchanged}
           </span>
-          <button
+          <TextButton
+            tone="neutral"
+            Icon={Undo2}
             onClick={() => onChange(undoLast(workspace))}
             disabled={workspace.edits.length === 0}
-            className="inline-flex items-center gap-1 text-[10px] font-bold uppercase
-                       tracking-widest text-slate-500 transition hover:text-slate-300
-                       disabled:opacity-25"
           >
-            <Undo2 className="h-3 w-3" />
             {CHROME.inspect.undo}
-          </button>
-          <button
+          </TextButton>
+          <TextButton
+            tone="danger"
+            Icon={RotateCcw}
             onClick={() => onChange(revertAll(workspace))}
             disabled={!isDirty(workspace)}
-            className="inline-flex items-center gap-1 text-[10px] font-bold uppercase
-                       tracking-widest text-slate-500 transition hover:text-amber-400
-                       disabled:opacity-25"
           >
-            <RotateCcw className="h-3 w-3" />
             {CHROME.inspect.revert}
-          </button>
-          <button
+          </TextButton>
+          <TextButton
+            Icon={Download}
             onClick={() => downloadImage(image, editedFilename(workspace.name, new Date()))}
-            className="ml-auto inline-flex items-center gap-1.5 rounded border border-blue-500/40
-                       px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-400
-                       transition hover:bg-blue-500/10"
+            className="ml-auto"
           >
-            <Download className="h-3 w-3" />
             {CHROME.inspect.saveAs}
-          </button>
+          </TextButton>
         </div>
         {/* Saving never lands on the source file. These dumps are often the
             only record of a chip that has since been written over. */}

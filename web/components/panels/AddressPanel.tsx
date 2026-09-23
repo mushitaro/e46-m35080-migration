@@ -21,6 +21,7 @@ import {
 import { readVin } from '@/lib/domain/vin';
 import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
+import { MicroLabel, Well } from '@/components/ui';
 
 const addr = (a: number) => a.toString(16).toUpperCase().padStart(3, '0');
 const u16 = (v: number) => v.toString(16).toUpperCase().padStart(4, '0');
@@ -49,16 +50,13 @@ export function AddressPanel({
     <div className="flex flex-col gap-4">
       {/* ---------------------------- odometer ---------------------------- */}
       <section className="flex flex-col gap-1.5">
-        <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+        <MicroLabel as="h3">
           {CHROME.map.odometer}
-        </h3>
+        </MicroLabel>
         <p className="text-[10px] leading-snug text-slate-500">{c.mapOdoNote}</p>
 
         {math.ok ? (
-          <p className="rounded border border-slate-800 bg-slate-900/40 px-2.5 py-1.5
-                        font-mono text-[11px] text-slate-200">
-            {math.expression} km
-          </p>
+          <Well className="font-mono text-[11px] text-slate-200">{math.expression} km</Well>
         ) : (
           <p className="text-[10px] text-amber-400">{c.mapOdoUndecodable(math.reason)}</p>
         )}
@@ -75,7 +73,7 @@ export function AddressPanel({
                   {addr(s.from)}-{addr(s.to)}
                 </span>
                 <span className={roleTone(s.role)}>{u16(s.value)}</span>
-                <span className="ml-auto text-[9px] text-slate-600">
+                <span className="ml-auto text-[10px] text-slate-600">
                   {s.role === 'bumped' ? CHROME.map.bumped : s.role === 'base' ? CHROME.map.base : '?'}
                 </span>
               </button>
@@ -91,17 +89,17 @@ export function AddressPanel({
 
       {/* ------------------------------- VIN ------------------------------ */}
       <section className="flex flex-col gap-1.5">
-        <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+        <MicroLabel as="h3">
           {CHROME.map.vin}
-        </h3>
+        </MicroLabel>
         {vin.found === null ? (
           <p className="text-[10px] leading-snug text-slate-500">{c.mapVinNone}</p>
         ) : (
           <>
             <button
               onClick={() => onSelect(vin.found!.offset)}
-              className="flex items-baseline gap-2 rounded border border-slate-800
-                         bg-slate-900/40 px-2.5 py-1.5 text-left hover:bg-slate-900"
+              className="flex items-baseline gap-2 rounded bg-slate-800/40 px-2.5 py-1.5 text-left
+                         transition-colors hover:bg-slate-800"
             >
               <span className="font-mono text-[10px] text-slate-600">
                 {addr(vin.found.offset)}-{addr(vin.found.offset + vin.found.bytes.length - 1)}
@@ -109,12 +107,12 @@ export function AddressPanel({
               <span className="font-mono text-[11px] font-bold tracking-wider text-blue-300">
                 {vin.found.text}
               </span>
-              <span className="ml-auto font-mono text-[9px] text-slate-600">
+              <span className="ml-auto font-mono text-[10px] text-slate-600">
                 {vin.found.bytes.length} B ASCII
               </span>
             </button>
             {vin.candidates.length > 1 && (
-              <p className="font-mono text-[9px] text-amber-500">
+              <p className="font-mono text-[10px] text-amber-500">
                 {c.mapVinOthers(
                   vin.candidates.slice(1).map((x) => `${addr(x.offset)} "${x.text}"`),
                 )}
@@ -127,9 +125,9 @@ export function AddressPanel({
 
       {/* --------------------------- the rest ----------------------------- */}
       <section className="flex flex-col gap-1.5">
-        <h3 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+        <MicroLabel as="h3">
           {CHROME.map.rest}
-        </h3>
+        </MicroLabel>
         <p className="text-[10px] leading-snug text-slate-500">{c.mapRestNote}</p>
       </section>
     </div>

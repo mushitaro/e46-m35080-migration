@@ -11,6 +11,8 @@
 import { Download, Trash2, FileCode } from 'lucide-react';
 import { backupFilename, downloadImage, type DeviceRecord } from '@/lib/domain/records';
 import { g } from '@/lib/copy/guide';
+import { CHROME } from '@/lib/copy/chrome';
+import { EmptyState, LABEL, TableBody } from '@/components/ui';
 
 export function RecordsTable({
   records,
@@ -22,14 +24,7 @@ export function RecordsTable({
   const c = g();
 
   if (records.length === 0) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center text-slate-700">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-slate-800 opacity-50">
-          <FileCode className="h-6 w-6 opacity-50" />
-        </div>
-        <p className="font-mono text-xs opacity-50">{c.noRecords}</p>
-      </div>
-    );
+    return <EmptyState Icon={FileCode} label={CHROME.empty.records} hint={c.noRecordsHint} />;
   }
 
   return (
@@ -45,16 +40,16 @@ export function RecordsTable({
             <th className="px-3 py-2" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800/50">
+        <TableBody>
           {records.map((r) => (
             <tr key={r.id} className="hover:bg-slate-800/50">
               <td className="px-3 py-1 text-slate-400">{new Date(r.createdAt).toLocaleString()}</td>
               <td className="px-3 py-1">
-                <span className="rounded bg-blue-500/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-blue-400">
+                <span className={`rounded bg-blue-500/15 px-1.5 py-0.5 ${LABEL} text-blue-400`}>
                   {r.kind}
                 </span>
                 {r.practice && (
-                  <span className="ml-1 rounded bg-slate-800 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-amber-400">
+                  <span className={`ml-1 rounded bg-slate-800 px-1.5 py-0.5 ${LABEL} text-amber-400`}>
                     practice
                   </span>
                 )}
@@ -84,7 +79,7 @@ export function RecordsTable({
               </td>
             </tr>
           ))}
-        </tbody>
+        </TableBody>
       </table>
     </div>
   );

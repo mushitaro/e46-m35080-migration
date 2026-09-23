@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "deploy": "node scripts/deploy.mjs",
-    "test": "vitest run",
+    "test": "node tools/check_ui_tokens.mjs && vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
