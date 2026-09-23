@@ -17,9 +17,8 @@ describe('the feature registry', () => {
   });
 
   it('preview can only ADD to the release, never remove', () => {
-    /* The whole safety property of the badge. usePreviewScope ANDs a boolean
-       into this call, so if preview were ever able to CLOSE something the
-       release shows, "AS PRODUCTION" would start opening things instead. */
+    /* A preview that hid something the release shows would be testing a
+       different app from the one that ships. */
     const release = enabledSurfaces(false);
     const preview = enabledSurfaces(true);
     for (const s of release) expect(preview.has(s)).toBe(true);

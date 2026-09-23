@@ -29,7 +29,7 @@ import {
 } from '@/lib/domain/operations';
 import { deriveSteps, recommend, type StepId } from '@/lib/domain/workflow';
 import { enabledSurfaces } from '@/lib/domain/features';
-import { usePreviewScope } from '@/lib/domain/variant';
+import { usePreviewSurfaces } from '@/lib/domain/variant';
 import { VariantBadge } from '@/components/VariantBadge';
 import { parseImageFile } from '@/lib/domain/image';
 import { openWorkspace, type Workspace } from '@/lib/domain/inspect';
@@ -75,7 +75,7 @@ export default function Page() {
 
   /* Whether this render may draw non-stable surfaces. A release always says
      false; in preview the badge can force it false too. */
-  const previewScope = usePreviewScope();
+  const previewSurfaces = usePreviewSurfaces();
   const [step, setStep] = useState<StepId>('setup');
   /* What the NEXT connect will talk to. The reader's value: connecting does
      not clear it, and only the reader unticks it. */
@@ -178,7 +178,7 @@ export default function Page() {
   /* The registry says WHICH surfaces may be drawn; workflow.ts keeps the order
      and the numbering. Ordinals are re-derived after the filter so a closed
      surface does not leave a hole in the count. */
-  const visible = useMemo(() => enabledSurfaces(previewScope), [previewScope]);
+  const visible = useMemo(() => enabledSurfaces(previewSurfaces), [previewSurfaces]);
   const tabs: TabDef<StepId>[] = steps
     .filter((s) => visible.has(s.id))
     .map((s, i) => ({
