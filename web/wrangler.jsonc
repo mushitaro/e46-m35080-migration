@@ -1,13 +1,24 @@
 {
   // tsunagi-m-release section 3.4: the Pages project for a non-production
   // environment is `<slug>-<environment>`, and the slug is the product name
-  // lowercased to ASCII hyphens - "E46 M35080 /// Migration" ->
-  // "e46-m35080-migration". This build is the PREVIEW.
+  // lowercased to ASCII hyphens - "E46 M35080 /// MIGRATION" ->
+  // "e46-m35080-migration". This is the PREVIEW: the only environment this
+  // tool has (operator, 2026-09-23), for the people m3.tsunagi.app says hold
+  // `owner_preview` - MILE purchasers and the owners whose cars were worked on.
+  //
+  // `functions/_middleware.ts` is the owner gate in front of every path, and
+  // `functions/api/` is the per-owner SYNC. wrangler collects functions from
+  // the directory it runs in, so it runs from web/ (scripts/deploy.mjs).
   //
   // The name lives HERE and the deploy script reads it, rather than being
   // repeated as a --project-name literal. Section 5.2: when the two diverge,
   // wrangler skips the bindings for the project the config describes and
-  // deploys anyway, with no warning and a "Success" line.
+  // deploys anyway, with no warning and a "Success" line - and every SYNC
+  // request then answers 5xx. The project already exists and is set to Fail
+  // closed; Pages projects cannot be renamed.
+  //
+  // Deploy:  npm run deploy   (scripts/deploy.mjs refuses anything but this
+  //          name, an ungated tree, or source that is not public on GitHub)
   "name": "e46-m35080-migration-preview",
 
   // Pinned, never "today". A floating date changes runtime behaviour on a
@@ -15,9 +26,24 @@
   "compatibility_date": "2025-11-01",
 
   // Always written (section 7), so nothing infers it from the CWD.
-  "pages_build_output_dir": "out"
+  "pages_build_output_dir": "out",
+
+  // SHARED with E46M3 /// MONITORING. This app's tables are `m35080_*` and its
+  // migration is `0001_m35080_sync.sql`, so the two never collide in the one
+  // `d1_migrations` table. Never touch another tool's tables from here.
+  //
+  //   npx wrangler d1 migrations apply tsunagi-m-preview-runs --local
+  //   npx wrangler d1 migrations apply tsunagi-m-preview-runs --remote   (operator)
+  "d1_databases": [
+    {
+      "binding": "RUNS_DB",
+      "database_name": "tsunagi-m-preview-runs",
+      "database_id": "caef60dd-7936-44be-9184-b4168791ee4f",
+      "migrations_dir": "migrations"
+    }
+  ]
 
   // No `env.*` blocks: environments are separated by having separate projects.
-  // No bindings: this is a static export with no Pages Functions at all, which
-  // scripts/deploy.mjs asserts before every upload.
+  // M3_CLIENT_SECRET is a Pages secret (tsunagi-m3 `npm run access:client`),
+  // never a var here; locally it lives in web/.dev.vars, which is gitignored.
 }
