@@ -141,7 +141,7 @@ export function planRewrite(
  *
  * A field that already holds the target is not rewritten: the plan is exactly the change.
  */
-function planVinWrite(
+export function planVinWrite(
   image: Uint8Array,
   action: VinAction,
 ): { ok: true; writes: ByteWrite[] } | Refusal {
@@ -231,7 +231,7 @@ export type ChecksumCheck = 'ok' | 'unchecked';
  * back together with a checksum it will not accept. The fix is explicit and happens on the
  * file, in INSPECT (FIX CHECKSUMS), where the reader sees which byte changes - never silently here.
  */
-function backupChecksums(backup: Uint8Array): ChecksumCheck | Refusal {
+export function backupChecksums(backup: Uint8Array): ChecksumCheck | Refusal {
   const layout: Layout = detectLayout(backup);
   if (layout.kind !== 'late') return 'unchecked';
   return layout.consistent ? 'ok' : refuse('backup-checksum-broken');
@@ -309,7 +309,7 @@ export function planReset(image: Uint8Array, backup: Uint8Array): ResetPlan | Re
  * jumper. Each of those was saved as a ".bin" here, and restoring one would
  * write exactly the empty chip this plan exists to fill.
  */
-function hasClusterData(backup: Uint8Array): boolean {
+export function hasClusterData(backup: Uint8Array): boolean {
   const first = backup[STANDARD_START];
   for (let i = STANDARD_START + 1; i <= STANDARD_END; i++) {
     if (backup[i] !== first) return true;
