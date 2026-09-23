@@ -1,35 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { bridgeHubFor, type BridgeHubState } from '@/lib/hub/bridgeHub';
+import { planJob, jobDetails, type JobInput } from '@/lib/domain/job';
 import { CHROME } from '@/lib/copy/chrome';
-import type { RepairPlan, ResetPlan, RewritePlan } from '@/lib/domain/operations';
+import { codingFixture, P } from './support/codingDoc';
 
 /**
- * One row per branch of the hub, in the order the hub tests them.
- *
- * The hub used to be a useMemo inside page.tsx that nothing could exercise without rendering the
- * page. These rows pin what it did when it moved, so the move itself is the only change.
+ * One row per branch of the hub, in the order the hub tests them: busy, the link, the image, the
+ * backup - "backup before write" is a tier - and then the job REWRITE is about.
  */
 
-const rewriteOk: RewritePlan = {
-  ok: true,
-  currentKm: 1000,
-  targetKm: 2000,
-  secureOps: [{ slot: 0, address: 0x00, from: 0x3e, to: 0x7d }],
-  byteWrites: [{ address: 0x184, data: new Uint8Array(7), label: 'VIN at 0x184 -> "AB12345"' }],
-};
-const resetOk: ResetPlan = {
-  ok: true,
-  byteWrites: [{ address: 0x20, data: new Uint8Array(0x3e0), label: 'standard array 0x20-0x3FF from backup, byte for byte' }],
-  resultingKm: 0,
-  checksums: 'ok',
-};
-const repairOk: RepairPlan = {
-  ok: true,
-  byteWrites: [{ address: 0x100, data: new Uint8Array(2), label: '0x100-0x101 from backup (2 bytes)' }],
-  addresses: [0x100, 0x101],
-  checksums: 'unchecked',
-};
-const repairNothing: RepairPlan = { ok: true, byteWrites: [], addresses: [], checksums: 'unchecked' };
+const keep = { odometer: { kind: 'keep' as const }, vin: { kind: 'keep' as const }, coding: null };
 
 function state(over: Partial<BridgeHubState> = {}): BridgeHubState {
   return {
@@ -38,21 +18,15 @@ function state(over: Partial<BridgeHubState> = {}): BridgeHubState {
     step: 'read',
     hasImage: true,
     backedUp: true,
-    chipBlank: false,
-    hasBackupFile: false,
-    rewritePlan: null,
-    restorePlan: null,
-    repairPlan: null,
-    coding: null,
-    copy: {
-      confirmOdometer: (from, to, n) => `odo ${from}->${to} (${n})`,
-      confirmReset: 'reset',
-      confirmRepair: (n) => `repair ${n}`,
-      confirmCoding: (n, bytes) => `coding ${n} (${bytes})`,
-    },
+    job: null,
+    copy: { confirmJob: (j) => `job ${j.coding} coding, ${j.bytes} bytes, odo ${j.odometer ? j.odometer.to : 'kept'}` },
     act: { connect: vi.fn(), read: vi.fn(), backup: vi.fn(), ask: vi.fn() },
     ...over,
   };
+}
+
+function job(input: JobInput) {
+  return { input, plan: planJob(input), note: 'the note' };
 }
 
 describe('bridgeHubFor', () => {
@@ -70,16 +44,22 @@ describe('bridgeHubFor', () => {
     }
   });
 
-  it('offers CONNECT while disconnected, whatever else is true', () => {
-    const s = state({ phase: 'disconnected', hasImage: true, step: 'rewrite', rewritePlan: rewriteOk });
+  it('offers CONNECT while disconnected, whatever the job says', () => {
+    const { image, doc } = codingFixture();
+    const s = state({
+      phase: 'disconnected',
+      step: 'rewrite',
+      job: job({ chip: image, source: { kind: 'chip' }, ...keep, coding: { doc, changes: [{ param: P.mode, option: 103 }] } }),
+    });
     const h = bridgeHubFor(s);
     expect(h.label).toBe(CHROME.hub.connect);
     h.onClick();
     expect(s.act.connect).toHaveBeenCalledOnce();
   });
 
-  it('offers READ when connected with no image', () => {
-    const s = state({ hasImage: false });
+  it('offers READ when connected with no image - a dump planned without a chip is not writable', () => {
+    const { image: dump } = codingFixture();
+    const s = state({ hasImage: false, step: 'rewrite', job: job({ chip: null, source: { kind: 'dump', name: 'd.bin', image: dump }, ...keep }) });
     const h = bridgeHubFor(s);
     expect(h.label).toBe(CHROME.hub.read);
     h.onClick();
@@ -87,66 +67,62 @@ describe('bridgeHubFor', () => {
   });
 
   it('makes BACKUP the next step before any write, on every tab', () => {
-    for (const step of ['read', 'rewrite', 'restore'] as const) {
-      const s = state({ backedUp: false, step, rewritePlan: rewriteOk, repairPlan: repairOk, hasBackupFile: true });
+    const { image, doc } = codingFixture();
+    for (const step of ['read', 'rewrite'] as const) {
+      const s = state({
+        backedUp: false,
+        step,
+        job: job({ chip: image, source: { kind: 'chip' }, ...keep, coding: { doc, changes: [{ param: P.mode, option: 103 }] } }),
+      });
       const h = bridgeHubFor(s);
       expect(h.label).toBe(CHROME.hub.backup);
       expect(h.danger).toBeUndefined();
     }
   });
 
-  it('asks before WRITE ODO and lists the WRINCs and byte writes', () => {
-    const s = state({ step: 'rewrite', rewritePlan: rewriteOk });
+  it('asks before WRITE CHIP with the whole job: the exact bytes, the WRINCs, the note, and the lines', () => {
+    const { image, doc } = codingFixture();
+    const input: JobInput = {
+      chip: image,
+      source: { kind: 'chip' },
+      odometer: { kind: 'set', km: 170_000 },
+      vin: { kind: 'write', vin: 'ZX54321' },
+      coding: { doc, changes: [{ param: P.mode, option: 103 }] },
+    };
+    const j = job(input);
+    const s = state({ step: 'rewrite', job: j });
     const h = bridgeHubFor(s);
-    expect(h.label).toBe(CHROME.hub.writeOdometer);
-    expect(h.danger).toBe(true);
-    expect(h.disabled).toBe(false);
+    expect(h).toMatchObject({ label: CHROME.hub.writeChip, danger: true });
     h.onClick();
+    if (!j.plan.ok) throw new Error('plan refused');
     expect(s.act.ask).toHaveBeenCalledWith(
-      { kind: 'rewrite', byteWrites: rewriteOk.byteWrites, secureOps: rewriteOk.secureOps },
-      'odo 1000->2000 (1)',
-      ['WRINC 0x00  0x3E -> 0x7D', 'VIN at 0x184 -> "AB12345"'],
+      { kind: 'rewrite', byteWrites: j.plan.byteWrites, secureOps: j.plan.secureOps, note: 'the note' },
+      `job 1 coding, ${j.plan.byteWrites.reduce((n, w) => n + w.data.length, 0)} bytes, odo 170000`,
+      jobDetails(j.plan, input),
     );
   });
 
-  it('disables WRITE ODO when the plan changes nothing', () => {
-    const empty: RewritePlan = { ...rewriteOk, secureOps: [], byteWrites: [] };
-    expect(bridgeHubFor(state({ step: 'rewrite', rewritePlan: empty })).disabled).toBe(true);
+  it('records a dump put on the chip as a restore', () => {
+    const { image: dump } = codingFixture();
+    const chip = new Uint8Array(1024).fill(0xff);
+    chip.fill(0x00, 0, 0x20);
+    const s = state({ step: 'rewrite', job: job({ chip, source: { kind: 'dump', name: 'donor.bin', image: dump }, ...keep }) });
+    bridgeHubFor(s).onClick();
+    expect(s.act.ask).toHaveBeenCalledWith(expect.objectContaining({ kind: 'restore', secureOps: [] }), expect.any(String), expect.any(Array));
   });
 
-  it('offers WRITE CHIP on RESTORE to a blank chip', () => {
-    const s = state({ step: 'restore', chipBlank: true, restorePlan: resetOk, hasBackupFile: true });
-    const h = bridgeHubFor(s);
-    expect(h.label).toBe(CHROME.hub.writeChip);
-    h.onClick();
-    expect(s.act.ask).toHaveBeenCalledWith(
-      { kind: 'restore', byteWrites: resetOk.byteWrites, secureOps: [] },
-      'reset',
-      ['standard array 0x20-0x3FF from backup, byte for byte', 'odometer 0x00-0x1F: not written (stays 0 km)'],
-    );
-  });
-
-  it('offers REPAIR on RESTORE to a used chip with bytes to put back', () => {
-    const s = state({ step: 'restore', repairPlan: repairOk, hasBackupFile: true });
-    const h = bridgeHubFor(s);
-    expect(h.label).toBe(CHROME.hub.repair);
-    h.onClick();
-    expect(s.act.ask).toHaveBeenCalledWith(
-      { kind: 'restore', byteWrites: repairOk.byteWrites, secureOps: [] },
-      'repair 2',
-      ['0x100-0x101 from backup (2 bytes)', 'odometer 0x00-0x1F: not written'],
-    );
-  });
-
-  it('names what RESTORE is waiting for, disabled', () => {
-    expect(bridgeHubFor(state({ step: 'restore' })).label).toBe(CHROME.hub.selectBackup);
-    expect(bridgeHubFor(state({ step: 'restore', hasBackupFile: true, repairPlan: repairNothing })).label).toBe(
-      CHROME.hub.nothingToRepair,
-    );
-    const refused = { ok: false as const, code: 'backup-no-data' as const };
-    const h = bridgeHubFor(state({ step: 'restore', hasBackupFile: true, repairPlan: refused }));
-    expect(h.label).toBe(CHROME.hub.checkBackup);
-    expect(h.disabled).toBe(true);
+  it('says why the ring is idle on REWRITE: nothing to change, nothing to plan, or a refused plan', () => {
+    const { image, doc } = codingFixture();
+    expect(bridgeHubFor(state({ step: 'rewrite', job: job({ chip: image, source: { kind: 'chip' }, ...keep }) }))).toMatchObject({
+      label: CHROME.hub.noChanges,
+      disabled: true,
+    });
+    expect(bridgeHubFor(state({ step: 'rewrite', job: { input: null, plan: null, note: '' } }))).toMatchObject({
+      label: CHROME.hub.noChanges,
+      disabled: true,
+    });
+    const refused = job({ chip: image, source: { kind: 'chip' }, ...keep, coding: { doc, changes: [{ param: P.guarded, option: 142 }] } });
+    expect(bridgeHubFor(state({ step: 'rewrite', job: refused }))).toMatchObject({ label: CHROME.hub.checkPlan, disabled: true });
   });
 
   it('falls back to READ on a tab with no job', () => {

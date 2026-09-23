@@ -80,7 +80,7 @@ export type JobPlan = {
   base: Uint8Array;
   /** The image as it will be: the standard array after every edit, the secure area after the WRINCs. */
   target: Uint8Array;
-  /** Standard-array bytes the source alone changes on the chip (0 for the chip itself). */
+  /** Standard-array bytes the dump itself puts on the chip - its own value, not an edit's (0 for the chip). */
   sourceBytes: number;
   /** The dump's checksums as checked - 'ok' or 'unchecked' (another layout) - or null for the chip. */
   sourceChecksums: ChecksumCheck | null;
@@ -177,7 +177,7 @@ export function planJob(input: JobInput): JobPlan | JobRefusal {
   let byteWrites: ByteWrite[] = [];
   let checksums: JobPlan['checksums'] = [];
   if (chip) {
-    for (let a = STANDARD_START; a <= STANDARD_END; a++) if (base[a] !== chip[a]) sourceBytes++;
+    for (let a = STANDARD_START; a <= STANDARD_END; a++) if (target[a] !== chip[a] && target[a] === base[a]) sourceBytes++;
     const from = source.kind === 'dump' ? source.name : null;
     byteWrites = runs(chip, target, (a, b) =>
       a === b
@@ -205,3 +205,99 @@ export function planJob(input: JobInput): JobPlan | JobRefusal {
 
 /** Whether a plan writes anything at all. */
 export const writesSomething = (p: JobPlan): boolean => p.secureOps.length > 0 || p.byteWrites.length > 0;
+
+/* ---------------------------------------------------------------- telling it */
+
+/** What the confirmation says, part by part - only the parts this plan actually writes. */
+export type JobSummary = {
+  odometer: { from: number | null; to: number; ops: number } | null;
+  source: { name: string; bytes: number } | null;
+  vin: { kind: 'write'; vin: string } | { kind: 'blank' } | null;
+  coding: number;
+  checksums: number;
+  bytes: number;
+};
+
+/**
+ * Whether the job still changes these bytes ON THE CHIP. With no chip every edit is still to come;
+ * with one, an edit the chip already holds - after this job was written, say - is not a change.
+ */
+function pending(plan: JobPlan, input: JobInput, address: number, length: number): boolean {
+  const chip = input.chip;
+  if (!chip) return true;
+  for (let a = address; a < address + length; a++) if (plan.target[a] !== chip[a]) return true;
+  return false;
+}
+
+const vinLines = (plan: JobPlan, input: JobInput) =>
+  plan.vinWrites.filter((w) => !w.label.startsWith('checksum') && pending(plan, input, w.address, w.data.length));
+
+const codingChanges = (plan: JobPlan, input: JobInput) =>
+  plan.coding?.changes.filter((c) => c.bytes.some((b) => pending(plan, input, b.address, 1))) ?? [];
+
+export function summarize(plan: JobPlan, input: JobInput): JobSummary {
+  const vin =
+    vinLines(plan, input).length === 0
+      ? null
+      : input.vin.kind === 'write'
+        ? { kind: 'write' as const, vin: input.vin.vin.trim().toUpperCase() }
+        : input.vin.kind === 'blank'
+          ? { kind: 'blank' as const }
+          : null;
+  return {
+    odometer: plan.targetKm !== null && plan.secureOps.length > 0 ? { from: plan.currentKm, to: plan.targetKm, ops: plan.secureOps.length } : null,
+    source: input.source.kind === 'dump' && plan.sourceBytes > 0 ? { name: input.source.name, bytes: plan.sourceBytes } : null,
+    vin,
+    coding: codingChanges(plan, input).length,
+    checksums: plan.checksums.length,
+    bytes: plan.byteWrites.reduce((n, w) => n + w.data.length, 0),
+  };
+}
+
+/**
+ * The confirmation's lines, one per thing sent: the WRINCs, what the source changes, the VIN
+ * fields, each coding change, each checksum - then the runs themselves, which are what the link
+ * sends and what runWrite checks the chip against.
+ */
+export function jobDetails(plan: JobPlan, input: JobInput): string[] {
+  const hex = (n: number, w = 2) => n.toString(16).toUpperCase().padStart(w, '0');
+  return [
+    ...plan.secureOps.map((o) => `WRINC 0x${hex(o.address)}  0x${hex(o.from)} -> 0x${hex(o.to)}`),
+    ...(input.source.kind === 'dump' && plan.sourceBytes > 0 ? [`0x020-0x3FF from ${input.source.name}: ${plan.sourceBytes} byte(s) differ`] : []),
+    ...vinLines(plan, input).map((w) => w.label),
+    ...(plan.coding?.byteWrites.filter((w) => !w.label.endsWith('checksum') && pending(plan, input, w.address, 1)).map((w) => w.label) ?? []),
+    ...plan.checksums.map((c) => `checksum 0x${hex(c.address, 3)}  0x${hex(c.before)} -> 0x${hex(c.after)}`),
+    ...(plan.byteWrites.length > 0 ? [`sent: ${plan.byteWrites.length} write(s)`, ...plan.byteWrites.map((w) => `  ${w.label}`)] : []),
+    plan.secureOps.length > 0 ? 'odometer 0x000-0x01F: WRINC only, upward' : 'odometer 0x000-0x01F: not written',
+  ];
+}
+
+/** SYNC keeps 2000 characters of a note (functions/api/sessions). */
+export const NOTE_LIMIT = 2000;
+
+/**
+ * What the record keeps beside the bytes: the source, the odometer, the VIN and each coding change
+ * with the definition and the reference data's sha256 - what the bytes alone cannot say. Cut to
+ * what SYNC keeps, saying how many lines did not fit rather than stopping mid-line.
+ */
+export function jobNote(plan: JobPlan, input: JobInput, refSha256: string | null): string {
+  const lines: string[] = [];
+  if (input.source.kind === 'dump') lines.push(`SOURCE ${input.source.name}`);
+  if (plan.targetKm !== null && plan.secureOps.length > 0) lines.push(`ODOMETER ${plan.currentKm ?? '?'} -> ${plan.targetKm} km`);
+  if (plan.vinWrites.length > 0) lines.push(input.vin.kind === 'write' ? `VIN -> ${input.vin.vin.trim().toUpperCase()}` : 'VIN blanked');
+  if (plan.coding) {
+    lines.push(`CODING ${plan.coding.file}${refSha256 ? ` ref sha256:${refSha256}` : ''}`);
+    for (const c of plan.coding.changes) lines.push(`${c.keyword}: ${c.from.keyword} -> ${c.to.keyword}`);
+  }
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const rest = lines.length - i - 1;
+    const more = rest > 0 ? `\n(+${rest} more)` : '';
+    if ([...out, lines[i]].join('\n').length + more.length > NOTE_LIMIT) {
+      out.push(`(+${lines.length - i} more)`);
+      break;
+    }
+    out.push(lines[i]!);
+  }
+  return out.join('\n');
+}

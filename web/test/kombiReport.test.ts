@@ -91,9 +91,9 @@ describe('the TEST hub', () => {
 });
 
 describe('which link a tab speaks for', () => {
-  it('gives every tab an owner: TEST the cluster, every other the bridge', () => {
+  it("gives every tab its mode's link: TEST's tabs the cluster, CHIP's the bridge", () => {
     const ids = deriveSteps({ connected: false, hasImage: false, chipBlank: false, odometerKm: null }).map((s) => s.id);
-    for (const id of ids) expect(linkOwnerOf(id)).toBe(id === 'test' ? 'cluster' : 'bridge');
+    for (const id of ids) expect(linkOwnerOf(id)).toBe(id === 'bench' || id === 'checks' ? 'cluster' : 'bridge');
   });
 });
 

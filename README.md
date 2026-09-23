@@ -26,29 +26,35 @@ The two cables never meet the same thing. The UNO only ever talks to a chip; the
 only to a cluster. TEST refuses the UNO's port, and a K+DCAN cable picked for the bridge fails
 the bridge's handshake.
 
-## The workflow
+## The workflow: two modes
 
-The tabs are the procedure, in order. Each one is enabled by what the previous
-one produced — nothing about progress is stored, it is all derived from the
-links and the image.
+**MODE** — the corner at the bottom left of the hub panel, as in TUNER's VE / IDLE — says what
+the tool is working on, and so which tabs, which cable, which hub and which PRACTICE
+(`web/lib/domain/modes.ts`). The tabs are each mode's procedure, in order; nothing about progress
+is stored, it is all derived from the links and the image. The mode holds while the chip is
+being written, and while the cluster is in a session (STOP first).
 
-| | Step | With | What happens |
-|---|---|---|---|
-| 1 | **SETUP** | — | The UNO bench: wiring diagram, a seven-step assembly guide, the parts list |
-| 2 | **READ** | UNO | Read the 1 KB image (twice, compared), decode the odometer and both VIN fields. **BACKUP** before any write |
-| 3 | **RESTORE** | UNO | A backup onto a **new blank chip**, byte for byte, odometer not written — or, on a used chip, **REPAIR** the bytes it has lost |
-| 4 | **REWRITE** | UNO | Raise the odometer to the car's true figure; write the VIN |
-| 5 | **CODING** *(experimental)* | UNO | Read the chip with the NCS coding definition it was written with, and change what may safely be changed |
-| 6 | **TEST** *(experimental)* | K+DCAN | The chip back in its cluster, the cluster on the desk: ask it, compare, move its needles and lamps |
-| — | **INSPECT** | — | Open a `.bin`: what it is, edit a byte, fix the checksums, save a copy, or make it the PRACTICE chip |
-| — | **RECORDS** | — | Every backup, and the image after every write |
+**CHIP** — the M35080 off its board, on the UNO:
+
+| | Step | What happens |
+|---|---|---|
+| 1 | **SETUP** | The UNO bench: wiring diagram, a seven-step assembly guide, the parts list |
+| 2 | **READ** | Read the 1 KB image (twice, compared), decode the odometer and both VIN fields. **BACKUP** before any write |
+| 3 | **REWRITE** | The job, in one plan and one write: the **SOURCE** (the chip as it is, or a dump), the **ODOMETER**, the **VIN** and the **CODING** *(experimental)* |
+| — | **INSPECT** | Open a `.bin`: what it is, edit a byte, fix the checksums, save a copy, or make it the PRACTICE chip |
+| — | **RECORDS** | Every backup, and the image after every write |
+
+**TEST** *(experimental)* — the chip back in its cluster, the cluster on the desk, over the
+K+DCAN cable: **BENCH** (the wiring, the parts, the procedure) and **CHECKS** (ask it, compare,
+move its needles and lamps).
 
 After a read the tool says **which job this chip allows** rather than leaving you
 to work it out: a donor below your target can simply be raised (no new chip), one
 above it cannot be lowered at all.
 
-Experimental steps are drawn only in the preview (`web/lib/domain/features.ts` says why each is
-not yet a release, and a test pins the release's set). Promoting one is the operator's call.
+Experimental parts are drawn only in the preview (`web/lib/domain/features.ts` says why each is
+not yet a release, and a test pins the release's set) - a release offers the CHIP mode, and
+REWRITE without its CODING section. Promoting one is the operator's call.
 
 ## The constraint that shapes everything
 
@@ -83,60 +89,62 @@ is understood well enough to write into (`web/lib/domain/layout.ts`, numbers and
   bench (TEST).
 
 An image that is not the late layout (the older generation, or a file of unknown origin) is
-still read, backed up, restored and rewritten, but no address in it is given a meaning the
-measurements do not support, and CODING refuses it.
+still read, backed up and rewritten, but no address in it is given a meaning the measurements do
+not support, and its coding is not read.
 
-## Restoring onto a new chip
+## REWRITE — the job, in one write
 
-A new M35080 is blank: `0x00` counters and `0xFF` everywhere else. The car can
-put back the **mileage**; it cannot put back the cluster's own data. So a
-restore needs a backup of the original chip, and writes:
+Moving a cluster to another car used to be three tabs, three plans and three writes. It is one
+job now (`web/lib/domain/job.ts`), planned in a fixed order and written through the one write
+path — each byte written and read back, the whole chip read again and compared with the plan,
+the result recorded:
 
-| Region | Written | Why |
-|---|---|---|
-| `0x020–0x3FF` | from the backup, byte for byte | the cluster's data — a new chip has none. The VIN fields travel with it |
-| `0x000–0x01F` | **not written** | stays at 0 km, below the car, which syncs it up |
+1. **SOURCE** — the standard array (`0x020–0x3FF`) starts as the chip's own, or as a **dump**'s
+   (what RESTORE used to do). A dump can be opened before anything is connected, so its coding
+   and the VIN can be planned first; writing needs the chip READ. On a blank chip the whole dump
+   is written; on a used one only the bytes that differ, and writing it again never raises the
+   odometer. A dump whose standard array is one value repeated (all `FF`, `00`, `A5` — failed
+   reads, not clusters) is refused, and a late-layout dump whose checksums do not hold is refused
+   too (fix the file in INSPECT first, where you see which byte changes).
+2. **VIN** — written to every VIN field the source has, as above.
+3. **CODING** *(experimental)* — the source's own definition, so a dump's coding can be changed
+   whatever the chip on the UNO holds — a blank one, or PRACTICE's made-up one.
+4. **ODOMETER** — WRINC on the chip, upward only. Never copied from a dump: left blank, the
+   odometer is kept, and a new chip stays at 0 km, below the car, which syncs it up (the
+   reference project's own rule: *"Mileage on new cluser MUST be lower then mileage on your
+   car"*).
 
-The reference project blanks `0x2E8–0x2EF` as "the VIN". On these chips that address is not
-the VIN, so nothing is blanked. Its other rule stands: *"Mileage on new cluser MUST be lower
-then mileage on your car"* — 0 km always is.
+The checksums are sealed once, after every edit, and one confirmation lists everything that
+will be sent: the WRINCs, what the dump changes, the VIN fields, each coding change, each
+checksum, and the runs of bytes themselves. The record is `Restore_…` for a dump, `Rewrite_…`
+otherwise, and its note keeps the source, the odometer, the VIN and each coding change.
 
-A backup whose standard array is one value repeated (all `FF`, all `00`, all
-`A5`) is refused: those are failed reads or blank chips, not clusters. A late-layout backup
-whose checksums do not hold is refused too — fix the file in INSPECT first, where you see which
-byte changes. On a chip that is **not** blank, RESTORE offers REPAIR instead: only the
-standard-array bytes that differ from the backup, never the odometer, and repeatable.
+The reference project blanks `0x2E8–0x2EF` as "the VIN". On these chips that address is not the
+VIN, so nothing is blanked. The sync to the car's higher mileage — held by the LCM from 09/2001,
+the EWS before that — depends on the coding being right. **Check the odometer after fitting and
+before driving.** If it still reads 0 km, set a target on REWRITE.
 
-The sync to the car's higher mileage — held by the LCM from 09/2001, the EWS
-before that — depends on the coding being right. **Check the odometer after
-fitting and before driving.** If it still reads 0 km, set it on the REWRITE step.
+### CODING, inside the job
 
-## CODING — the chip off the cluster, on the UNO
+The coding section reads the source with every E46 cluster coding definition (NCS Expert's
+KMBE46M3.Cxx and KMB_E46.Cxx), picks the one it was coded with, and lists every parameter — by
+block, in the reader's language, with its keyword, address, current value and what may be done
+with it (the HEX / CODING switch on REWRITE's work surface). A definition is chosen only when
+every parameter that can tell definitions apart holds one of its options **and** the
+definition's coding index is the one the source carries; anything else is a refusal with the
+closest fit shown.
 
-CODING reads the image with every E46 cluster coding definition (NCS Expert's KMBE46M3.Cxx and
-KMB_E46.Cxx), picks the one the chip was coded with, and lists every parameter — by block, in
-the reader's language, with its keyword, address, current value and what may be done with it.
-A definition is chosen only when every parameter that can tell definitions apart holds one of
-its options **and** the definition's coding index is the one the chip carries; anything else is
-a refusal with the closest fit shown.
-
-A change is written only when every gate holds: late layout, both checksums holding before the
-change, the chip's own definition, a parameter with at least two option values whose current
+A change is planned only when every gate holds: late layout, both checksums holding before the
+change, the source's own definition, a parameter with at least two option values whose current
 value is one of them, inside `0x070–0x16D` or `0x310–0x3CC`, clear of the odometer, the VIN
-field, the K-numbers and the checksums. Only the mask's bits change; the checksums are
-recomputed and shown before anything is sent. WRITE CODING goes through the same write path as
-REWRITE: each byte written and read back, the whole chip read again and compared, the result
-recorded (`Coding_…bin`, with the definition and each change in its note). Then put the chip
-back and TEST the cluster.
-
-DIFF compares, parameter by parameter, with the backup opened in RESTORE — the donor when
-moving a cluster's identity to another. The rules and the measurements behind them are in
-[`docs/CODING.md`](docs/CODING.md). **No chip changed this way has been put back in a cluster
-yet**; that is why CODING is experimental.
+field, the K-numbers and the checksums. Only the mask's bits change. With a dump as the SOURCE,
+DIFF shows the parameters the dump and the chip hold differently. The rules and the measurements
+behind them are in [`docs/CODING.md`](docs/CODING.md). **No chip changed this way has been put
+back in a cluster yet**; that is why CODING is experimental.
 
 ## TEST — the cluster off the car, on the K+DCAN cable
 
-TEST runs the cluster on the desk once its chip is back: it reads what the cluster says (IDENT,
+TEST mode (MODE › TEST) runs the cluster on the desk once its chip is back: it reads what the cluster says (IDENT,
 the VIN, the odometer, the fault memory, the inputs), compares the VIN and odometer with the chip
 image or the newest record, reads the EEPROM through the cluster to compare it too, sweeps each
 needle up and back, lights the lamps one at a time for you to answer SEEN / NOT SEEN, and ends
@@ -174,14 +182,15 @@ web/                      Next.js 16 + React 19 + Tailwind v4 PWA
   lib/codec               bridge frames, CRC, guards  (pure, no port)
   lib/link                bridge exchanges, retries, command gate + PRACTICE mock
   lib/domain              odometer / VIN / status / image / layout (checksums) / plans /
-                          records · workflow (the step machine) · features (the registry) ·
-                          hardware (the UNO pin map) · clusterBench (the TEST bench)
+                          job (REWRITE's one plan) / records · workflow (the steps) · modes
+                          (CHIP / TEST) · features (the registry) · hardware (the UNO pin map)
+                          · clusterBench (the TEST bench)
   lib/kombi               the cluster over DS2: telegrams, decode, mayRun, the simulated
                           cluster, the link, the checks, the report, the bit names
   lib/ncs                 coding: which definition a chip was coded with, its rows,
-                          planCoding, and what the CODING screen derives
+                          planCoding, and what REWRITE's coding section derives
   lib/refdata             the reference data's types, validation and loading
-  lib/hub                 the hub, derived per link: bridge (with coding), cluster
+  lib/hub                 the hub, derived per link: bridge (with the job), cluster
   lib/hooks               useM35080Link (the one write path to the chip), useKombiLink
   lib/copy                chrome words (one language), and JA/EN prose per surface
   lib/sync                the preview's SYNC client and error records (owner-sync.ts is a kit copy)
@@ -218,17 +227,18 @@ already holds 5049.
 
 **No hardware? Tick PRACTICE.** It runs the whole workflow — including the
 destructive paths — against a simulated chip that really enforces the
-increment-only rule, and TEST against a simulated cluster. INSPECT's USE AS PRACTICE CHIP makes
-a file you opened the chip PRACTICE reads.
+increment-only rule, and the TEST mode against a simulated cluster. To code a real chip's image
+in practice, open its dump as REWRITE's SOURCE; INSPECT's USE AS PRACTICE CHIP makes a file the
+chip PRACTICE reads itself.
 
-`next dev` draws what a release draws. CODING and TEST are experimental and appear in a preview
-build:
+`next dev` draws what a release draws. REWRITE's CODING section and the TEST mode are
+experimental and appear in a preview build:
 
 ```bash
 npm run build:preview && npm run serve:out   # http://localhost:5050 (or PORT)
 ```
 
-That server has no functions — no gate, no SYNC, no `/api/ref` — so CODING's definitions and
+That server has no functions — no gate, no SYNC, no `/api/ref` — so the coding definitions and
 TEST's names are opened as files (`kombi-coding.json`, `kombi-names.json`). localhost is a
 secure context, so the UNO and the K+DCAN cable work there as on the deployed preview. For the
 gate and SYNC, see [Running the gate and SYNC locally](#running-the-gate-and-sync-locally).
@@ -256,8 +266,8 @@ PREVIEW row of the M menu.
 - **Desktop Chrome or Edge only.** The bridge and the K+DCAN cable are reached over Web Serial,
   which no phone browser and neither Firefox nor Safari has.
 - **SYNC.** RECORDS › SYNC keeps this device's records — each backup, and the
-  image after each rewrite, reset, restore or coding — in the owner's own account, where
-  another device can RESTORE them. When an operation fails, the app sends an
+  image after each write — in the owner's own account, where another device can use them as
+  a REWRITE SOURCE. When an operation fails, the app sends an
   error record by itself. Both are stored per owner; nobody else can list, read
   or delete them. What is sent and for how long is in the privacy policy:
   <https://m3.tsunagi.app/privacy-policy#preview>

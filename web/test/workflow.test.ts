@@ -22,17 +22,20 @@ describe('deriveSteps - the strip is a sequence', () => {
     expect(steps.map((x) => x.id)).toEqual([
       'setup',
       'read',
-      'restore',
       'rewrite',
-      'coding',
-      'test',
       'inspect',
       'records',
+      'bench',
+      'checks',
     ]);
   });
 
-  it('never gates TEST on the bridge or an image: it talks to the cluster, and an image only gives it something to compare with', () => {
-    expect(stepById(deriveSteps(EMPTY), 'test')).toMatchObject({ enabled: true, blockedBy: null });
+  it('never gates TEST mode on the bridge or an image: it talks to the cluster, and an image only gives it something to compare with', () => {
+    for (const id of ['bench', 'checks'] as const) expect(stepById(deriveSteps(EMPTY), id)).toMatchObject({ enabled: true, blockedBy: null });
+  });
+
+  it('never gates REWRITE: a dump can be opened as the source, and the job planned, before any chip is read', () => {
+    expect(stepById(deriveSteps(EMPTY), 'rewrite')).toMatchObject({ enabled: true, blockedBy: null });
   });
 
   it('never gates INSPECT on a chip or a connection', () => {
@@ -46,23 +49,6 @@ describe('deriveSteps - the strip is a sequence', () => {
     const steps = deriveSteps(EMPTY);
     expect(stepById(steps, 'setup')?.enabled).toBe(true);
     expect(stepById(steps, 'records')?.enabled).toBe(true);
-  });
-
-  it('BLOCKS the chip jobs until an image has been read', () => {
-    const steps = deriveSteps(s({ connected: true }));
-    for (const id of ['restore', 'rewrite', 'coding'] as const) {
-      const step = stepById(steps, id);
-      expect(step?.enabled, `${id} should be blocked`).toBe(false);
-      expect(step?.blockedBy).toBe('need-image');
-    }
-  });
-
-  it('unblocks the chip jobs once there is an image', () => {
-    const steps = deriveSteps(s({ connected: true, hasImage: true }));
-    expect(stepById(steps, 'restore')?.enabled).toBe(true);
-    expect(stepById(steps, 'rewrite')?.enabled).toBe(true);
-    expect(stepById(steps, 'coding')?.enabled).toBe(true);
-    expect(stepById(steps, 'restore')?.blockedBy).toBeNull();
   });
 
   it('tells READ it needs a connection, without disabling it', () => {
@@ -114,8 +100,8 @@ describe('recommend - the tool decides which job this chip allows', () => {
 });
 
 describe('stepFor - where a recommendation points', () => {
-  it('sends a blank chip to RESTORE and a raisable one to REWRITE', () => {
-    expect(stepFor({ kind: 'restore-ready' })).toBe('restore');
+  it('sends a blank chip and a raisable one alike to REWRITE, where the dump is its SOURCE', () => {
+    expect(stepFor({ kind: 'restore-ready' })).toBe('rewrite');
     expect(stepFor({ kind: 'rewrite-possible', currentKm: 1, targetKm: 2 })).toBe('rewrite');
   });
 

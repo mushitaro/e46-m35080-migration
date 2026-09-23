@@ -38,8 +38,11 @@ import type { StepId } from './workflow';
  */
 export type Stage = 'stable' | 'experimental' | 'permanently-closed';
 
-/** Today every surface is a step in the workflow strip. */
-export type Surface = StepId;
+/**
+ * A tab (a step of either mode), or a section of one whose stage differs from its tab's: CODING is
+ * a section of REWRITE, drawn only where the coding feature is.
+ */
+export type Surface = StepId | 'coding';
 
 export type Feature = {
   id: string;
@@ -69,12 +72,10 @@ export const FEATURES: Feature[] = [
     surfaces: ['read'],
   },
   {
-    id: 'restore-from-backup',
-    stage: 'stable',
-    surfaces: ['restore'],
-  },
-  {
-    id: 'rewrite-odometer-and-vin',
+    /* REWRITE: the job - the source (the chip, or a dump: what RESTORE was), the odometer and
+       the VIN, planned and written as one (lib/domain/job.ts). One feature because it is one
+       plan; RESTORE and REWRITE were two stable features and are one stable feature now. */
+    id: 'rewrite-job',
     stage: 'stable',
     surfaces: ['rewrite'],
   },
@@ -92,15 +93,17 @@ export const FEATURES: Feature[] = [
        opened from disk - never in this build. */
     id: 'coding-ncs',
     stage: 'experimental',
+    /* A section of REWRITE, not a tab: the coding is part of the job. */
     surfaces: ['coding'],
     reason:
       'Measured on chip images and definitions only: no chip changed this way has been put back in a cluster yet (docs/CODING.md, "Not yet confirmed"). Promote after one has, and TEST read it back.',
   },
   {
-    /* TEST: the cluster on the bench over DS2, through the K+DCAN cable (lib/kombi). */
+    /* TEST mode: the cluster on the bench over DS2, through the K+DCAN cable (lib/kombi). Its
+       tabs are the whole mode, so a build without them offers CHIP only (modes.ts). */
     id: 'cluster-test-ds2',
     stage: 'experimental',
-    surfaces: ['test'],
+    surfaces: ['bench', 'checks'],
     reason:
       'Not yet run on a real cluster. Every telegram and the variant rule are read out of the SGBDs, and the X11175 pin numbers come from one public pinout - none of it measured (docs/BENCH.md). Promote after the first bench session confirms them.',
   },

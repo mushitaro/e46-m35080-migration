@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * CODING's side panel: where the definitions came from, which one this chip was coded with and
- * how well it fits, the rows by status, the row picked on the left in full, and the changes as
- * they will be written - checksums included.
+ * REWRITE's CODING section: where the definitions came from, which one the SOURCE was coded with
+ * and how well it fits, the rows by status, and the row picked on the left in full. What the
+ * picks will write - with the VIN, the odometer and the source - is the job's CHANGES list
+ * (RewritePanel), not a second list here.
  *
- * Every refusal is written in a reserved line in words, in the reader's language. Nothing here
- * writes; the hub does, through the one write path.
+ * Nothing here writes; the hub does, through the one write path.
  */
 
 import { RefreshCw, Trash2 } from 'lucide-react';
@@ -18,7 +18,6 @@ import { cc } from '@/lib/copy/coding';
 import { formatAddress, formatByte } from '@/lib/domain/image';
 import { detectLayout } from '@/lib/domain/layout';
 import type { Choice, ParamRow } from '@/lib/ncs/decode';
-import type { CodingPlan, CodingRefusal } from '@/lib/ncs/encode';
 import { formatBytes, formatOption, formatValue, maskBits, optionName, paramName, tally, type Staged } from '@/lib/ncs/view';
 import { describeOrigin, type RefLoad } from '@/lib/refdata/load';
 import type { CodingDoc } from '@/lib/refdata/types';
@@ -39,7 +38,6 @@ export function CodingPanel({
   staged,
   onPick,
   onDiscard,
-  plan,
   donor,
 }: {
   lang: Lang;
@@ -53,7 +51,6 @@ export function CodingPanel({
   staged: Staged;
   onPick: (index: number, option: number | null) => void;
   onDiscard: () => void;
-  plan: CodingPlan | CodingRefusal | null;
   donor: DonorState;
 }) {
   const c = cc();
@@ -62,13 +59,8 @@ export function CodingPanel({
 
   return (
     <div className="flex flex-col">
-      <div className="flex flex-col gap-2 px-5 py-4">
-        <p className="text-[10px] leading-snug text-slate-400">{c.lead}</p>
-        <p className="text-[10px] leading-snug text-slate-500">{c.chipOff}</p>
-      </div>
-
       {/* ------------------------------ the data ------------------------------ */}
-      <div className="flex flex-col gap-2 border-t border-slate-800 px-5 py-4">
+      <div className="flex flex-col gap-2 px-5 py-4">
         <div className="flex items-baseline gap-2">
           <MicroLabel as="h3">{CHROME.coding.data}</MicroLabel>
           {refLoad?.ok && refLoad.origin.kind === 'served' && (
@@ -129,7 +121,12 @@ export function CodingPanel({
       {/* ------------------------------- the rows ------------------------------ */}
       {doc && rows && (
         <div className="flex flex-col gap-2 border-t border-slate-800 px-5 py-4">
-          <MicroLabel as="h3">{CHROME.coding.rows}</MicroLabel>
+          <div className="flex items-baseline gap-2">
+            <MicroLabel as="h3">{CHROME.coding.rows}</MicroLabel>
+            <TextButton tone="danger" Icon={Trash2} onClick={onDiscard} disabled={staged.size === 0} className="ml-auto">
+              {CHROME.coding.discard}
+            </TextButton>
+          </div>
           <Tallies rows={rows} />
           <p className="text-[10px] leading-snug text-slate-600">{c.authoredNote}</p>
           <p className="text-[10px] leading-snug text-slate-500">
@@ -149,19 +146,6 @@ export function CodingPanel({
         </div>
       )}
 
-      {/* ------------------------------ the changes ---------------------------- */}
-      {doc && rows && (
-        <div className="flex flex-col gap-2 border-t border-slate-800 px-5 py-4">
-          <div className="flex items-baseline gap-2">
-            <MicroLabel as="h3">{CHROME.coding.changes}</MicroLabel>
-            <TextButton tone="danger" Icon={Trash2} onClick={onDiscard} disabled={staged.size === 0} className="ml-auto">
-              {CHROME.coding.discard}
-            </TextButton>
-          </div>
-          <Changes doc={doc} rows={rows} lang={lang} plan={plan} />
-          <p className="text-[10px] leading-snug text-slate-600">{c.checksumsFollow} {c.writtenNote}</p>
-        </div>
-      )}
     </div>
   );
 }
@@ -275,57 +259,6 @@ function Detail({
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-function Changes({
-  doc,
-  rows,
-  lang,
-  plan,
-}: {
-  doc: CodingDoc;
-  rows: readonly ParamRow[];
-  lang: Lang;
-  plan: CodingPlan | CodingRefusal | null;
-}) {
-  const c = cc();
-  if (!plan) return <p className="text-[10px] leading-snug text-slate-500">{c.noChanges}</p>;
-  if (!plan.ok) {
-    const who = plan.param !== undefined && rows[plan.param] ? paramName(doc, rows[plan.param]!.param, lang).text : null;
-    return (
-      <Callout tone="danger">
-        {c.refused[plan.code]}
-        {who && <span className="ml-1">({who})</span>}
-      </Callout>
-    );
-  }
-  return (
-    <div className="flex flex-col gap-2">
-      {plan.changes.map((ch) => (
-        <div key={ch.param} className="flex flex-col gap-0.5">
-          <div className="flex items-baseline gap-2 text-[10px]">
-            <span className="min-w-0 flex-1 truncate text-slate-200">{paramName(doc, rows[ch.param]!.param, lang).text}</span>
-            <span className="shrink-0 text-slate-500">{optionName(doc, ch.from, lang).text}</span>
-            <span className="shrink-0 text-slate-600">&rarr;</span>
-            <span className="shrink-0 text-blue-300">{optionName(doc, ch.to, lang).text}</span>
-          </div>
-          {ch.bytes.map((b) => (
-            <span key={b.address} className="font-mono text-[10px] text-slate-500">
-              {formatAddress(b.address)} {formatByte(b.before)} &rarr; <span className="text-blue-300">{formatByte(b.after)}</span>
-            </span>
-          ))}
-        </div>
-      ))}
-      <div className="flex flex-col gap-0.5">
-        <MicroLabel>{CHROME.checksum.title}</MicroLabel>
-        {plan.checksums.map((w) => (
-          <span key={w.address} className="font-mono text-[10px] text-slate-500">
-            {formatAddress(w.address)} {formatByte(w.before)} &rarr; <span className="text-indigo-300">{formatByte(w.after)}</span>
-          </span>
-        ))}
-      </div>
     </div>
   );
 }

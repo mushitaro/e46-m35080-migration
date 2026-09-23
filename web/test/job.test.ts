@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planJob, writesSomething, type JobInput, type JobPlan } from '@/lib/domain/job';
+import { NOTE_LIMIT, jobNote, planJob, summarize, writesSomething, type JobInput, type JobPlan } from '@/lib/domain/job';
 import { applyPlanPreview } from '@/lib/domain/operations';
 import { decodeOdometer, encodeOdometer, slotsToBytes } from '@/lib/domain/odometer';
 import { detectLayout, recomputeChecksums } from '@/lib/domain/layout';
@@ -178,5 +178,44 @@ describe('the odometer is the chip', () => {
     const plan = ok(planJob({ chip, source: { kind: 'dump', name: 'donor.bin', image: dump }, ...keep, odometer: { kind: 'set', km: 42_000 } }));
     expect(decodeOdometer(secureOf(plan.target))).toMatchObject({ ok: true, km: 42_000 });
     expect(secureOf(plan.target)).toEqual(slotsToBytes(encodeOdometer(42_000)));
+  });
+});
+
+describe('what a job tells', () => {
+  it('summarizes only what the plan writes, and keeps the source, odometer, VIN and coding in the note', () => {
+    const { image: dump, doc } = codingFixture();
+    const chip = blankChip();
+    const input: JobInput = {
+      chip,
+      source: { kind: 'dump', name: 'donor.bin', image: dump },
+      odometer: { kind: 'set', km: 42_000 },
+      vin: { kind: 'write', vin: 'ZX54321' },
+      coding: { doc, changes: [{ param: P.mode, option: 103 }] },
+    };
+    const plan = ok(planJob(input));
+    const sum = summarize(plan, input);
+    expect(sum.source?.name).toBe('donor.bin');
+    expect(sum.odometer).toMatchObject({ to: 42_000 });
+    expect(sum.vin).toEqual({ kind: 'write', vin: 'ZX54321' });
+    expect(sum.coding).toBe(1);
+    expect(jobNote(plan, input, 'ab'.repeat(32)).split('\n')).toEqual([
+      'SOURCE donor.bin',
+      'ODOMETER 0 -> 42000 km',
+      'VIN -> ZX54321',
+      `CODING DEMO.C01 ref sha256:${'ab'.repeat(32)}`,
+      'DEMO_MODE: m_a -> m_c',
+    ]);
+    const long = { ...plan, coding: { ...plan.coding!, changes: Array.from({ length: 200 }, () => plan.coding!.changes[0]!) } };
+    const note = jobNote(long, input, null);
+    expect(note.length).toBeLessThanOrEqual(NOTE_LIMIT);
+    expect(note).toMatch(/\(\+\d+ more\)$/);
+  });
+
+  it('says nothing about the odometer or the VIN when they are kept', () => {
+    const { image, doc } = codingFixture();
+    const input: JobInput = { chip: image, source: { kind: 'chip' }, ...keep, coding: { doc, changes: [{ param: P.upper, option: 172 }] } };
+    const plan = ok(planJob(input));
+    expect(summarize(plan, input)).toMatchObject({ odometer: null, source: null, vin: null, coding: 1 });
+    expect(jobNote(plan, input, null).split('\n')).toEqual(['CODING DEMO.C01', 'DEMO_UPPER: u_a -> u_b']);
   });
 });

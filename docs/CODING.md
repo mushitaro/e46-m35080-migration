@@ -1,8 +1,10 @@
 # Coding — reading and changing a chip's coding with NCS Expert's definitions
 
-CODING reads a chip image with the cluster's own coding definition — every parameter, its
-current value and the options it allows — and changes the ones that can safely be changed,
-through the same write path as REWRITE (write, read back, record).
+REWRITE's coding section reads the job's source — the chip, or a dump — with the cluster's own
+coding definition: every parameter, its current value and the options it allows. The ones that can
+safely be changed are changed as part of the job (`web/lib/domain/job.ts`): after the source and
+the VIN, before the odometer, sealed once, and written in the same single pass as everything else
+the job does (write, read back, record).
 
 The definitions are NCS Expert's (KMBE46M3.Cxx, KMB_E46.Cxx), read by
 `tools/refdata/gen_refdata.py` into JSON that is served to signed-in owners of the preview and
@@ -93,4 +95,4 @@ none of the options).
   and definitions; no changed chip has been put back in a cluster yet. TEST reads the cluster
   afterwards.
 - The older generation's addressing: its definitions do not fit its chips at these addresses, so
-  CODING refuses them rather than guess.
+  the coding section refuses them rather than guess.

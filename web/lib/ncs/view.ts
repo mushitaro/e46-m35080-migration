@@ -10,7 +10,7 @@
 
 import { CHECKSUM_REGIONS, PROTECTED_RANGES, type ChecksumRegion } from '@/lib/domain/layout';
 import type { CodingBlock, CodingDefinition, CodingDoc, CodingOption, CodingParameter, Named, NameSource } from '@/lib/refdata/types';
-import type { CodingChange, CodingPlan } from './encode';
+import type { CodingChange } from './encode';
 import { be, isScalar, optionValue, readScalar, type ParamRow, type RowStatus } from './decode';
 
 type Lang = 'ja' | 'en';
@@ -194,29 +194,3 @@ export function byteRoles(rows: readonly ParamRow[]): ByteRole[] {
 
 /** The bytes a parameter covers, for the MAP to ring. */
 export const bytesOf = (p: CodingParameter): Set<number> => new Set(Array.from({ length: p.length }, (_, i) => p.address + i));
-
-/* ---------------------------------------------------------------- the record */
-
-/** What SYNC keeps of a note (functions/api/sessions: optText(note, 2000)). */
-export const NOTE_LIMIT = 2000;
-
-/**
- * What a coding record keeps beside the bytes: the definition, the sha256 of the reference data it
- * came from, and each change as `KEYWORD: from -> to` - what the bytes alone cannot say. Cut to
- * what SYNC keeps, saying how many changes did not fit rather than stopping mid-line.
- */
-export function codingNote(plan: CodingPlan, sha256: string | null): string {
-  const head = `CODING ${plan.file}${sha256 ? ` ref sha256:${sha256}` : ''}`;
-  const lines = plan.changes.map((c) => `${c.keyword}: ${c.from.keyword} -> ${c.to.keyword}`);
-  const out = [head];
-  for (let i = 0; i < lines.length; i++) {
-    const rest = lines.length - i - 1;
-    const more = rest > 0 ? `\n(+${rest} more)` : '';
-    if ([...out, lines[i]].join('\n').length + more.length > NOTE_LIMIT) {
-      out.push(`(+${lines.length - i} more)`);
-      break;
-    }
-    out.push(lines[i]!);
-  }
-  return out.join('\n');
-}

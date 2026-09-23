@@ -1,10 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { chooseDefinition, rowsFor, type ParamRow } from '@/lib/ncs/decode';
-import { planCoding } from '@/lib/ncs/encode';
 import {
-  NOTE_LIMIT,
   byteRoles,
-  codingNote,
   differingFrom,
   effectiveChanges,
   formatValue,
@@ -16,19 +13,17 @@ import {
   passes,
   tally,
 } from '@/lib/ncs/view';
-import { codingHubFor } from '@/lib/hub/codingHub';
-import { bridgeHubFor, type BridgeHubState } from '@/lib/hub/bridgeHub';
 import { recordFilename } from '@/lib/domain/records';
 import { recomputeChecksums } from '@/lib/domain/layout';
 import { MockM35080Link } from '@/lib/link/mockLink';
-import { CHROME } from '@/lib/copy/chrome';
 import type { CodingDoc } from '@/lib/refdata/types';
 import { codingFixture, P } from './support/codingDoc';
 
 /**
- * What the CODING screen is built from: names in the reader's language with their source, rows by
- * block, the filters and the search, the MAP's byte roles, a donor's differences, the picks that
- * become a plan, the record's note, and the hub - on the synthetic definition only.
+ * What REWRITE's coding is built from: names in the reader's language with their source, rows by
+ * block, the filters and the search, the MAP's byte roles, a dump's differences from the chip, and
+ * the picks that become the job's coding - on the synthetic definition only. The hub and the
+ * record's note are the job's (bridgeHub.test.ts, job.test.ts).
  */
 
 function setup() {
@@ -160,90 +155,10 @@ describe('picks, the plan and the record', () => {
     expect(effectiveChanges(rows, staged)).toEqual([{ param: P.level, option: 162 }]);
   });
 
-  it('keeps the definition, the data sha256 and each change in the note, cut to what SYNC keeps', () => {
-    const { image, doc } = setup();
-    const plan = planCoding(image, doc, [
-      { param: P.mode, option: 103 },
-      { param: P.level, option: 162 },
-    ]);
-    if (!plan.ok) throw new Error('plan refused');
-    expect(codingNote(plan, 'ab'.repeat(32)).split('\n')).toEqual([
-      `CODING DEMO.C01 ref sha256:${'ab'.repeat(32)}`,
-      'DEMO_MODE: m_a -> m_c',
-      'DEMO_LEVEL: v_a -> v_b',
-    ]);
-    const long = { ...plan, changes: Array.from({ length: 200 }, () => plan.changes[0]!) };
-    const note = codingNote(long, null);
-    expect(note.length).toBeLessThanOrEqual(NOTE_LIMIT);
-    expect(note).toMatch(/\(\+\d+ more\)$/);
-  });
-
   it('names a coding record as what it is', () => {
     const when = new Date(2026, 8, 24, 1, 2);
     expect(recordFilename('coding', 'AB12345', 1000, when)).toBe('Coding_AB12345_1000km_20260924-0102.bin');
     expect(recordFilename('coding', null, null, when, true)).toBe('PRACTICE_Coding_noVIN_noKM_20260924-0102.bin');
-  });
-});
-
-describe('the hub on CODING', () => {
-  const ask = vi.fn();
-  const confirm = (n: number, bytes: number) => `coding ${n} (${bytes})`;
-
-  it('says why the ring is idle: no definition, no change, a refused plan', () => {
-    expect(codingHubFor({ ready: false, staged: 0, plan: null, note: '' }, confirm, ask)).toMatchObject({
-      label: CHROME.hub.noDefinition,
-      disabled: true,
-    });
-    expect(codingHubFor({ ready: true, staged: 0, plan: null, note: '' }, confirm, ask)).toMatchObject({
-      label: CHROME.hub.noChanges,
-      disabled: true,
-    });
-    const refused = { ok: false as const, code: 'not-codable' as const, param: P.guarded };
-    expect(codingHubFor({ ready: true, staged: 1, plan: refused, note: '' }, confirm, ask)).toMatchObject({
-      label: CHROME.hub.checkCoding,
-      disabled: true,
-    });
-  });
-
-  it('offers WRITE CODING for an accepted plan, and asks with the exact bytes, the note and the kind', () => {
-    const { image, doc } = setup();
-    const plan = planCoding(image, doc, [{ param: P.upper, option: 172 }]);
-    if (!plan.ok) throw new Error('plan refused');
-    const h = codingHubFor({ ready: true, staged: 1, plan, note: 'n' }, confirm, ask);
-    expect(h).toMatchObject({ label: CHROME.hub.writeCoding, danger: true });
-    h.onClick();
-    expect(ask).toHaveBeenCalledWith(
-      { kind: 'coding', byteWrites: plan.byteWrites, secureOps: [], note: 'n' },
-      `coding 1 (${plan.byteWrites.length})`,
-      [...plan.byteWrites.map((w) => w.label), 'odometer 0x00-0x1F, VIN 0x07A-0x087: not written'],
-    );
-    // One parameter byte, and the two checksum bytes of that region (0x3CD, its mirror 0x3DF).
-    expect(plan.byteWrites.map((w) => w.address)).toEqual([0x320, 0x3cd, 0x3df]);
-  });
-
-  it('never skips the bridge tiers: no WRITE CODING before the chip is read and backed up', () => {
-    const { image, doc } = setup();
-    const plan = planCoding(image, doc, [{ param: P.upper, option: 172 }]);
-    const state = (over: Partial<BridgeHubState>): BridgeHubState => ({
-      busy: false,
-      phase: 'connected',
-      step: 'coding',
-      hasImage: true,
-      backedUp: true,
-      chipBlank: false,
-      hasBackupFile: false,
-      rewritePlan: null,
-      restorePlan: null,
-      repairPlan: null,
-      coding: { ready: true, staged: 1, plan, note: '' },
-      copy: { confirmOdometer: () => '', confirmReset: '', confirmRepair: () => '', confirmCoding: confirm },
-      act: { connect: vi.fn(), read: vi.fn(), backup: vi.fn(), ask: vi.fn() },
-      ...over,
-    });
-    expect(bridgeHubFor(state({ phase: 'disconnected' })).label).toBe(CHROME.hub.connect);
-    expect(bridgeHubFor(state({ hasImage: false })).label).toBe(CHROME.hub.read);
-    expect(bridgeHubFor(state({ backedUp: false })).label).toBe(CHROME.hub.backup);
-    expect(bridgeHubFor(state({})).label).toBe(CHROME.hub.writeCoding);
   });
 });
 

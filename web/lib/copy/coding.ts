@@ -15,10 +15,6 @@ import type { RefFailure } from '@/lib/refdata/load';
 type NoneReason = Extract<Choice, { kind: 'none' }>['reason'];
 
 const JA = {
-  lead:
-    'チップのイメージを、そのチップを書いたコーディング定義で読みます。全項目を並べ、書き換えてよい項目だけを' +
-    '選択肢から変えられます。書き込みは REWRITE と同じ経路（書く → 読み返す → 記録）を通ります。',
-  chipOff: 'コーディングはチップをメータから外し、UNO につないだ状態で行います。メータの確認は、チップを戻してから TEST で。',
   dataNote: '定義は NCS Expert のものです。このリポジトリにもビルドにも入っておらず、メモリ上だけで使います。',
 
   ref: {
@@ -31,7 +27,7 @@ const JA = {
   } satisfies Record<RefFailure, string>,
   loading: '参照データを取得しています。',
 
-  needImage: 'チップを読むと、全定義と照合して、そのチップを書いた 1 つを選びます。',
+  needImage: 'チップを READ するか、SOURCE にダンプを開くと、全定義と照合して、それを書いた 1 つを選びます。',
 
   none: {
     'not-late-layout':
@@ -40,7 +36,7 @@ const JA = {
     ambiguous: '当てはまる定義が 2 つ以上あり、1 つに絞れません。',
   } satisfies Record<NoneReason, string>,
   practicePreset:
-    'PRACTICE の既定の模擬チップは作り物の値なので、どの定義にも当てはまりません。INSPECT で実チップのダンプを開いて USE AS PRACTICE CHIP を押し、接続し直して READ すると、実際の定義で試せます。',
+    'PRACTICE の既定の模擬チップは作り物の値なので、どの定義にも当てはまりません。SOURCE を DUMP にして実チップのダンプを開くと、そのダンプの定義でコーディングできます。',
   fitNote: (anyValue: number, oneValue: number, arrays: number) =>
     `選択肢で値を区別できる項目だけを数えます（どの値でも一致する項目 ${anyValue}、値が 1 つの項目 ${oneValue}、配列 ${arrays} は数えません）。`,
   indexNote: (index: number) => `チップが持つコーディングインデックス ${index} と、定義のインデックスが一致しています。`,
@@ -67,23 +63,14 @@ const JA = {
 
   selectRow: '行を選ぶと、全選択肢と mask をここに表示します。',
   authoredNote: '名前は、印の無いものが確定訳です。HEURISTIC は辞書から組み立てた補完訳、RAW は訳の無いキーワードです。',
-  noChanges: '変更はまだありません。CODABLE の行で新しい値を選んでください。',
-  checksumsFollow: 'チェックサムは変更に合わせて計算し直し、一緒に書きます。',
-  writtenNote: '書いたあと、hub は BACKUP に戻ります。次の書き込みの前に、書いた後のチップを保存するためです。',
-
   diff: {
-    none: 'ドナーのバックアップがありません。RESTORE で開くと、項目ごとに比べられます。',
-    layout: 'ドナーは late layout ではないため、同じ定義では比べません。',
-    from: (n: number) => `RESTORE で開いたバックアップ（ドナー）と ${n} 項目が違います。`,
+    none: 'DIFF は、SOURCE をダンプにしたとき、ダンプと今のチップで値の違う項目を示します。',
+    layout: '今のチップは late layout ではないため、同じ定義では比べません。',
+    from: (n: number) => `SOURCE のダンプと今のチップで、${n} 項目の値が違います。`,
   },
 };
 
 const EN: typeof JA = {
-  lead:
-    'Read the chip image with the coding definition it was written with. Every parameter is listed, and only the ' +
-    'ones that may be rewritten can be changed, to one of their options. The write takes the same path as REWRITE ' +
-    '(write, read back, record).',
-  chipOff: 'Coding is done with the chip off the cluster, on the UNO. Check the cluster with TEST once the chip is back.',
   dataNote: "The definitions are NCS Expert's. They are in neither this repository nor its build, and are held in memory only.",
 
   ref: {
@@ -96,7 +83,7 @@ const EN: typeof JA = {
   },
   loading: 'Fetching the reference data.',
 
-  needImage: 'Read the chip and it is matched against every definition, to find the one that wrote it.',
+  needImage: 'READ the chip, or open a dump as the SOURCE, and it is matched against every definition to find the one that wrote it.',
 
   none: {
     'not-late-layout':
@@ -105,7 +92,7 @@ const EN: typeof JA = {
     ambiguous: 'More than one definition fits, and they cannot be narrowed to one.',
   },
   practicePreset:
-    "PRACTICE's default chip holds made-up values, so no definition fits it. Open a real chip's dump in INSPECT, press USE AS PRACTICE CHIP, reconnect and READ to try the real definitions.",
+    "PRACTICE's default chip holds made-up values, so no definition fits it. Set the SOURCE to DUMP and open a real chip's dump to code with that dump's definition.",
   fitNote: (anyValue: number, oneValue: number, arrays: number) =>
     `Only parameters whose options tell values apart are counted (not the ${anyValue} any value matches, the ${oneValue} with one value, or the ${arrays} arrays).`,
   indexNote: (index: number) => `The chip's own coding index, ${index}, is the definition's.`,
@@ -132,14 +119,10 @@ const EN: typeof JA = {
 
   selectRow: 'Pick a row to see all its options and its mask here.',
   authoredNote: 'Unmarked names are authored translations. HEURISTIC is composed from the dictionary; RAW is a keyword nobody has named.',
-  noChanges: 'No changes yet. Pick a new value on a CODABLE row.',
-  checksumsFollow: 'The checksums are recomputed for the change and written with it.',
-  writtenNote: 'After a write the hub goes back to BACKUP, so the chip as written is saved before the next write.',
-
   diff: {
-    none: 'No donor backup. Open one in RESTORE to compare parameter by parameter.',
-    layout: 'The donor is not the late layout, so it is not read with the same definition.',
-    from: (n: number) => `${n} parameter(s) differ from the backup opened in RESTORE (the donor).`,
+    none: 'With a dump as the SOURCE, DIFF shows the parameters the dump and the chip hold differently.',
+    layout: 'The chip is not the late layout, so it is not read with the same definition.',
+    from: (n: number) => `${n} parameter(s) differ between the SOURCE dump and the chip.`,
   },
 };
 

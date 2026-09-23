@@ -16,7 +16,6 @@ import { getLang } from '@/lib/i18n';
 const JA = {
   /* ---- workflow strip ---- */
 
-  blockedNeedImage: '先にチップを読み出してください',
   blockedNeedConnection: 'Arduino を接続してください',
 
   noRecordsHint: 'チップから読んだイメージと、チップへ書いたイメージがここに残ります。',
@@ -28,39 +27,10 @@ const JA = {
      ・走行距離は書かない（README: 新クラスターの距離は車両より低く。0 は常に低い）
      以前は「バックアップ不要・VIN 8バイトだけ」を標準と称していた。それでは
      標準領域が全FFのままで、車両が戻すのは距離と VIN だけなので復旧しない。 */
-  restoreLead:
-    'バックアップのクラスターデータを新品チップへ、1 バイトも変えずに書き込みます。'
-    + 'VIN もバックアップに入っていれば一緒に写ります。走行距離だけは書きません。',
-  restoreRowData: '0x020–0x3FF　バックアップの値（クラスターのデータ）',
-  restoreRowVin: '0x07A / 0x184 付近　VIN の 2 つの欄もバックアップのまま複製（チェックサムごと）',
-  restoreRowOdo: '0x000–0x01F　書かない（0 km のまま）',
-  restoreProcedure:
-    '書き込んだチップをクラスターへ実装して車両に戻し、コーディングツール（NCS Expert / PA Soft 等）で ' +
-    'VIN と車両コーディング（ZCS/FA）を設定します。' +
-    '走行距離は、コーディングが正しく入っていれば、バックアップ側モジュール' +
-    '（2001/09 以降は LCM、それ以前は EWS）に残る値のうち高い方へ同期されます。',
-
   /* 同期は無条件ではない。「正しくコーディングされていれば」が付くうえ、VIN が
      一致しないと距離が進まないという報告もある。 */
-  restoreVerify:
-    '⚠ 同期は条件付きです。取り付け後、走行する前に必ずメーター表示を確認してください。' +
-    '0 km のままなら同期していません。その場合は「書き換え」タブか診断機で距離を設定してください。',
-  restoreBasis:
-    '根拠: 新品チップは出荷時点で 0 km。標準領域はバックアップの複製でしか復元できません'
-    + '（車両が戻すのは距離と VIN だけで、クラスターのデータは戻りません）。',
-
   /* ブランクでないチップ向け。走行距離に触れないので何度でもやり直せ、
      「書いて、置いて、読み直す」でデータ保持そのものを試せる。 */
-  repairLead:
-    'このチップはブランクではありません。標準領域のうち、バックアップと違うバイトだけを書き戻します。',
-  repairSafe:
-    '触れないのは走行距離（0x00–0x1F）だけです。VIN を含む標準領域は、バックアップと違っていれば書き戻します。'
-    + 'セキュア領域を上げないので、何度でもやり直せます。',
-  repairCount: (n: number) => `バックアップと ${n} バイト異なります。`,
-  repairNothing: 'バックアップとの差はありません。修復するものがありません。',
-  repairRetentionTest:
-    '書き戻したあと時間をおいて読み直すと、チップがデータを保持できるか確かめられます。再び 0xFF に戻るなら、そのチップは使えません。',
-
   /* 固定マップは作れない（実チップ4枚に共通の領域が無い）。だからバイト列から
      観測できることだけを出す。0x2E8=VIN と決め打って8バイト消していた失敗の再発防止。 */
   structNote:
@@ -77,7 +47,6 @@ const JA = {
      「任意の値にできる」が答えだが、復旧タブでそれを言うと、すぐ下の
      「走行距離はこのツールから書かない」と正面から矛盾する。 */
   recRestoreReady: 'ブランクチップです。0 km から任意の値へ設定できます。',
-  recBlankForRestore: 'ブランクチップです。バックアップを選べば書き込めます。',
   recRewritePossible: (cur: number, target: number) =>
     `現在 ${cur.toLocaleString()} km。目標 ${target.toLocaleString()} km は上げるだけで届くので、チップ交換は不要です。`,
   recNeedsNewChip: (cur: number, target: number) =>
@@ -182,8 +151,6 @@ const JA = {
   inspectSaveBroken: (list: string) =>
     `チェックサムが合っていません（${list}）。このファイルをチップに書くと、メータが受け付けない可能性があります。` +
     'FIX CHECKSUMS で直さずに、このまま保存しますか？',
-  restoreChecksumsOk: 'バックアップのチェックサム: 合っています（書いたあとも合います）',
-  restoreChecksumsUnchecked: 'バックアップのチェックサム: 検査できないレイアウトです',
   mapVinCoded:
     '0x07A〜0x07E: 英数字 2 文字のあとに数字 5 桁（BCD）。0x07E の下位 4 ビットは VIN ではありません。' +
     'この欄は 0x16E のチェックサムの範囲に入っているため、書き換えるとチェックサムも計算し直します。',
@@ -236,41 +203,9 @@ const JA = {
 
 const EN: typeof JA = {
 
-  blockedNeedImage: 'Read the chip first',
   blockedNeedConnection: 'Connect the Arduino first',
 
   noRecordsHint: 'Every image read from or written to a chip is kept here.',
-
-  restoreLead:
-    "Write a backup's cluster data to a new chip, byte for byte. If the backup carries " +
-    'a VIN it is copied across too. Only the odometer is left alone.',
-  restoreRowData: '0x020-0x3FF   from the backup (the cluster data)',
-  restoreRowVin: '0x07A / ~0x184 both VIN fields, copied as-is with the rest (checksums included)',
-  restoreRowOdo: '0x000-0x01F   not written (stays at 0 km)',
-  restoreProcedure:
-    'Fit the chip, put the cluster back in the car and set the VIN and coding (ZCS/FA) with a ' +
-    'coding tool (NCS Expert / PA Soft). If the ' +
-    'coding is right, the odometer syncs to the higher of the values held by the backup module - ' +
-    'the LCM from 09/2001, the EWS before that.',
-
-  restoreVerify:
-    '⚠ That sync is conditional. Check the odometer after fitting and BEFORE driving. If it still ' +
-    'reads 0 km the sync did not happen - set the mileage on the REWRITE step or with a diagnostic tool.',
-  restoreBasis:
-    'Basis: a new chip ships at 0 km, and the standard array can only come back from a copy of a ' +
-    'backup (the car puts back the mileage and the VIN, never the cluster\'s data).',
-
-  repairLead:
-    'This chip is not blank. Only the standard-array bytes that differ from the backup are written back.',
-  repairSafe:
-    'The odometer (0x00-0x1F) is the only thing left alone - the VIN and the rest of the ' +
-    'standard array are written back wherever they differ from the backup. Nothing raises the secure ' +
-    'counter, so this can be repeated as often as you like.',
-  repairCount: (n: number) => `${n} byte(s) differ from the backup.`,
-  repairNothing: 'Nothing differs from the backup - there is nothing to repair.',
-  repairRetentionTest:
-    'Write it back, leave it a while, then read again: that tests whether the chip holds data at ' +
-    'all. If the bytes return to 0xFF, that chip cannot be used.',
 
   structNote:
     'Read out of the bytes themselves. This is not a fixed map of the E46 KOMBI - four real chips ' +
@@ -284,7 +219,6 @@ const EN: typeof JA = {
 
   recTitle: 'What this chip allows',
   recRestoreReady: 'A blank chip. It reads 0 km and can be taken to any value upward.',
-  recBlankForRestore: 'A blank chip - pick a backup to write it.',
   recRewritePossible: (cur: number, target: number) =>
     `Currently ${cur.toLocaleString()} km. The target ${target.toLocaleString()} km is reachable by raising it, so no chip swap is needed.`,
   recNeedsNewChip: (cur: number, target: number) =>
@@ -385,8 +319,6 @@ const EN: typeof JA = {
   inspectSaveBroken: (list: string) =>
     `The checksums do not hold (${list}). A chip written from this file may be rejected by the cluster. ` +
     'Save it as it is, without FIX CHECKSUMS?',
-  restoreChecksumsOk: "Backup checksums: they hold (and will after the write)",
-  restoreChecksumsUnchecked: 'Backup checksums: not a layout that can be checked',
   mapVinCoded:
     '0x07A-0x07E: two letters or digits, then five digits as BCD. The low nibble of 0x07E is not ' +
     'part of the VIN. The field is inside the 0x16E checksum region, so rewriting it recomputes that byte.',

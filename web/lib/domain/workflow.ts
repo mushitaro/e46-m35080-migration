@@ -13,10 +13,10 @@
  * I on" is stored, so the strip cannot disagree with the device.
  */
 
-export type StepId = 'setup' | 'read' | 'restore' | 'rewrite' | 'coding' | 'test' | 'inspect' | 'records';
+export type StepId = 'setup' | 'read' | 'rewrite' | 'inspect' | 'records' | 'bench' | 'checks';
 
 /** Why a step cannot be entered yet. Rendered from i18n, never as prose here. */
-export type BlockedReason = 'need-image' | 'need-connection';
+export type BlockedReason = 'need-connection';
 
 export type WorkflowState = {
   connected: boolean;
@@ -34,7 +34,8 @@ export type Step = {
   blockedBy: BlockedReason | null;
 };
 
-const ORDER: StepId[] = ['setup', 'read', 'restore', 'rewrite', 'coding', 'test', 'inspect', 'records'];
+/* Every tab, CHIP's then TEST's. Which of them a screen shows is the mode's (lib/domain/modes.ts). */
+const ORDER: StepId[] = ['setup', 'read', 'rewrite', 'inspect', 'records', 'bench', 'checks'];
 
 /**
  * Derive the whole strip from state.
@@ -53,18 +54,17 @@ export function deriveSteps(s: WorkflowState): Step[] {
       case 'read':
         return { id, enabled: true, blockedBy: s.connected ? null : 'need-connection' };
 
-      /* CODING reads the chip with its own definition and writes through the same path, so it
-         needs what they need: an image, read off the chip on the UNO. After the job that set
-         the chip's contents (RESTORE / REWRITE), before the chip goes back for TEST. */
-      case 'restore':
+      /* REWRITE is the job - the source, the odometer, the VIN and the coding, written together.
+         Never gated: a dump can be opened as the source before any chip is read, and the job is
+         planned against it (what it would write needs a chip; lib/domain/job.ts). */
       case 'rewrite':
-      case 'coding':
-        return { id, enabled: s.hasImage, blockedBy: s.hasImage ? null : 'need-image' };
+        return { id, enabled: true, blockedBy: null };
 
-      /* The cluster, not the chip: the chip is back on its board by now, and TEST talks to it
-         through the cluster over the K+DCAN cable. It needs neither the UNO nor an image - an
-         image only gives it something to compare with. */
-      case 'test':
+      /* TEST mode: the cluster, not the chip. The chip is back on its board by now, and TEST talks
+         to it through the cluster over the K+DCAN cable. Neither needs the UNO nor an image - an
+         image only gives the checks something to compare with. */
+      case 'bench':
+      case 'checks':
         return { id, enabled: true, blockedBy: null };
 
       /* A file on disk, not the chip. Never gated on a connection or an
@@ -115,7 +115,6 @@ export function recommend(s: WorkflowState, targetKm: number | null): Recommenda
 export function stepFor(r: Recommendation): StepId | null {
   switch (r.kind) {
     case 'restore-ready':
-      return 'restore';
     case 'rewrite-possible':
       return 'rewrite';
     case 'needs-new-chip':

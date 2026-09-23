@@ -1,14 +1,11 @@
 'use client';
 
 /**
- * The pieces REWRITE and RESTORE share: the panel column, the recommendation the tool states
- * for itself, and the rendered refusal. Moved out of page.tsx unchanged.
+ * REWRITE's pieces: the panel column, the recommendation the tool states for itself, and a form
+ * row. Moved out of page.tsx; RESTORE, which shared them, is now REWRITE's SOURCE.
  */
 
-import type { Refusal } from '@/lib/domain/operations';
 import type { recommend } from '@/lib/domain/workflow';
-import type { StepId } from '@/lib/domain/workflow';
-import { t } from '@/lib/i18n';
 import { g } from '@/lib/copy/guide';
 import { LABEL } from '@/components/ui';
 
@@ -22,18 +19,13 @@ export function JobPanel({ children }: { children: React.ReactNode }) {
  * The increment-only rule is the one thing a reader must not have to work out for themselves, so
  * the comparison is made here rather than left implicit in a refusal they meet later.
  */
-export function Recommendation({ rec, step }: { rec: ReturnType<typeof recommend>; step: StepId }) {
+export function Recommendation({ rec }: { rec: ReturnType<typeof recommend> }) {
   const c = g();
   if (rec.kind === 'unknown') return <div className="min-h-[28px]" />;
 
-  /* A blank chip means something different per tab. On REWRITE the useful fact is that any
-     value is reachable; saying that on RESTORE contradicts the procedure directly beneath it,
-     which is that no mileage is written here. */
   const text =
     rec.kind === 'restore-ready'
-      ? step === 'restore'
-        ? c.recBlankForRestore
-        : c.recRestoreReady
+      ? c.recRestoreReady
       : rec.kind === 'rewrite-possible'
         ? c.recRewritePossible(rec.currentKm, rec.targetKm)
         : c.recNeedsNewChip(rec.currentKm, rec.targetKm);
@@ -44,23 +36,6 @@ export function Recommendation({ rec, step }: { rec: ReturnType<typeof recommend
     <div className="min-h-[28px] rounded bg-slate-900 px-2 py-1.5">
       <p className={`${LABEL} text-slate-600`}>{c.recTitle}</p>
       <p className={`mt-0.5 text-[10px] leading-snug ${tone}`}>{text}</p>
-    </div>
-  );
-}
-
-type PlanLike = { ok: true } | Refusal | null;
-
-/**
- * A refusal is RENDERED, in the reader's language, with the actionable detail. The domain layer
- * never writes prose, so a refusal cannot arrive in the author's language.
- */
-export function PlanNote({ plan }: { plan: PlanLike }) {
-  if (!plan || plan.ok) return <div className="min-h-[28px]" />;
-  const { reason, detail } = t().refusal(plan);
-  return (
-    <div className="min-h-[28px] rounded bg-red-900/20 px-2 py-1.5">
-      <p className="text-[10px] leading-snug text-red-400">{reason}</p>
-      {detail && <p className="mt-0.5 font-mono text-[10px] text-slate-400">{detail}</p>}
     </div>
   );
 }

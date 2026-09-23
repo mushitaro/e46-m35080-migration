@@ -12,39 +12,27 @@ import { HexView, HexLegend } from '@/components/HexView';
 import { VehicleInfo } from '@/components/VehicleInfo';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { WiringDiagram } from '@/components/WiringDiagram';
+import { DropZone } from '@/components/DropZone';
+import { ModeCorner } from '@/components/ModeCorner';
+import { CodingTable } from '@/components/CodingTable';
 import { SetupPanel } from '@/components/panels/SetupPanel';
 import { RecordsTable } from '@/components/panels/RecordsPanel';
 import { StructurePanel } from '@/components/panels/StructurePanel';
 import { AddressPanel } from '@/components/panels/AddressPanel';
 import { InspectPanel } from '@/components/panels/InspectPanel';
-import { RewritePanel } from '@/components/panels/RewritePanel';
-import { RestorePanel } from '@/components/panels/RestorePanel';
+import { RewritePanel, type SourceKind } from '@/components/panels/RewritePanel';
+import { CodingPanel, type DonorState } from '@/components/panels/CodingPanel';
+import { BenchPanel, ChecksPanel } from '@/components/panels/TestPanel';
 import { GUIDE_STEPS, type GuideStepId } from '@/components/AssemblyGuide';
 import { ClusterBenchDiagram } from '@/components/ClusterBenchDiagram';
 import { BENCH_STEPS, type BenchStepId } from '@/components/ClusterBenchGuide';
 import { ClusterDiagram } from '@/components/ClusterDiagram';
-import { TestPanel, type TestView } from '@/components/panels/TestPanel';
-import { CodingTable } from '@/components/CodingTable';
-import { CodingPanel, type DonorState } from '@/components/panels/CodingPanel';
-import { DropZone } from '@/components/DropZone';
-import { cc } from '@/lib/copy/coding';
-import { useRefData } from '@/lib/refdata/useRefData';
-import { chooseDefinition, optionValue, rowsFor } from '@/lib/ncs/decode';
-import { planCoding } from '@/lib/ncs/encode';
-import { codingNote, differingFrom, effectiveChanges, type Staged } from '@/lib/ncs/view';
-import { detectLayout } from '@/lib/domain/layout';
-import type { PracticeChip } from '@/lib/link/mockLink';
 import type { BenchWireId } from '@/lib/domain/clusterBench';
 import { pickReference } from '@/lib/kombi/checks';
-import {
-  planRewrite,
-  planReset,
-  planRepairStandard,
-  applyPlanPreview,
-  type VinAction,
-  type RefusalCode,
-} from '@/lib/domain/operations';
+import type { VinAction, RefusalCode } from '@/lib/domain/operations';
+import { planJob, jobNote, type JobInput, type JobSource, type OdometerIntent } from '@/lib/domain/job';
 import { deriveSteps, recommend, type StepId } from '@/lib/domain/workflow';
+import { MODE_STEPS, modeLock, modeOf, selectableModes, type AppMode } from '@/lib/domain/modes';
 import { enabledSurfaces } from '@/lib/domain/features';
 import { usePreviewSurfaces } from '@/lib/domain/variant';
 import { VariantBadge } from '@/components/VariantBadge';
@@ -53,7 +41,12 @@ import { SyncPanel } from '@/components/SyncPanel';
 import { parseImageFile } from '@/lib/domain/image';
 import { isDirty, openWorkspace, type Workspace } from '@/lib/domain/inspect';
 import { vinRanges } from '@/lib/domain/addressMap';
+import { detectLayout } from '@/lib/domain/layout';
 import { listRecords, deleteRecord, type DeviceRecord } from '@/lib/domain/records';
+import { useRefData } from '@/lib/refdata/useRefData';
+import { chooseDefinition, optionValue, rowsFor } from '@/lib/ncs/decode';
+import { differingFrom, effectiveChanges, type Staged } from '@/lib/ncs/view';
+import type { PracticeChip } from '@/lib/link/mockLink';
 import {
   applyLangToDocument,
   getLang,
@@ -64,10 +57,11 @@ import {
 } from '@/lib/i18n';
 import { isWebSerialSupported } from '@/lib/transport/webSerialTransport';
 import { CHROME } from '@/lib/copy/chrome';
-import { EmptyState, LABEL, WORDMARK } from '@/components/ui';
+import { cc } from '@/lib/copy/coding';
+import { EmptyState, LABEL, WORDMARK, pillClass } from '@/components/ui';
 import { bridgeHubFor } from '@/lib/hub/bridgeHub';
 import { kombiHubFor } from '@/lib/hub/kombiHub';
-import { linkOwnerOf } from '@/lib/hub/owner';
+import { linkOwnerOfMode } from '@/lib/hub/owner';
 import { practiceBoxFor } from '@/lib/hub/practiceBox';
 
 /**
@@ -91,56 +85,72 @@ function useLang(): Lang {
 /** No picks: one shared empty map, so "nothing staged" is the same value every render. */
 const NO_PICKS: Staged = new Map();
 
+/** REWRITE's work surface: the image as it will be, or the coding list. */
+type JobView = 'hex' | 'coding';
+
 export default function Page() {
   const lang = useLang();
   const copy = t();
   const link = useM35080Link();
-  /* The K+DCAN cable to a cluster on the bench: TEST's link. Independent of the bridge - two
-     cables to two different things - and never acted on from any other tab (lib/hub/owner.ts). */
+  /* The K+DCAN cable to a cluster on the bench: TEST mode's link. Independent of the bridge - two
+     cables to two different things - and never acted on from CHIP mode (lib/hub/owner.ts). */
   const kombi = useKombiLink();
 
   /* Whether this render may draw non-stable surfaces. A release always says
      false; in preview the badge can force it false too. */
   const previewSurfaces = usePreviewSurfaces();
-  const [step, setStep] = useState<StepId>('setup');
+
+  /* MODE (lib/domain/modes.ts) and, per mode, the tab the reader was last on - so switching to
+     TEST and back lands where the job was left, not at the start of it. */
+  const [mode, setMode] = useState<AppMode>('chip');
+  const [stepByMode, setStepByMode] = useState<Record<AppMode, StepId>>({ chip: 'setup', test: 'bench' });
+  const step = stepByMode[mode];
+  const setStep = useCallback((id: StepId) => {
+    const m = modeOf(id);
+    setStepByMode((prev) => ({ ...prev, [m]: id }));
+    setMode(m);
+  }, []);
+
   /* What the NEXT connect will talk to. The reader's value: connecting does
      not clear it, and only the reader unticks it. */
   const [practiceIntent, setPracticeIntent] = useState(false);
+
+  /* REWRITE - the job: where the data comes from, the odometer, the VIN, the coding. */
+  const [sourceKind, setSourceKind] = useState<SourceKind>('chip');
+  const [dump, setDump] = useState<{ name: string; image: Uint8Array } | null>(null);
+  const [dumpError, setDumpError] = useState<{ code: RefusalCode; fileSize?: number } | null>(null);
   const [targetKm, setTargetKm] = useState('');
   const [vinAction, setVinAction] = useState<VinAction>({ kind: 'keep' });
   const [vinInput, setVinInput] = useState('');
-  const [backupFile, setBackupFile] = useState<Uint8Array | null>(null);
+  /* The coding picks, tied to the SOURCE image and the definition they were made against - a new
+     read, another dump or other data makes them someone else's picks, so they are simply not used
+     then (derived below, never cleared by an effect). And the row picked. */
+  const [codingPicks, setCodingPicks] = useState<{ source: Uint8Array; file: string; picks: Map<number, number> } | null>(null);
+  const [codingSelected, setCodingSelected] = useState<number | null>(null);
+  const [jobView, setJobView] = useState<JobView>('hex');
+
   /* The file workbench. Deliberately NOT `image`: that one means the bytes
      read off the chip, and every write plans and verifies against it. */
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [inspectError, setInspectError] = useState<string | null>(null);
-  const [fileError, setFileError] = useState<{ code: RefusalCode; fileSize?: number } | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [records, setRecords] = useState<DeviceRecord[]>([]);
   const [pending, setPending] = useState<{ job: WriteJob; body: string; details: string[] } | null>(
     null,
   );
+  /* INSPECT's USE AS PRACTICE CHIP: the image the next PRACTICE connect reads, if the reader chose
+     one. A copy - editing the file afterwards does not change it. */
+  const [practiceChip, setPracticeChip] = useState<{ name: string; image: Uint8Array } | null>(null);
 
   /* SETUP-local: which procedure step is open, and which wire is singled out. */
   const [guideStep, setGuideStep] = useState<GuideStepId>('parts');
   const [guideDone, setGuideDone] = useState<Set<GuideStepId>>(new Set());
   const [wire, setWire] = useState<string | null>(null);
 
-  /* TEST-local: BENCH or CHECKS, the bench procedure step, and a wire singled out. */
-  const [testView, setTestView] = useState<TestView>('bench');
+  /* TEST-local: the bench procedure step, and a wire singled out. */
   const [benchStep, setBenchStep] = useState<BenchStepId>('parts');
   const [benchDone, setBenchDone] = useState<Set<BenchStepId>>(new Set());
   const [benchWire, setBenchWire] = useState<BenchWireId | null>(null);
-
-  /* CODING-local: the reader's picks, tied to the image AND the definition they were made
-     against - a new read, a write, or other data makes them someone else's picks, so they are
-     simply not used then (derived below, never cleared by an effect). And the row picked. */
-  const [codingPicks, setCodingPicks] = useState<{ image: Uint8Array; file: string; picks: Map<number, number> } | null>(null);
-  const [codingSelected, setCodingSelected] = useState<number | null>(null);
-
-  /* INSPECT's USE AS PRACTICE CHIP: the image the next PRACTICE connect reads, if the reader chose
-     one. A copy - editing the file afterwards does not change it. */
-  const [practiceChip, setPracticeChip] = useState<{ name: string; image: Uint8Array } | null>(null);
 
   /* Web Serial support is a CLIENT-ONLY fact; seeded true so SSR and the first
      client render agree, then corrected on mount. */
@@ -152,7 +162,12 @@ export default function Page() {
   const { image, status, chip, odometer, vins, phase, busy, progress } = link;
   const backedUp = link.backedUpHash !== null;
 
-  /* ------------------------- derived, never stored ---------------------- */
+  /* The registry says WHICH surfaces may be drawn; the mode says which tabs and in what order. */
+  const visible = useMemo(() => enabledSurfaces(previewSurfaces), [previewSurfaces]);
+  const codingVisible = visible.has('coding');
+  const modes = useMemo(() => selectableModes(visible), [visible]);
+
+  /* ------------------------------ the job ------------------------------- */
 
   const effectiveVinAction: VinAction = useMemo(
     () => (vinAction.kind === 'write' ? { kind: 'write', vin: vinInput } : vinAction),
@@ -164,83 +179,111 @@ export default function Page() {
     return Number.isFinite(n) ? n : null;
   }, [targetKm]);
 
-  /* A blank target means "leave the odometer where it is", not "no plan".
-     Changing only the VIN is a real job, and making it require a mileage the
-     user does not want to change invites them to type one - which is the last
-     field on this screen anyone should be guessing at. Planning to the CURRENT
-     reading produces zero secure writes, so the odometer is genuinely untouched. */
-  const effectiveTargetKm = targetKmNum ?? (odometer?.ok ? odometer.km : null);
-  const rewritePlan = useMemo(
-    () =>
-      image && effectiveTargetKm !== null
-        ? planRewrite(image, effectiveTargetKm, effectiveVinAction)
-        : null,
-    [image, effectiveTargetKm, effectiveVinAction],
-  );
-  /* RESTORE = the backup's cluster data onto a new chip, byte for byte (the VIN fields with
-     it), odometer untouched. It needs a backup: there is no restore without one. */
-  const restorePlan = useMemo(
-    () => (image && backupFile ? planReset(image, backupFile) : null),
-    [image, backupFile],
-  );
-  /* The same backup against a chip that is NOT blank: put back only the
-     standard-array bytes it has lost, touching neither the odometer nor the
-     VIN. Repeatable, so it doubles as a data-retention test. */
-  const repairPlan = useMemo(
-    () => (image && backupFile ? planRepairStandard(image, backupFile) : null),
-    [image, backupFile],
-  );
+  /* A blank target means "leave the odometer where it is". Changing only the VIN, or only the
+     coding, is a real job, and making it require a mileage the user does not want to change
+     invites them to type one - the last field on this screen anyone should be guessing at. */
+  const odometerIntent: OdometerIntent = targetKmNum === null ? { kind: 'keep' } : { kind: 'set', km: targetKmNum };
 
-  /* ------------------------------ CODING -------------------------------- */
+  /* Without a chip the only source there can be is a dump. */
+  const effectiveSource: SourceKind = image ? sourceKind : 'dump';
+  const jobSource: JobSource | null =
+    effectiveSource === 'dump' ? (dump ? { kind: 'dump', name: dump.name, image: dump.image } : null) : { kind: 'chip' };
+  const sourceImage = effectiveSource === 'dump' ? (dump?.image ?? null) : image;
 
-  /* The definitions: asked for the first time CODING is opened (the preview serves them to its
-     owner; anywhere else the reader opens the file), then kept in memory. */
-  const codingRef = useRefData('kombi-coding', step === 'coding');
-  /* TEST's lamp, output and input names: the same way, the first time TEST opens. */
-  const namesRef = useRefData('kombi-names', step === 'test');
+  /* The definitions: asked for the first time REWRITE's coding is looked at (the preview serves
+     them to its owner; anywhere else the reader opens the file), then kept in memory. */
+  const codingRef = useRefData('kombi-coding', codingVisible && step === 'rewrite');
+  /* TEST's lamp, output and input names: the same way, the first time CHECKS opens. */
+  const namesRef = useRefData('kombi-names', step === 'checks');
   const codingDoc = codingRef.state?.ok ? codingRef.state.doc : null;
-  const codingChoice = useMemo(() => (image && codingDoc ? chooseDefinition(image, codingDoc) : null), [image, codingDoc]);
+
+  /* The content the coding is read from: the source with the VIN applied - what the coding step of
+     the job starts from (lib/domain/job.ts). */
+  const preCoding = useMemo(() => {
+    if (!jobSource) return null;
+    const p = planJob({ chip: image, source: jobSource, odometer: { kind: 'keep' }, vin: effectiveVinAction, coding: null });
+    return p.ok ? p.target : null;
+    // jobSource is rebuilt every render; its identity is the dump's and the chip's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [image, effectiveSource, dump, effectiveVinAction]);
+
+  const codingChoice = useMemo(
+    () => (codingVisible && preCoding && codingDoc ? chooseDefinition(preCoding, codingDoc) : null),
+    [codingVisible, preCoding, codingDoc],
+  );
   const codingDef = codingChoice?.kind === 'chosen' ? codingChoice : null;
-  const codingRows = useMemo(() => (image && codingDef ? rowsFor(image, codingDef.def) : null), [image, codingDef]);
+  const codingRows = useMemo(() => (preCoding && codingDef ? rowsFor(preCoding, codingDef.def) : null), [preCoding, codingDef]);
   const staged: Staged =
-    codingPicks && codingDef && codingPicks.image === image && codingPicks.file === codingDef.file ? codingPicks.picks : NO_PICKS;
+    codingPicks && codingDef && codingPicks.source === sourceImage && codingPicks.file === codingDef.file ? codingPicks.picks : NO_PICKS;
   const codingChanges = useMemo(() => (codingRows ? effectiveChanges(codingRows, staged) : []), [codingRows, staged]);
   const codingChanged = useMemo(() => new Set(codingChanges.map((c) => c.param)), [codingChanges]);
-  const codingPlan = useMemo(
-    () => (image && codingDoc && codingChanges.length > 0 ? planCoding(image, codingDoc, codingChanges) : null),
-    [image, codingDoc, codingChanges],
+
+  const jobInput: JobInput | null = useMemo(
+    () =>
+      jobSource
+        ? {
+            chip: image,
+            source: jobSource,
+            odometer: odometerIntent,
+            vin: effectiveVinAction,
+            coding: codingDoc && codingChanges.length > 0 ? { doc: codingDoc, changes: codingChanges } : null,
+          }
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [image, effectiveSource, dump, targetKmNum, effectiveVinAction, codingDoc, codingChanges],
   );
-  /* DIFF: the backup opened in RESTORE, read with the same definition - only when it is the same
-     layout, because the definition's addresses mean nothing on any other. */
-  const donorLate = useMemo(() => (backupFile ? detectLayout(backupFile).kind === 'late' : false), [backupFile]);
+  const jobPlan = useMemo(() => (jobInput ? planJob(jobInput) : null), [jobInput]);
+
+  /* DIFF: with a dump as the source, the parameters the dump and the chip hold differently - read
+     with the same definition, so only when the chip is the same layout. */
+  const chipLate = useMemo(() => (image ? detectLayout(image).kind === 'late' : false), [image]);
   const codingDiffering = useMemo(
-    () => (image && codingDef && backupFile && donorLate ? differingFrom(codingDef.def, image, backupFile) : null),
-    [image, codingDef, backupFile, donorLate],
+    () => (effectiveSource === 'dump' && image && chipLate && preCoding && codingDef ? differingFrom(codingDef.def, preCoding, image) : null),
+    [effectiveSource, image, chipLate, preCoding, codingDef],
   );
-  const donor: DonorState = !backupFile
-    ? { kind: 'none' }
-    : !donorLate
-      ? { kind: 'layout' }
-      : { kind: 'ok', count: codingDiffering?.size ?? 0 };
+  const donor: DonorState =
+    effectiveSource !== 'dump' || !image ? { kind: 'none' } : !chipLate ? { kind: 'layout' } : { kind: 'ok', count: codingDiffering?.size ?? 0 };
 
   const pickCoding = useCallback(
     (param: number, option: number | null) => {
-      if (!image || !codingDef) return;
-      /* Picking the value the chip already holds is taking the pick back, not a change. */
+      if (!sourceImage || !codingDef) return;
+      /* Picking the value the source already holds is taking the pick back, not a change. */
       const row = codingRows?.[param];
       const to = row?.param.kind === 'fsw' ? row.param.options.find((o) => o.id === option) : undefined;
       const same = to && row?.option && optionValue(to) === optionValue(row.option);
       setCodingPicks((prev) => {
-        const base = prev && prev.image === image && prev.file === codingDef.file ? prev.picks : new Map<number, number>();
+        const base = prev && prev.source === sourceImage && prev.file === codingDef.file ? prev.picks : new Map<number, number>();
         const next = new Map(base);
         if (option === null || same) next.delete(param);
         else next.set(param, option);
-        return { image, file: codingDef.file, picks: next };
+        return { source: sourceImage, file: codingDef.file, picks: next };
       });
       setCodingSelected(param);
     },
-    [image, codingDef, codingRows],
+    [sourceImage, codingDef, codingRows],
   );
+
+  const onDumpFile = useCallback((file: File) => {
+    setDumpError(null);
+    file
+      .arrayBuffer()
+      .then((buf) => {
+        const r = parseImageFile(buf);
+        if (r.ok) {
+          setDump({ name: file.name, image: r.image });
+          setSourceKind('dump');
+        } else {
+          setDump(null);
+          setDumpError({ code: 'backup-size', fileSize: r.size });
+        }
+      })
+      /* A file that cannot be read at all (moved, permission, a folder) must not leave the
+         previous dump loaded and show nothing. */
+      .catch(() => {
+        setDump(null);
+        setDumpError({ code: 'backup-size' });
+      });
+  }, []);
 
   /** The whole strip, derived from live state. Nothing about progress is stored. */
   const workflow = useMemo(
@@ -259,48 +302,23 @@ export default function Page() {
   const STEP_LABEL: Record<StepId, string> = {
     setup: CHROME.tab.setup,
     read: CHROME.tab.read,
-    restore: CHROME.tab.restore,
     rewrite: CHROME.tab.rewrite,
-    coding: CHROME.tab.coding,
-    test: CHROME.tab.test,
     inspect: CHROME.tab.inspect,
     records: CHROME.tab.records,
+    bench: CHROME.tab.bench,
+    checks: CHROME.tab.checks,
   };
 
-  /* The registry says WHICH surfaces may be drawn; workflow.ts keeps the order. */
-  const visible = useMemo(() => enabledSurfaces(previewSurfaces), [previewSurfaces]);
-  const tabs: TabDef<StepId>[] = steps
-    .filter((s) => visible.has(s.id))
-    .map((s) => ({
-      id: s.id,
-      label: STEP_LABEL[s.id],
-      enabled: s.enabled,
-    }));
+  const tabs: TabDef<StepId>[] = MODE_STEPS[mode]
+    .filter((id) => visible.has(id))
+    .map((id) => ({ id, label: STEP_LABEL[id], enabled: steps.find((s) => s.id === id)?.enabled ?? true }));
 
-  /* Turning a surface off while the reader is standing on it would leave the
-     work area rendering something the strip no longer offers. */
+  /* Turning a surface off while the reader is standing on it would leave the work area rendering
+     something the strip no longer offers - and a mode with no tab left is no mode at all. */
   useEffect(() => {
-    if (!visible.has(step)) setStep('setup');
-  }, [visible, step]);
-
-  /** The image as it WILL be, so the hex view shows the change before it is sent. */
-  const preview = useMemo(() => {
-    if (!image) return null;
-    if (step === 'rewrite' && rewritePlan?.ok)
-      return applyPlanPreview(image, rewritePlan.byteWrites, rewritePlan.secureOps);
-    if (step === 'restore') {
-      const p = chip?.blank ? restorePlan : repairPlan;
-      if (p?.ok) return applyPlanPreview(image, p.byteWrites);
-    }
-    return null;
-  }, [image, step, rewritePlan, restorePlan, repairPlan, chip]);
-
-  const changedCount = useMemo(() => {
-    if (!image || !preview) return null;
-    let n = 0;
-    for (let i = 0; i < image.length; i++) if (image[i] !== preview[i]) n++;
-    return n;
-  }, [image, preview]);
+    if (!modes.includes(mode)) setMode('chip');
+    else if (!visible.has(step)) setStep(MODE_STEPS[mode].find((id) => visible.has(id)) ?? 'setup');
+  }, [visible, modes, mode, step, setStep]);
 
   /* ------------------------------ the hub ------------------------------- */
 
@@ -316,37 +334,31 @@ export default function Page() {
         step,
         hasImage: !!image,
         backedUp,
-        chipBlank: chip?.blank ?? false,
-        hasBackupFile: backupFile !== null,
-        rewritePlan,
-        restorePlan,
-        repairPlan,
-        coding: {
-          ready: codingDef !== null,
-          staged: codingChanges.length,
-          plan: codingPlan,
-          note: codingPlan?.ok ? codingNote(codingPlan, codingRef.state?.ok ? codingRef.state.origin.sha256 : null) : '',
+        job: {
+          input: jobInput,
+          plan: jobPlan,
+          note: jobInput && jobPlan?.ok ? jobNote(jobPlan, jobInput, codingRef.state?.ok ? codingRef.state.origin.sha256 : null) : '',
         },
         copy,
         act: {
           /* PRACTICE rehearses on a late-layout chip: both VIN fields, both checksums - the
              shape of the bench's own chip, with made-up values. Or on the file INSPECT made
-             the practice chip, so CODING can be rehearsed on a real image. */
+             the practice chip. */
           connect: () => void link.connect(practiceIntent ? 'practice' : 'serial', (practiceChip ?? 'late') satisfies PracticeChip),
           read: () => void link.read().then((ok) => ok && setStep('read')),
           backup: () => void link.backup(),
           ask,
         },
       }),
-    [busy, phase, practiceIntent, practiceChip, image, backedUp, step, rewritePlan, restorePlan, repairPlan, codingDef, codingChanges, codingPlan, codingRef.state, chip, backupFile, copy, link, ask],
+    [busy, phase, practiceIntent, practiceChip, image, backedUp, step, jobInput, jobPlan, codingRef.state, copy, link, ask, setStep],
   );
 
   /* ----------------------------- the owner ---------------------------- */
 
-  /* The hub, the status rows, the notice line and the PRACTICE box all speak for the link that
-     owns the tab on screen, so no control on TEST can act on the UNO and none elsewhere on the
-     cluster. */
-  const owner = linkOwnerOf(step);
+  /* The hub, the status rows, the notice line and the PRACTICE box all speak for the mode's link,
+     so no control in TEST can act on the UNO and none in CHIP on the cluster. */
+  const owner = linkOwnerOfMode(mode);
+  const lock = modeLock({ bridgeBusy: busy, clusterSessionOpen: kombi.sessionOpen, clusterBusy: kombi.busy });
 
   /* What TEST compares the cluster with: this session's chip read, else the newest record of the
      same kind (practice or real). Fixed into the session at CONNECT. */
@@ -400,26 +412,6 @@ export default function Page() {
       .catch(() => setRecords([]));
   }, [step, phase, link.backedUpHash]);
 
-  const onBackupFile = useCallback((file: File) => {
-    setFileError(null);
-    file
-      .arrayBuffer()
-      .then((buf) => {
-        const r = parseImageFile(buf);
-        if (r.ok) setBackupFile(r.image);
-        else {
-          setBackupFile(null);
-          setFileError({ code: 'backup-size', fileSize: r.size });
-        }
-      })
-      /* A file that cannot be read at all (moved, permission, a folder) used to
-         leave the previous backup loaded and show nothing. */
-      .catch(() => {
-        setBackupFile(null);
-        setFileError({ code: 'backup-size' });
-      });
-  }, []);
-
   /* ------------------------------ render -------------------------------- */
 
   const linkLed: LedState =
@@ -470,7 +462,7 @@ export default function Page() {
   const benchHighlight =
     benchWire !== null ? [benchWire] : (BENCH_STEPS.find((s) => s.id === benchStep)?.highlight ?? null);
 
-  /** The image view READ, RESTORE and REWRITE share: the chip, or the chip as it WILL be. */
+  /** READ's view: the chip as it was read. */
   const chipView = !image ? (
     <EmptyState
       Icon={FileCode}
@@ -478,19 +470,78 @@ export default function Page() {
     />
   ) : (
     <div className="flex h-full flex-col gap-2">
-      <HexLegend changedCount={changedCount} vins={vinRanges(preview ?? image)} />
+      <HexLegend changedCount={null} vins={vinRanges(image)} />
       <div className="min-h-0 flex-1">
-        <HexView
-          vins={vinRanges(preview ?? image)}
-          image={preview ?? image}
-          reference={preview ? image : null}
-          changeMode="pending"
-          selected={selected}
-          onSelect={setSelected}
-        />
+        <HexView vins={vinRanges(image)} image={image} reference={null} changeMode="pending" selected={selected} onSelect={setSelected} />
       </div>
     </div>
   );
+
+  /** REWRITE's HEX view: the image as the job leaves it, every byte it changes marked. */
+  function jobHex(): React.ReactNode {
+    const base = image ?? dump?.image ?? null;
+    if (!base) {
+      return <EmptyState Icon={FileCode} label={phase === 'disconnected' ? CHROME.awaiting.connection : CHROME.awaiting.read} />;
+    }
+    const after = jobPlan?.ok ? jobPlan.target : base;
+    let changed = 0;
+    for (let i = 0; i < base.length; i++) if (base[i] !== after[i]) changed++;
+    return (
+      <div className="flex h-full flex-col gap-2">
+        <HexLegend changedCount={changed} vins={vinRanges(after)} />
+        <div className="min-h-0 flex-1">
+          <HexView vins={vinRanges(after)} image={after} reference={base} changeMode="pending" selected={selected} onSelect={setSelected} />
+        </div>
+      </div>
+    );
+  }
+
+  /** REWRITE's CODING view: every parameter of the source's own definition, or why there is none. */
+  function jobCoding(): React.ReactNode {
+    if (!preCoding) {
+      return <EmptyState Icon={FileCode} label={CHROME.awaiting.definition} hint={cc().needImage} />;
+    }
+    /* Why there is nothing to list, said where the list would be - and the definitions are opened
+       right here, the one place to open them. */
+    if (!codingDoc) {
+      const ref = codingRef.state;
+      const why = ref === null ? cc().loading : ref.ok ? '' : `${cc().ref[ref.reason]}${ref.detail ? ` (${ref.detail})` : ''}`;
+      return (
+        <EmptyState Icon={FileCode} label={CHROME.awaiting.definition} hint={why}>
+          {ref !== null && (
+            <DropZone onFile={(file) => void codingRef.openFile(file)} hint={CHROME.drop.coding} accept=".json,application/json" />
+          )}
+        </EmptyState>
+      );
+    }
+    if (!codingDef || !codingRows) {
+      /* PRACTICE's preset chips carry made-up values, which no real definition fits. */
+      const preset = effectiveSource === 'chip' && link.practice && link.practiceFile === null ? ` ${cc().practicePreset}` : '';
+      return (
+        <EmptyState
+          Icon={FileCode}
+          label={CHROME.hub.noDefinition}
+          hint={codingChoice?.kind === 'none' ? `${cc().none[codingChoice.reason]}${preset}` : undefined}
+        />
+      );
+    }
+    return (
+      <CodingTable
+        doc={codingDoc}
+        def={codingDef.def}
+        rows={codingRows}
+        image={preCoding}
+        after={jobPlan?.ok && jobPlan.coding ? jobPlan.coding.after : null}
+        lang={lang}
+        staged={staged}
+        changed={codingChanged}
+        differing={codingDiffering}
+        selected={codingSelected}
+        onSelect={setCodingSelected}
+        onPick={pickCoding}
+      />
+    );
+  }
 
   /** What was read, and what each address holds for the things that are actually known. */
   const vehiclePanel = (
@@ -515,6 +566,31 @@ export default function Page() {
     switch (step) {
       case 'setup':
         return <WiringDiagram highlight={diagramHighlight} onSelectPin={setWire} />;
+      case 'read':
+        return chipView;
+      case 'rewrite':
+        return (
+          <div className="flex h-full flex-col gap-2">
+            {/* HEX: the image as the job leaves it. CODING: the list the coding part is picked
+                from - where this build draws it. */}
+            {codingVisible && (
+              <div className="flex shrink-0 items-center gap-1.5">
+                {(['hex', 'coding'] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setJobView(v)}
+                    aria-pressed={jobView === v}
+                    className={`${pillClass(jobView === v ? 'primary' : 'neutral')} transition-colors`}
+                  >
+                    {v === 'hex' ? CHROME.job.hex : CHROME.job.coding}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="min-h-0 flex-1">{codingVisible && jobView === 'coding' ? jobCoding() : jobHex()}</div>
+          </div>
+        );
       case 'inspect':
         return workspace ? (
           <div className="flex h-full flex-col gap-2">
@@ -535,12 +611,6 @@ export default function Page() {
         ) : (
           <EmptyState Icon={FileCode} label={CHROME.awaiting.file} />
         );
-      case 'test':
-        return testView === 'bench' ? (
-          <ClusterBenchDiagram highlight={benchHighlight} onSelectWire={setBenchWire} />
-        ) : (
-          <ClusterDiagram variant={kombi.session?.variant ?? null} commanded={kombi.commanded} stepping={kombi.stepping} />
-        );
       case 'records':
         return (
           <RecordsTable
@@ -551,53 +621,10 @@ export default function Page() {
             }}
           />
         );
-      case 'read':
-      case 'restore':
-      case 'rewrite':
-        return chipView;
-      case 'coding':
-        /* Every parameter of the chip's own definition, or what is missing before there can be. */
-        if (!image) return chipView;
-        /* Why there is nothing to list, said where the list would be - and the definitions are
-           opened right here, the one place to open them. */
-        if (!codingDoc) {
-          const ref = codingRef.state;
-          const why = ref === null ? cc().loading : ref.ok ? '' : `${cc().ref[ref.reason]}${ref.detail ? ` (${ref.detail})` : ''}`;
-          return (
-            <EmptyState Icon={FileCode} label={CHROME.awaiting.definition} hint={why}>
-              {ref !== null && (
-                <DropZone onFile={(file) => void codingRef.openFile(file)} hint={CHROME.drop.coding} accept=".json,application/json" />
-              )}
-            </EmptyState>
-          );
-        }
-        if (!codingDef || !codingRows) {
-          /* PRACTICE's preset chips carry made-up values, which no real definition fits. */
-          const preset = link.practice && link.practiceFile === null ? ` ${cc().practicePreset}` : '';
-          return (
-            <EmptyState
-              Icon={FileCode}
-              label={CHROME.hub.noDefinition}
-              hint={codingChoice?.kind === 'none' ? `${cc().none[codingChoice.reason]}${preset}` : undefined}
-            />
-          );
-        }
-        return (
-          <CodingTable
-            doc={codingDoc}
-            def={codingDef.def}
-            rows={codingRows}
-            image={image}
-            after={codingPlan?.ok ? codingPlan.after : null}
-            lang={lang}
-            staged={staged}
-            changed={codingChanged}
-            differing={codingDiffering}
-            selected={codingSelected}
-            onSelect={setCodingSelected}
-            onPick={pickCoding}
-          />
-        );
+      case 'bench':
+        return <ClusterBenchDiagram highlight={benchHighlight} onSelectWire={setBenchWire} />;
+      case 'checks':
+        return <ClusterDiagram variant={kombi.session?.variant ?? null} commanded={kombi.commanded} stepping={kombi.stepping} />;
       default: {
         const unreachable: never = step;
         return unreachable;
@@ -627,6 +654,51 @@ export default function Page() {
             }
             wire={wire}
             onWire={setWire}
+          />
+        );
+      case 'read':
+        return vehiclePanel;
+      case 'rewrite':
+        return (
+          <RewritePanel
+            rec={rec}
+            hasChip={!!image}
+            chipBlank={chip?.blank ?? false}
+            odometer={odometer}
+            sourceKind={effectiveSource}
+            onSourceKind={setSourceKind}
+            dump={dump}
+            onDumpFile={onDumpFile}
+            onClearDump={() => {
+              setDump(null);
+              setDumpError(null);
+            }}
+            dumpError={dumpError}
+            targetKm={targetKm}
+            onTargetKm={setTargetKm}
+            vinAction={vinAction}
+            onVinAction={setVinAction}
+            vinInput={vinInput}
+            onVinInput={setVinInput}
+            input={jobInput}
+            plan={jobPlan}
+            coding={
+              codingVisible ? (
+                <CodingPanel
+                  lang={lang}
+                  refLoad={codingRef.state}
+                  onReload={codingRef.reload}
+                  image={preCoding}
+                  choice={codingChoice}
+                  rows={codingRows}
+                  selected={codingSelected}
+                  staged={staged}
+                  onPick={pickCoding}
+                  onDiscard={() => setCodingPicks(null)}
+                  donor={donor}
+                />
+              ) : null
+            }
           />
         );
       case 'inspect':
@@ -667,78 +739,6 @@ export default function Page() {
             onClearPractice={() => setPracticeChip(null)}
           />
         );
-      case 'coding':
-        return (
-          <CodingPanel
-            lang={lang}
-            refLoad={codingRef.state}
-            onReload={codingRef.reload}
-            image={image}
-            choice={codingChoice}
-            rows={codingRows}
-            selected={codingSelected}
-            staged={staged}
-            onPick={pickCoding}
-            onDiscard={() => setCodingPicks(null)}
-            plan={codingPlan}
-            donor={donor}
-          />
-        );
-      case 'test':
-        return (
-          <TestPanel
-            view={testView}
-            onView={setTestView}
-            benchStep={benchStep}
-            onBenchStep={(id) => {
-              setBenchStep(id);
-              setBenchWire(null); // an explicit pick is per-step, not sticky
-            }}
-            benchDone={benchDone}
-            onToggleBenchDone={(id) =>
-              setBenchDone((prev) => {
-                const next = new Set(prev);
-                if (next.has(id)) next.delete(id);
-                else next.add(id);
-                return next;
-              })
-            }
-            benchWire={benchWire}
-            onBenchWire={setBenchWire}
-            kombi={kombi}
-            reference={reference}
-            lang={lang}
-            namesLoad={namesRef.state}
-            onOpenNames={(file) => void namesRef.openFile(file)}
-          />
-        );
-      case 'rewrite':
-        return (
-          <RewritePanel
-            rec={rec}
-            step={step}
-            odometer={odometer}
-            targetKm={targetKm}
-            onTargetKm={setTargetKm}
-            vinAction={vinAction}
-            onVinAction={setVinAction}
-            vinInput={vinInput}
-            onVinInput={setVinInput}
-            plan={rewritePlan}
-          />
-        );
-      case 'restore':
-        return (
-          <RestorePanel
-            rec={rec}
-            step={step}
-            chipBlank={chip?.blank ?? false}
-            restorePlan={restorePlan}
-            repairPlan={repairPlan}
-            onBackupFile={onBackupFile}
-            fileError={fileError}
-          />
-        );
       case 'records':
         /* Preview only: the account copy of these records, and the error records the app sent
            by itself. A release shows what was read instead. */
@@ -757,8 +757,37 @@ export default function Page() {
         ) : (
           vehiclePanel
         );
-      case 'read':
-        return vehiclePanel;
+      case 'bench':
+        return (
+          <BenchPanel
+            benchStep={benchStep}
+            onBenchStep={(id) => {
+              setBenchStep(id);
+              setBenchWire(null); // an explicit pick is per-step, not sticky
+            }}
+            benchDone={benchDone}
+            onToggleBenchDone={(id) =>
+              setBenchDone((prev) => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+                return next;
+              })
+            }
+            benchWire={benchWire}
+            onBenchWire={setBenchWire}
+          />
+        );
+      case 'checks':
+        return (
+          <ChecksPanel
+            kombi={kombi}
+            reference={reference}
+            lang={lang}
+            namesLoad={namesRef.state}
+            onOpenNames={(file) => void namesRef.openFile(file)}
+          />
+        );
       default: {
         const unreachable: never = step;
         return unreachable;
@@ -825,7 +854,7 @@ export default function Page() {
             </div>
 
             {/* Control panel - declared 38.2%, floor wins on a short viewport */}
-            <div className="flex h-[38.2%] min-h-fit flex-none flex-col overflow-y-auto px-5 pb-5 pt-4">
+            <div className="flex h-[38.2%] min-h-fit flex-none flex-col overflow-y-auto px-5 pb-3 pt-4">
               <StatusRow
                 label={CHROME.status.link}
                 state={linkLed}
@@ -893,6 +922,13 @@ export default function Page() {
 
               <SubActionRow actions={subActions} />
 
+              {/* THE PANEL'S BOTTOM CORNER - MODE, left (TUNER's place for it). Below the
+                  sub-actions, on its own row, so it is not read as one of the hub's controls; the
+                  spacer holds the row's height where TUNER keeps its other corner. */}
+              <div className="flex flex-none items-center justify-between gap-4">
+                <ModeCorner mode={mode} modes={modes} onChange={(m) => setMode(m)} lock={lock} />
+                <span aria-hidden className="h-7" />
+              </div>
             </div>
           </div>
         </aside>
@@ -909,11 +945,10 @@ export default function Page() {
         onConfirm={async () => {
           const job = pending?.job;
           if (!job) return;
-          const ok = await link.runWrite(job);
+          await link.runWrite(job);
+          /* The job stays on REWRITE: the chip is read back, and the same plan against it now
+             says NO CHANGES - the chip is what was planned. */
           setPending(null);
-          /* CODING stays put: the chip as written is decoded again right where the change was
-             made. Every other write lands on READ, which shows the chip. */
-          if (ok && job.kind !== 'coding') setStep('read');
         }}
       />
     </main>

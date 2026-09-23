@@ -22,14 +22,22 @@
 export const CHROME = {
   /* ---- the workflow strip ---- */
   tab: {
+    /* CHIP mode */
     setup: 'SETUP',
     read: 'READ',
-    restore: 'RESTORE',
     rewrite: 'REWRITE',
-    coding: 'CODING',
-    test: 'TEST',
     inspect: 'INSPECT',
     records: 'RECORDS',
+    /* TEST mode */
+    bench: 'BENCH',
+    checks: 'CHECKS',
+  },
+
+  /* ---- the mode corner (lib/domain/modes.ts): what the tool is working on ---- */
+  mode: {
+    title: 'MODE',
+    chip: 'CHIP',
+    test: 'TEST',
   },
 
   /* ---- the hub: the face is a verb, busy is its present participle ---- */
@@ -41,17 +49,11 @@ export const CHROME = {
     backup: 'BACKUP',
     writing: 'WRITING',
     verifying: 'VERIFYING',
-    writeOdometer: 'WRITE ODO',
+    /* REWRITE: the job - everything it plans, in one write - and why the ring is idle when it is */
     writeChip: 'WRITE CHIP',
-    repair: 'REPAIR',
-    selectBackup: 'SELECT BACKUP',
-    checkBackup: 'CHECK BACKUP',
-    nothingToRepair: 'NOTHING TO REPAIR',
-    /* CODING: the one write, and why the ring is idle when it is */
-    writeCoding: 'WRITE CODING',
     noChanges: 'NO CHANGES',
+    checkPlan: 'CHECK PLAN',
     noDefinition: 'NO DEFINITION',
-    checkCoding: 'CHECK CODING',
     /* TEST: STOP is armed while the cluster may be holding anything this tool set */
     stop: 'STOP',
     stopping: 'STOPPING',
@@ -107,7 +109,7 @@ export const CHROME = {
   },
 
   drop: {
-    backup: 'DROP BACKUP .BIN · 1024 BYTES',
+    dump: 'DROP DUMP .BIN · 1024 BYTES',
     file: 'DROP .BIN · 1024 BYTES',
     coding: 'DROP .JSON · KOMBI-CODING',
     names: 'DROP .JSON · KOMBI-NAMES',
@@ -134,6 +136,21 @@ export const CHROME = {
     practiceChip: 'PRACTICE CHIP',
     useAsPractice: 'USE AS PRACTICE CHIP',
     clear: 'CLEAR',
+  },
+
+  /* ---- REWRITE: the job's parts (lib/domain/job.ts) ---- */
+  job: {
+    source: 'SOURCE',
+    chip: 'CHIP',
+    dump: 'DUMP',
+    odometer: 'ODOMETER',
+    vin: 'VIN',
+    coding: 'CODING',
+    changes: 'CHANGES',
+    hex: 'HEX',
+    clear: 'CLEAR',
+    wrinc: 'WRINC',
+    bytes: 'BYTES',
   },
 
   /* ---- CODING: the chip read with its own coding definition (lib/ncs) ---- */

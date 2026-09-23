@@ -15,6 +15,7 @@
  */
 
 import type { RefusalCode } from './domain/operations';
+import type { JobSummary } from './domain/job';
 import type { ImageFault } from './domain/image';
 
 export type Lang = 'ja' | 'en';
@@ -158,34 +159,30 @@ const JA = {
 
   // confirms - the concrete consequence, stated
   confirmWriteTitle: 'チップへ書き込みます',
-  confirmOdometer: (from: number | null, to: number, ops: number) =>
-    /* `from` is null when the secure area does not decode. It used to be
-       coerced to 0 by the caller, so the one dialog whose job is to state
-       the true consequence asserted a current reading the same screen had
-       just refused to give. */
-    (from === null
-      ? `オドメーターを ${to.toLocaleString()} km へ書き換えます。\n` +
-        `現在値は読み取れていません（セキュア領域を解読できませんでした）。\n`
-      : `オドメーターを ${from.toLocaleString()} km から ${to.toLocaleString()} km へ書き換えます。\n`) +
-    `セキュア領域 0x00–0x1F の ${ops} 個のレジスタに WRINC を実行します。\n\n` +
-    `この操作は取り消せません。一度書き込んだ値は二度と引き下げられません。\n` +
-    `書き込む値は車両の実際の走行距離と一致していなければなりません。`,
-  confirmReset:
-    'バックアップのクラスターデータを新品チップへ書き込みます。\n' +
-    '0x20–0x3FF をバックアップの値で、1 バイトも変えずに書きます。\n' +
-    'バックアップに VIN が入っていれば、その VIN も一緒に写ります。\n' +
-    '走行距離 0x00–0x1F は書きません（0 km のまま）。\n\n' +
-    '走行距離に触れないため、この書き込みは後から別のバックアップでやり直せます。',
-  confirmCoding: (changes: number, bytes: number) =>
-    `コーディングを ${changes} 項目変更します。\n` +
-    `書くのは ${bytes} バイトで、変わる項目の mask のビットと、計算し直したチェックサムだけです。\n` +
-    `1 バイトずつ書いて読み返し、最後にチップ全体を読み直して照合し、記録します。\n\n` +
-    `走行距離・VIN・K 値には触れません。元に戻すには、書く前の BACKUP を RESTORE で書き戻します。`,
-  confirmRepair: (n: number) =>
-    `標準領域の ${n} バイトを、バックアップの値へ書き戻します。\n` +
-    `書き込まないのは走行距離 0x00–0x1F だけです。\n` +
-    `VIN もバックアップと違っていれば書き戻します。\n\n` +
-    `セキュア領域を上げないため、この操作は何度でもやり直せます。`,
+  /* The job (lib/domain/job.ts), every part it will write, in one dialog. `odometer.from` is null
+     when the secure area does not decode: printing "from 0 km" there once made the one dialog
+     whose job is to state the true consequence assert a reading the screen had refused to give. */
+  confirmJob: (j: JobSummary) =>
+    [
+      j.source && `標準領域 0x020–0x3FF を、ダンプ ${j.source.name} の内容にします（チップと違う ${j.source.bytes} バイト）。`,
+      j.vin?.kind === 'write' && `VIN を ${j.vin.vin} にします（チップにある VIN の欄すべて）。`,
+      j.vin?.kind === 'blank' && 'VIN（ASCII の欄）を空にします。',
+      j.coding > 0 && `コーディングを ${j.coding} 項目変更します（変わる項目の mask のビットだけ）。`,
+      j.checksums > 0 && `チェックサム ${j.checksums} バイトを計算し直して書きます。`,
+      j.bytes > 0 &&
+        `標準領域へ書くのは ${j.bytes} バイトです。1 バイトずつ書いて読み返し、最後にチップ全体を読み直して照合し、記録します。`,
+      j.odometer
+        ? '\n' +
+          (j.odometer.from === null
+            ? `オドメーターを ${j.odometer.to.toLocaleString()} km へ書き換えます。現在値は読み取れていません（セキュア領域を解読できませんでした）。\n`
+            : `オドメーターを ${j.odometer.from.toLocaleString()} km から ${j.odometer.to.toLocaleString()} km へ書き換えます。\n`) +
+          `セキュア領域 0x00–0x1F の ${j.odometer.ops} 個のレジスタに WRINC を実行します。\n` +
+          'この操作は取り消せません。一度書き込んだ値は二度と引き下げられません。\n' +
+          '書き込む値は車両の実際の走行距離と一致していなければなりません。'
+        : '\n走行距離（0x000–0x01F）には触れません。標準領域は、書く前の BACKUP を SOURCE にすれば書き戻せます。',
+    ]
+      .filter(Boolean)
+      .join('\n'),
   noCancelDuringWrite: '書き込み中はキャンセルできません',
 
   // refusals
@@ -330,30 +327,27 @@ const EN: typeof JA = {
 
 
   confirmWriteTitle: 'Write to the chip',
-  confirmOdometer: (from: number | null, to: number, ops: number) =>
-    (from === null
-      ? `Rewrite the odometer to ${to.toLocaleString()} km.\n` +
-        `The current value could not be read - the secure area does not decode.\n`
-      : `Rewrite the odometer from ${from.toLocaleString()} km to ${to.toLocaleString()} km.\n`) +
-    `This performs WRINC on ${ops} register(s) in the secure area 0x00–0x1F.\n\n` +
-    `This cannot be undone. A value once written can never be lowered.\n` +
-    `The value written must match the vehicle's true mileage.`,
-  confirmReset:
-    "Write a backup's cluster data to a new chip.\n" +
-    'Writes 0x20-0x3FF from the backup, byte for byte, with nothing altered.\n' +
-    "If the backup carries a VIN, that VIN is copied across with it.\n" +
-    'The odometer 0x00-0x1F is not written (it stays at 0 km).\n\n' +
-    'Because the odometer is untouched, this write can be redone later from another backup.',
-  confirmCoding: (changes: number, bytes: number) =>
-    `Change ${changes} coding parameter(s).\n` +
-    `${bytes} byte(s) are written: only the bits under each changed parameter's mask, and the recomputed checksums.\n` +
-    `Each byte is written and read back, then the whole chip is read again, compared and recorded.\n\n` +
-    `The odometer, the VIN and the K-numbers are not touched. To undo, RESTORE the BACKUP taken before this write.`,
-  confirmRepair: (n: number) =>
-    `Write ${n} standard-array byte(s) back to the backup's values.\n` +
-    `The odometer (0x00-0x1F) is the only thing not written.\n` +
-    `The VIN is written too, if it differs from the backup.\n\n` +
-    `Nothing raises the secure counter, so this can be repeated.`,
+  confirmJob: (j: JobSummary) =>
+    [
+      j.source && `The standard array 0x020-0x3FF becomes the dump ${j.source.name} (${j.source.bytes} byte(s) differ from the chip).`,
+      j.vin?.kind === 'write' && `The VIN becomes ${j.vin.vin}, in every VIN field the chip has.`,
+      j.vin?.kind === 'blank' && 'The VIN (the ASCII field) is blanked.',
+      j.coding > 0 && `${j.coding} coding parameter(s) change (only the bits under each one's mask).`,
+      j.checksums > 0 && `${j.checksums} checksum byte(s) are recomputed and written.`,
+      j.bytes > 0 &&
+        `${j.bytes} byte(s) of the standard array are written, each read back; then the whole chip is read again, compared and recorded.`,
+      j.odometer
+        ? '\n' +
+          (j.odometer.from === null
+            ? `Rewrite the odometer to ${j.odometer.to.toLocaleString()} km. The current value could not be read - the secure area does not decode.\n`
+            : `Rewrite the odometer from ${j.odometer.from.toLocaleString()} km to ${j.odometer.to.toLocaleString()} km.\n`) +
+          `This performs WRINC on ${j.odometer.ops} register(s) in the secure area 0x00–0x1F.\n` +
+          'This cannot be undone. A value once written can never be lowered.\n' +
+          "The value written must match the vehicle's true mileage."
+        : '\nThe odometer (0x000-0x01F) is not touched. The standard array can be put back by writing the BACKUP taken before this, as the SOURCE.',
+    ]
+      .filter(Boolean)
+      .join('\n'),
   noCancelDuringWrite: 'Cannot cancel during a write',
 
   refuseNoBackup: 'Run BACKUP first.',

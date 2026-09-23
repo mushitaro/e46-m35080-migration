@@ -11,14 +11,13 @@
  * and only then the job the current tab is about.
  */
 
-import { Plug, Zap, Loader2, Save, Upload } from 'lucide-react';
+import { Plug, Zap, Loader2, Save } from 'lucide-react';
 import type { HubConfig } from '@/components/Hub';
 import type { Phase, WriteJob } from '@/lib/hooks/useM35080Link';
 import type { StepId } from '@/lib/domain/workflow';
-import type { RepairPlan, ResetPlan, Refusal, RewritePlan } from '@/lib/domain/operations';
 import type { t } from '@/lib/i18n';
 import { CHROME } from '@/lib/copy/chrome';
-import { codingHubFor, type CodingHubState } from './codingHub';
+import { jobHubFor, type JobHubState } from './jobHub';
 
 type Catalog = ReturnType<typeof t>;
 
@@ -28,15 +27,9 @@ export type BridgeHubState = {
   step: StepId;
   hasImage: boolean;
   backedUp: boolean;
-  /** The chip read as blank (secure area all zero). False when it has not been read. */
-  chipBlank: boolean;
-  hasBackupFile: boolean;
-  rewritePlan: RewritePlan | Refusal | null;
-  restorePlan: ResetPlan | Refusal | null;
-  repairPlan: RepairPlan | Refusal | null;
-  /** CODING's own state; null where there is no CODING tab to speak for. */
-  coding: CodingHubState | null;
-  copy: Pick<Catalog, 'confirmOdometer' | 'confirmReset' | 'confirmRepair' | 'confirmCoding'>;
+  /** REWRITE's job - planned whether or not a chip is read - or null where there is none. */
+  job: JobHubState | null;
+  copy: Pick<Catalog, 'confirmJob'>;
   act: {
     connect: () => void;
     /** Read the chip; the caller moves to READ only when the read succeeded. */
@@ -46,8 +39,6 @@ export type BridgeHubState = {
     ask: (job: WriteJob, body: string, details: string[]) => void;
   };
 };
-
-const hex = (n: number) => n.toString(16).toUpperCase();
 
 export function bridgeHubFor(s: BridgeHubState): HubConfig {
   if (s.busy) {
@@ -74,72 +65,8 @@ export function bridgeHubFor(s: BridgeHubState): HubConfig {
   // makes "backup before write" structural.
   if (!s.backedUp) return { label: CHROME.hub.backup, Icon: Save, onClick: s.act.backup };
 
-  const { rewritePlan, restorePlan, repairPlan } = s;
+  /* REWRITE: the job - the source, the odometer, the VIN and the coding - in one write. */
+  if (s.step === 'rewrite' && s.job) return jobHubFor(s.job, s.copy.confirmJob, s.act.ask);
 
-  if (s.step === 'rewrite' && rewritePlan?.ok) {
-    return {
-      label: CHROME.hub.writeOdometer,
-      Icon: Zap,
-      danger: true,
-      disabled: rewritePlan.secureOps.length === 0 && rewritePlan.byteWrites.length === 0,
-      onClick: () =>
-        s.act.ask(
-          { kind: 'rewrite', byteWrites: rewritePlan.byteWrites, secureOps: rewritePlan.secureOps },
-          s.copy.confirmOdometer(
-            /* NOT `?? 0`. When the secure area does not decode, the same screen says so in red -
-               printing "from 0 km" on the one dialog whose job is to state the true consequence
-               made the tool assert a reading it had just refused to give. */
-            rewritePlan.currentKm,
-            rewritePlan.targetKm,
-            rewritePlan.secureOps.length,
-          ),
-          [
-            ...rewritePlan.secureOps.map(
-              (o) =>
-                `WRINC 0x${o.address.toString(16).padStart(2, '0').toUpperCase()}  0x${hex(o.from)} -> 0x${hex(o.to)}`,
-            ),
-            ...rewritePlan.byteWrites.map((w) => w.label),
-          ],
-        ),
-    };
-  }
-  /* RESTORE onto a blank chip: the backup's cluster data, the odometer untouched (planReset). */
-  if (s.step === 'restore' && s.chipBlank && restorePlan?.ok) {
-    return {
-      label: CHROME.hub.writeChip,
-      Icon: Upload,
-      danger: true,
-      onClick: () =>
-        s.act.ask({ kind: 'restore', byteWrites: restorePlan.byteWrites, secureOps: [] }, s.copy.confirmReset, [
-          ...restorePlan.byteWrites.map((w) => w.label),
-          'odometer 0x00-0x1F: not written (stays 0 km)',
-        ]),
-    };
-  }
-  /* Not blank: repair what the array has lost instead. Same backup, same "never touch the
-     odometer" rule - and repeatable, because it raises no counter, which is what lets it be used
-     as a retention test. */
-  if (s.step === 'restore' && !s.chipBlank && repairPlan?.ok && repairPlan.byteWrites.length > 0) {
-    return {
-      label: CHROME.hub.repair,
-      Icon: Upload,
-      danger: true,
-      onClick: () =>
-        s.act.ask(
-          { kind: 'restore', byteWrites: repairPlan.byteWrites, secureOps: [] },
-          s.copy.confirmRepair(repairPlan.addresses.length),
-          [...repairPlan.byteWrites.map((w) => w.label), 'odometer 0x00-0x1F: not written'],
-        ),
-    };
-  }
-  if (s.step === 'coding' && s.coding) return codingHubFor(s.coding, s.copy.confirmCoding, s.act.ask);
-  if (s.step === 'restore') {
-    const label = !s.hasBackupFile
-      ? CHROME.hub.selectBackup
-      : !s.chipBlank && repairPlan?.ok
-        ? CHROME.hub.nothingToRepair
-        : CHROME.hub.checkBackup;
-    return { label, Icon: Upload, onClick: () => {}, disabled: true };
-  }
   return { label: CHROME.hub.read, Icon: Zap, onClick: s.act.read };
 }

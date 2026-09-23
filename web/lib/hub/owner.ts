@@ -9,24 +9,11 @@
  */
 
 import type { StepId } from '@/lib/domain/workflow';
+import { modeOf, type AppMode } from '@/lib/domain/modes';
 
 export type LinkOwner = 'bridge' | 'cluster';
 
-export function linkOwnerOf(step: StepId): LinkOwner {
-  switch (step) {
-    case 'test':
-      return 'cluster';
-    case 'setup':
-    case 'read':
-    case 'restore':
-    case 'rewrite':
-    case 'coding':
-    case 'inspect':
-    case 'records':
-      return 'bridge';
-    default: {
-      const unreachable: never = step;
-      return unreachable;
-    }
-  }
-}
+/** CHIP mode is the UNO bridge's, TEST mode the cluster link's. */
+export const linkOwnerOfMode = (mode: AppMode): LinkOwner => (mode === 'test' ? 'cluster' : 'bridge');
+
+export const linkOwnerOf = (step: StepId): LinkOwner => linkOwnerOfMode(modeOf(step));

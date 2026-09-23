@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FEATURES, enabledSurfaces, ownerOf, type Surface } from '@/lib/domain/features';
 import { deriveSteps } from '@/lib/domain/workflow';
+import { selectableModes } from '@/lib/domain/modes';
 
 /**
  * The release set, written out as a literal.
@@ -10,7 +11,7 @@ import { deriveSteps } from '@/lib/domain/workflow';
  * here means a promotion cannot land without editing this line - in a place
  * where it reads as a deliberate act.
  */
-const RELEASE: Surface[] = ['setup', 'read', 'restore', 'rewrite', 'inspect', 'records'];
+const RELEASE: Surface[] = ['setup', 'read', 'rewrite', 'inspect', 'records'];
 
 describe('the feature registry', () => {
   it('ships exactly these surfaces in a release', () => {
@@ -57,10 +58,19 @@ describe('the feature registry', () => {
     }
   });
 
-  it('keeps CODING out of a release: it writes a chip on rules not yet confirmed in a cluster', () => {
+  it("keeps REWRITE's CODING section out of a release: it writes a chip on rules not yet confirmed in a cluster", () => {
     expect(ownerOf('coding')).toMatchObject({ id: 'coding-ncs', stage: 'experimental' });
     expect(enabledSurfaces(false).has('coding')).toBe(false);
     expect(enabledSurfaces(true).has('coding')).toBe(true);
+  });
+
+  it('keeps the TEST mode out of a release, so a release offers CHIP only', () => {
+    for (const s of ['bench', 'checks'] as const) {
+      expect(ownerOf(s)).toMatchObject({ id: 'cluster-test-ds2', stage: 'experimental' });
+      expect(enabledSurfaces(false).has(s)).toBe(false);
+    }
+    expect(selectableModes(enabledSurfaces(false))).toEqual(['chip']);
+    expect(selectableModes(enabledSurfaces(true))).toEqual(['chip', 'test']);
   });
 
   it('never lets a feature own a surface twice', () => {
