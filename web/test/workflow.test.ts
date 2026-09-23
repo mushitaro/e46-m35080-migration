@@ -10,17 +10,14 @@ import {
 const EMPTY: WorkflowState = {
   connected: false,
   hasImage: false,
-  backedUp: false,
   chipBlank: false,
   odometerKm: null,
-  recordCount: 0,
-  inspecting: false,
 };
 
 const s = (over: Partial<WorkflowState> = {}): WorkflowState => ({ ...EMPTY, ...over });
 
 describe('deriveSteps - the strip is a sequence', () => {
-  it('numbers the steps 1..6 in working order', () => {
+  it('lists the steps in working order', () => {
     const steps = deriveSteps(EMPTY);
     expect(steps.map((x) => x.id)).toEqual([
       'setup',
@@ -30,19 +27,13 @@ describe('deriveSteps - the strip is a sequence', () => {
       'inspect',
       'records',
     ]);
-    expect(steps.map((x) => x.ordinal)).toEqual([1, 2, 3, 4, 5, 6]);
   });
 
   it('never gates INSPECT on a chip or a connection', () => {
     /* Sorting a pile of .bin files into "chip read" and "floating wire" is
        exactly what you do BEFORE getting hardware out. */
     const steps = deriveSteps(EMPTY);
-    expect(stepById(steps, 'inspect')).toMatchObject({
-      enabled: true,
-      complete: false,
-      blockedBy: null,
-    });
-    expect(stepById(deriveSteps(s({ inspecting: true })), 'inspect')?.complete).toBe(true);
+    expect(stepById(steps, 'inspect')).toMatchObject({ enabled: true, blockedBy: null });
   });
 
   it('lets a cold start reach the bench guide and the records', () => {
@@ -74,33 +65,6 @@ describe('deriveSteps - the strip is a sequence', () => {
 
     const warm = stepById(deriveSteps(s({ connected: true })), 'read');
     expect(warm?.blockedBy).toBeNull();
-  });
-});
-
-describe('deriveSteps - completion is derived, never stored', () => {
-  it('marks SETUP complete only once the link is actually up', () => {
-    expect(stepById(deriveSteps(EMPTY), 'setup')?.complete).toBe(false);
-    expect(stepById(deriveSteps(s({ connected: true })), 'setup')?.complete).toBe(true);
-  });
-
-  it('marks READ complete when an image exists', () => {
-    expect(stepById(deriveSteps(s({ connected: true })), 'read')?.complete).toBe(false);
-    expect(stepById(deriveSteps(s({ connected: true, hasImage: true })), 'read')?.complete).toBe(
-      true,
-    );
-  });
-
-  it('does not mark a chip job ready until there is a BACKUP', () => {
-    const noBackup = deriveSteps(s({ connected: true, hasImage: true }));
-    expect(stepById(noBackup, 'rewrite')?.complete).toBe(false);
-
-    const withBackup = deriveSteps(s({ connected: true, hasImage: true, backedUp: true }));
-    expect(stepById(withBackup, 'rewrite')?.complete).toBe(true);
-  });
-
-  it('marks RECORDS complete once something is stored', () => {
-    expect(stepById(deriveSteps(EMPTY), 'records')?.complete).toBe(false);
-    expect(stepById(deriveSteps(s({ recordCount: 1 })), 'records')?.complete).toBe(true);
   });
 });
 

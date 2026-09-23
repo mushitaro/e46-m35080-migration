@@ -9,9 +9,8 @@
  * one job the chip allows, then keep the record. The hub stays the single write
  * path - a step says WHICH job you are on, the hub says what to press next.
  *
- * Every prerequisite and every completion mark is DERIVED from live state.
- * Nothing about "which step am I on" is stored, so the strip cannot disagree
- * with the device.
+ * Every prerequisite is DERIVED from live state. Nothing about "which step am
+ * I on" is stored, so the strip cannot disagree with the device.
  */
 
 export type StepId = 'setup' | 'read' | 'restore' | 'rewrite' | 'inspect' | 'records';
@@ -23,25 +22,15 @@ export type WorkflowState = {
   connected: boolean;
   /** A full image has been read off the chip. */
   hasImage: boolean;
-  /** The current image has been backed up. */
-  backedUp: boolean;
   /** Secure area is all zero - a new chip, or one that has never counted. */
   chipBlank: boolean;
   /** Decoded reading, or null when the secure area is not a state we can read. */
   odometerKm: number | null;
-  /** How many records are stored. */
-  recordCount: number;
-  /** A dump file is open on the workbench. Nothing to do with the chip. */
-  inspecting: boolean;
 };
 
 export type Step = {
   id: StepId;
-  /** 1-based position, shown in the tab. */
-  ordinal: number;
   enabled: boolean;
-  /** The work of this step is done. Drives the check mark. */
-  complete: boolean;
   blockedBy: BlockedReason | null;
 };
 
@@ -55,35 +44,18 @@ const ORDER: StepId[] = ['setup', 'read', 'restore', 'rewrite', 'inspect', 'reco
  * need an image first, because without one there is nothing to plan against.
  */
 export function deriveSteps(s: WorkflowState): Step[] {
-  return ORDER.map((id, i) => {
-    const ordinal = i + 1;
+  return ORDER.map((id) => {
     switch (id) {
       case 'setup':
-        // Nothing gates the bench guide, and it is complete once the link is up:
-        // that is the only externally observable proof the wiring is right.
-        return { id, ordinal, enabled: true, complete: s.connected, blockedBy: null };
+        // Nothing gates the bench guide.
+        return { id, enabled: true, blockedBy: null };
 
       case 'read':
-        return {
-          id,
-          ordinal,
-          enabled: true,
-          complete: s.hasImage,
-          blockedBy: s.connected ? null : 'need-connection',
-        };
+        return { id, enabled: true, blockedBy: s.connected ? null : 'need-connection' };
 
       case 'restore':
       case 'rewrite':
-        return {
-          id,
-          ordinal,
-          enabled: s.hasImage,
-          // A job is never "complete" in the sense a step is - the chip can
-          // always be written again. Completion here means "there is a backup
-          // and an image", i.e. this step is safe to act from.
-          complete: s.hasImage && s.backedUp,
-          blockedBy: s.hasImage ? null : 'need-image',
-        };
+        return { id, enabled: s.hasImage, blockedBy: s.hasImage ? null : 'need-image' };
 
       /* A file on disk, not the chip. Never gated on a connection or an
          image, because needing neither is the whole point: it is how a pile of
@@ -91,16 +63,10 @@ export function deriveSteps(s: WorkflowState): Step[] {
          that are a floating wire. It sits after the bench steps with RECORDS,
          the other surface that touches no hardware. */
       case 'inspect':
-        return { id, ordinal, enabled: true, complete: s.inspecting, blockedBy: null };
+        return { id, enabled: true, blockedBy: null };
 
       case 'records':
-        return {
-          id,
-          ordinal,
-          enabled: true,
-          complete: s.recordCount > 0,
-          blockedBy: null,
-        };
+        return { id, enabled: true, blockedBy: null };
     }
   });
 }

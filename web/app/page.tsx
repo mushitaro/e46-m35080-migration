@@ -154,13 +154,10 @@ export default function Page() {
     () => ({
       connected: phase !== 'disconnected',
       hasImage: !!image,
-      backedUp,
       chipBlank: chip?.blank ?? false,
       odometerKm: odometer?.ok ? odometer.km : null,
-      recordCount: records.length,
-      inspecting: workspace !== null,
     }),
-    [phase, image, backedUp, chip, odometer, records.length, workspace],
+    [phase, image, chip, odometer],
   );
 
   const steps = useMemo(() => deriveSteps(workflow), [workflow]);
@@ -175,18 +172,14 @@ export default function Page() {
     records: CHROME.tab.records,
   };
 
-  /* The registry says WHICH surfaces may be drawn; workflow.ts keeps the order
-     and the numbering. Ordinals are re-derived after the filter so a closed
-     surface does not leave a hole in the count. */
+  /* The registry says WHICH surfaces may be drawn; workflow.ts keeps the order. */
   const visible = useMemo(() => enabledSurfaces(previewSurfaces), [previewSurfaces]);
   const tabs: TabDef<StepId>[] = steps
     .filter((s) => visible.has(s.id))
-    .map((s, i) => ({
+    .map((s) => ({
       id: s.id,
       label: STEP_LABEL[s.id],
       enabled: s.enabled,
-      ordinal: i + 1,
-      complete: s.complete,
     }));
 
   /* Turning a surface off while the reader is standing on it would leave the

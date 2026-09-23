@@ -1,11 +1,13 @@
 'use client';
 
 /**
- * The workflow strip: numbered steps, in the order the job is done.
+ * The tab bar. tsunagi-m-design section 4: horizontal, active by underline -
+ * blue text and a blue underline; inactive recedes and brightens on hover;
+ * disabled is very low opacity. A label, and nothing else.
  *
- * The number is the point - it says this is a sequence, not a menu. A step that
- * is finished carries a check so the reader can see how far they are without
- * remembering.
+ * It used to prefix every tab with a numbered circle that turned into a check
+ * mark when the step was "complete". Neither is in the design system, and the
+ * order already says it: the tabs sit in the order the job is done.
  *
  * No `title` carrying the disabled reason: it displaces the button's accessible
  * name, so a screen reader announces the sentence instead of the step. The
@@ -13,17 +15,12 @@
  * rather than crammed into this 44px bar.
  */
 
-import { Check } from 'lucide-react';
 import { LABEL } from '@/components/ui';
 
 export type TabDef<T extends string> = {
   id: T;
   label: string;
   enabled: boolean;
-  /** 1-based position. Omit for a strip that is not a sequence. */
-  ordinal?: number;
-  /** Shows a check instead of the number. */
-  complete?: boolean;
 };
 
 export function Tabs<T extends string>({
@@ -44,7 +41,7 @@ export function Tabs<T extends string>({
             key={tab.id}
             disabled={!tab.enabled}
             onClick={() => onSelect(tab.id)}
-            className={`flex h-full shrink-0 items-center gap-1.5 border-b-2 ${LABEL} transition
+            className={`flex h-full shrink-0 items-center border-b-2 ${LABEL} transition
                         disabled:opacity-20
               ${
                 isActive
@@ -52,22 +49,6 @@ export function Tabs<T extends string>({
                   : 'border-transparent text-slate-500 hover:text-slate-300'
               }`}
           >
-            {tab.ordinal !== undefined && (
-              <span
-                aria-hidden="true"
-                className={`flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px]
-                            font-bold leading-none transition-colors
-                  ${
-                    tab.complete
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : isActive
-                        ? 'bg-blue-500/20 text-blue-400'
-                        : 'bg-slate-800 text-slate-500'
-                  }`}
-              >
-                {tab.complete ? <Check className="h-2.5 w-2.5" /> : tab.ordinal}
-              </span>
-            )}
             {tab.label}
           </button>
         );
