@@ -46,7 +46,8 @@ import { listRecords, deleteRecord, type DeviceRecord } from '@/lib/domain/recor
 import { useRefData } from '@/lib/refdata/useRefData';
 import { chooseDefinition, optionValue, rowsFor } from '@/lib/ncs/decode';
 import { differingFrom, effectiveChanges, type Staged } from '@/lib/ncs/view';
-import type { PracticeChip } from '@/lib/link/mockLink';
+import { presetImage, type PracticeChip } from '@/lib/link/mockLink';
+import { codedPracticeChip } from '@/lib/ncs/practice';
 import {
   applyLangToDocument,
   getLang,
@@ -190,9 +191,10 @@ export default function Page() {
     effectiveSource === 'dump' ? (dump ? { kind: 'dump', name: dump.name, image: dump.image } : null) : { kind: 'chip' };
   const sourceImage = effectiveSource === 'dump' ? (dump?.image ?? null) : image;
 
-  /* The definitions: asked for the first time REWRITE's coding is looked at (the preview serves
-     them to its owner; anywhere else the reader opens the file), then kept in memory. */
-  const codingRef = useRefData('kombi-coding', codingVisible && step === 'rewrite');
+  /* The definitions: asked for the first time REWRITE's coding is looked at, or PRACTICE is ticked
+     - PRACTICE builds its chip to fit them (lib/ncs/practice.ts) - then kept in memory. The preview
+     serves them to its owner, and so does `npm run serve:out` on the operator's own PC. */
+  const codingRef = useRefData('kombi-coding', codingVisible && (step === 'rewrite' || practiceIntent));
   /* TEST's lamp, output and input names: the same way, the first time CHECKS opens. */
   const namesRef = useRefData('kombi-names', step === 'checks');
   const codingDoc = codingRef.state?.ok ? codingRef.state.doc : null;
@@ -344,13 +346,21 @@ export default function Page() {
           /* PRACTICE rehearses on a late-layout chip: both VIN fields, both checksums - the
              shape of the bench's own chip, with made-up values. Or on the file INSPECT made
              the practice chip. */
-          connect: () => void link.connect(practiceIntent ? 'practice' : 'serial', (practiceChip ?? 'late') satisfies PracticeChip),
+          connect: () => {
+            if (!practiceIntent) return void link.connect('serial');
+            /* PRACTICE reads the file INSPECT chose, or a chip made to fit the definitions - so
+               coding is rehearsed as on a real chip, with nothing opened - or, before any
+               definitions are here, the made-up preset. */
+            const coded = !practiceChip && codingDoc ? codedPracticeChip(presetImage('late'), codingDoc) : null;
+            const seat: PracticeChip = practiceChip ?? (coded ? { name: coded.file, image: coded.image, coded: true } : 'late');
+            void link.connect('practice', seat);
+          },
           read: () => void link.read().then((ok) => ok && setStep('read')),
           backup: () => void link.backup(),
           ask,
         },
       }),
-    [busy, phase, practiceIntent, practiceChip, image, backedUp, step, jobInput, jobPlan, codingRef.state, copy, link, ask, setStep],
+    [busy, phase, practiceIntent, practiceChip, codingDoc, image, backedUp, step, jobInput, jobPlan, codingRef.state, copy, link, ask, setStep],
   );
 
   /* ----------------------------- the owner ---------------------------- */

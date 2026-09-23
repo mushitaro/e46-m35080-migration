@@ -151,6 +151,8 @@ const JA = {
   practiceMode: 'PRACTICE モード — 実機には書き込みません',
   /* INSPECT's USE AS PRACTICE CHIP: the simulated chip is a file, and the notice says which. */
   practiceModeFile: (name: string) => `PRACTICE モード — 模擬チップ: ${name}（実機には書き込みません）`,
+  /* A practice chip made to fit a coding definition (lib/ncs/practice.ts): made up, but codable. */
+  practiceModeCoded: (file: string) => `PRACTICE モード — 模擬チップは ${file} に合わせて作った架空のチップです（実機には書き込みません）`,
 
   // odometer
   odometerUnreadable: 'セキュア領域を解読できません',
@@ -322,6 +324,7 @@ const EN: typeof JA = {
 
   practiceMode: 'PRACTICE mode — nothing is written to hardware',
   practiceModeFile: (name: string) => `PRACTICE mode — simulated chip: ${name} (nothing is written to hardware)`,
+  practiceModeCoded: (file: string) => `PRACTICE mode — a made-up chip built to fit ${file} (nothing is written to hardware)`,
 
   odometerUnreadable: 'Cannot decode the secure area',
 

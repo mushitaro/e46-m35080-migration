@@ -1,18 +1,25 @@
 #!/usr/bin/env node
 /**
- * `npm run serve:out`: serve the static export in out/ on localhost, to look at a build the way
+ * `npm run serve:out`: serve the static export in out/ on this PC, to look at a build the way
  * `next dev` cannot show it - above all a PREVIEW build (`npm run build:preview`), the only one
- * that draws the experimental tabs (CODING, TEST).
+ * that draws the experimental parts (REWRITE's CODING, the TEST mode).
  *
  * On PORT when something assigns one (the desktop app's preview pane does), else 5050 - the port
  * after this app's dev port. localhost is a secure context, so Web Serial works here in desktop
  * Chrome or Edge: the UNO and the K+DCAN cable can be used against this server as against the
  * deployed preview.
  *
- * What it is not: the preview. There are no functions here - no owner gate, no SYNC, no
- * /api/ref (every /api/ path is 404, which the app reads as "not uploaded yet"), so CODING's
- * definitions and TEST's names are opened as files. Nothing is cached (`no-store`), so a rebuild
- * is what the next reload shows.
+ * THE REFERENCE DATA, as the preview serves it. /api/ref/<name> answers from REFDATA_OUT (default
+ * C:\EDIABAS-derived\m35080-refdata - where tools/refdata/gen_refdata.py writes it, and where
+ * upload-refdata.mjs reads it from), so on this PC CODING's definitions and TEST's names arrive
+ * the way they do for a signed-in owner of the preview: without opening a file. The folder is
+ * outside the repository and nothing here copies it anywhere. There is no owner gate here, so
+ * this server answers the machine it runs on and nobody else: a request from any other address is
+ * refused, whatever it asks for.
+ *
+ * What it is not: the preview. No gate, no SYNC, no functions - every other /api/ path is 404.
+ * Nothing is cached (`no-store`), so a rebuild, or regenerated reference data, is what the next
+ * reload shows.
  */
 
 import { createServer } from 'node:http';
@@ -21,6 +28,9 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const OUT = resolve(fileURLToPath(new URL('..', import.meta.url)), 'out');
+const REFDATA = process.env.REFDATA_OUT || 'C:\\EDIABAS-derived\\m35080-refdata';
+/** The names the app asks for - functions/_lib/refdata.ts serves the same two. */
+const REF_NAMES = new Set(['kombi-coding', 'kombi-names']);
 const port = Number(process.env.PORT?.trim() || 5050);
 
 const TYPES = {
@@ -60,16 +70,30 @@ function fileFor(pathname) {
   return null;
 }
 
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+function send(res, req, status, type, body) {
+  res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store' });
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
+
 createServer((req, res) => {
+  // No gate: this PC only.
+  if (!LOOPBACK.has(req.socket.remoteAddress ?? '')) return send(res, req, 403, 'text/plain; charset=utf-8', 'this server answers its own machine only');
   const { pathname } = new URL(req.url ?? '/', 'http://localhost');
+
+  if (pathname.startsWith('/api/ref/')) {
+    const name = pathname.slice('/api/ref/'.length);
+    const file = join(REFDATA, `${name}.json`);
+    if (!REF_NAMES.has(name) || !existsSync(file)) return send(res, req, 404, 'text/plain; charset=utf-8', 'no such reference data here');
+    return send(res, req, 200, 'application/json; charset=utf-8', readFileSync(file));
+  }
+
   const file = pathname.startsWith('/api/') ? null : fileFor(pathname);
   const notFound = join(OUT, '404.html');
   const path = file ?? (existsSync(notFound) ? notFound : null);
-  res.writeHead(file ? 200 : 404, {
-    'Content-Type': path ? (TYPES[extname(path)] ?? 'application/octet-stream') : 'text/plain; charset=utf-8',
-    'Cache-Control': 'no-store',
-  });
-  res.end(req.method === 'HEAD' ? undefined : path ? readFileSync(path) : 'not found');
+  send(res, req, file ? 200 : 404, path ? (TYPES[extname(path)] ?? 'application/octet-stream') : 'text/plain; charset=utf-8', path ? readFileSync(path) : 'not found');
 }).listen(port, () => {
-  console.log(`serve-out: ${OUT}\n  http://localhost:${port}`);
+  const refs = [...REF_NAMES].map((n) => `${n}: ${existsSync(join(REFDATA, `${n}.json`)) ? 'served' : 'absent'}`).join(', ');
+  console.log(`serve-out: ${OUT}\n  http://localhost:${port}\n  reference data from ${REFDATA} (${refs})`);
 });

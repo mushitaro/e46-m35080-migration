@@ -180,7 +180,14 @@ export function useM35080Link() {
           info,
           practice: mode === 'practice',
           practiceFile: mode === 'practice' && typeof preset !== 'string' ? preset.name : null,
-          notice: mode !== 'practice' ? null : typeof preset === 'string' ? t().practiceMode : t().practiceModeFile(preset.name),
+          notice:
+            mode !== 'practice'
+              ? null
+              : typeof preset === 'string'
+                ? t().practiceMode
+                : preset.coded
+                  ? t().practiceModeCoded(preset.name)
+                  : t().practiceModeFile(preset.name),
         });
       } catch (e) {
         linkRef.current = null;

@@ -43,11 +43,12 @@ import { CODED_VIN_AT, encodeCodedVin, recomputeChecksums } from '@/lib/domain/l
 export type MockChipPreset = 'used' | 'late' | 'blank';
 
 /**
- * What PRACTICE reads: one of the presets, or a file the reader chose in INSPECT (USE AS PRACTICE
- * CHIP) - so CODING and REWRITE can be rehearsed on a real chip's image, in memory, with nothing
- * sent anywhere. The file is copied; the simulated chip never writes back to it.
+ * What PRACTICE reads: one of the presets, a file the reader chose in INSPECT (USE AS PRACTICE
+ * CHIP), or - `coded` - the late preset made to fit a coding definition (lib/ncs/practice.ts, the
+ * name is the definition's), so coding is rehearsed with nothing opened. In memory only, and a
+ * copy: the simulated chip never writes back to what it was made from.
  */
-export type PracticeChip = MockChipPreset | { name: string; image: Uint8Array };
+export type PracticeChip = MockChipPreset | { name: string; image: Uint8Array; coded?: boolean };
 
 /** Made-up, and deliberately different from MOCK_VIN: the two fields of one chip can disagree. */
 export const MOCK_CODED_VIN = 'CD67890';

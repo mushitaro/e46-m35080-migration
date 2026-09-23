@@ -227,9 +227,11 @@ already holds 5049.
 
 **No hardware? Tick PRACTICE.** It runs the whole workflow — including the
 destructive paths — against a simulated chip that really enforces the
-increment-only rule, and the TEST mode against a simulated cluster. To code a real chip's image
-in practice, open its dump as REWRITE's SOURCE; INSPECT's USE AS PRACTICE CHIP makes a file the
-chip PRACTICE reads itself.
+increment-only rule, and the TEST mode against a simulated cluster. Where the coding definitions
+are available, PRACTICE builds its chip to fit one of them (`web/lib/ncs/practice.ts`: made-up
+values, the definition's options), so coding is rehearsed exactly as on a real chip —
+CONNECT, READ, REWRITE, pick, WRITE CHIP — with nothing opened. A real chip's dump can also be
+REWRITE's SOURCE, and INSPECT's USE AS PRACTICE CHIP makes a file the chip PRACTICE reads.
 
 `next dev` draws what a release draws. REWRITE's CODING section and the TEST mode are
 experimental and appear in a preview build:
@@ -238,10 +240,12 @@ experimental and appear in a preview build:
 npm run build:preview && npm run serve:out   # http://localhost:5050 (or PORT)
 ```
 
-That server has no functions — no gate, no SYNC, no `/api/ref` — so the coding definitions and
-TEST's names are opened as files (`kombi-coding.json`, `kombi-names.json`). localhost is a
-secure context, so the UNO and the K+DCAN cable work there as on the deployed preview. For the
-gate and SYNC, see [Running the gate and SYNC locally](#running-the-gate-and-sync-locally).
+It serves the reference data the way the preview does — `/api/ref/<name>` from `REFDATA_OUT`
+(default `C:\EDIABAS-derived\m35080-refdata`, where the generator writes it) — so the coding
+definitions and TEST's names arrive without opening a file. There is no gate, so it answers this
+machine only: a request from any other address is refused. No SYNC and no other `/api` either.
+localhost is a secure context, so the UNO and the K+DCAN cable work there as on the deployed
+preview. For the gate and SYNC, see [Running the gate and SYNC locally](#running-the-gate-and-sync-locally).
 
 ```bash
 npm run test        # token rules → BMW-data guard → ds2-core vendor check → the vitest suite

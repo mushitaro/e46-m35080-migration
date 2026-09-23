@@ -36,7 +36,7 @@ const JA = {
     ambiguous: '当てはまる定義が 2 つ以上あり、1 つに絞れません。',
   } satisfies Record<NoneReason, string>,
   practicePreset:
-    'PRACTICE の既定の模擬チップは作り物の値なので、どの定義にも当てはまりません。SOURCE を DUMP にして実チップのダンプを開くと、そのダンプの定義でコーディングできます。',
+    'この模擬チップは定義が届く前に作られたため、どの定義にも当てはまりません。DISCONNECT して CONNECT し直すと、定義に合わせた模擬チップで READ できます。',
   fitNote: (anyValue: number, oneValue: number, arrays: number) =>
     `選択肢で値を区別できる項目だけを数えます（どの値でも一致する項目 ${anyValue}、値が 1 つの項目 ${oneValue}、配列 ${arrays} は数えません）。`,
   indexNote: (index: number) => `チップが持つコーディングインデックス ${index} と、定義のインデックスが一致しています。`,
@@ -92,7 +92,7 @@ const EN: typeof JA = {
     ambiguous: 'More than one definition fits, and they cannot be narrowed to one.',
   },
   practicePreset:
-    "PRACTICE's default chip holds made-up values, so no definition fits it. Set the SOURCE to DUMP and open a real chip's dump to code with that dump's definition.",
+    'This practice chip was made before the definitions arrived, so none fits it. DISCONNECT and CONNECT again, and PRACTICE reads a chip built to fit them.',
   fitNote: (anyValue: number, oneValue: number, arrays: number) =>
     `Only parameters whose options tell values apart are counted (not the ${anyValue} any value matches, the ${oneValue} with one value, or the ${arrays} arrays).`,
   indexNote: (index: number) => `The chip's own coding index, ${index}, is the definition's.`,
