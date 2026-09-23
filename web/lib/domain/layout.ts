@@ -168,17 +168,25 @@ export type CodedVinRead =
  */
 export function readCodedVin(image: Uint8Array): CodedVinRead {
   if (detectLayout(image).kind !== 'late') return { ok: false, reason: 'not-late-layout' };
-  const b = image.subarray(CODED_VIN_AT, CODED_VIN_AT + CODED_VIN_BYTES);
+  const text = unpackCodedVin(image.subarray(CODED_VIN_AT, CODED_VIN_AT + CODED_VIN_BYTES));
+  return text === null ? { ok: false, reason: 'not-vin-shaped' } : { ok: true, text, offset: CODED_VIN_AT };
+}
+
+/**
+ * The seven characters packed into five bytes - two ASCII, then five BCD digits, the low nibble
+ * of the fifth byte not included - or null when the bytes are not that shape.
+ *
+ * One rule for two places: the coded field at 0x07A, and the cluster's own VIN reply over DS2
+ * (lib/kombi/decode.ts), which the SGBD unpacks the same way.
+ */
+export function unpackCodedVin(b: Uint8Array): string | null {
+  if (b.length < CODED_VIN_BYTES) return null;
   const c11 = b[0] ?? 0;
   const c12 = b[1] ?? 0;
-  if (!isVinChar(c11) || !isVinChar(c12)) return { ok: false, reason: 'not-vin-shaped' };
+  if (!isVinChar(c11) || !isVinChar(c12)) return null;
   const nibbles = [(b[2] ?? 0) >> 4, (b[2] ?? 0) & 0xf, (b[3] ?? 0) >> 4, (b[3] ?? 0) & 0xf, (b[4] ?? 0) >> 4];
-  if (nibbles.some((n) => n > 9)) return { ok: false, reason: 'not-vin-shaped' };
-  return {
-    ok: true,
-    text: String.fromCharCode(c11, c12) + nibbles.join(''),
-    offset: CODED_VIN_AT,
-  };
+  if (nibbles.some((n) => n > 9)) return null;
+  return String.fromCharCode(c11, c12) + nibbles.join('');
 }
 
 /** Whether a 7-character VIN can be stored in the coded field (the last five must be digits). */
