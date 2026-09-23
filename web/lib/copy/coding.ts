@@ -49,6 +49,15 @@ const JA = {
     'single-option': '選択肢の値が 1 つしかなく、変える先がありません。',
     'not-an-option': 'チップの値がどの選択肢にも当たりません。書き換えません。',
   } satisfies Record<RowReason, string>,
+  /* The same, in a word, for the list's third column; the sentence above is in the detail. */
+  short: {
+    'protected-range': 'VIN・距離の領域',
+    'outside-codable': 'チェックサムの外',
+    'direct-value': '直接値',
+    curve: 'カーブ',
+    'single-option': '選択肢が 1 つ',
+    'not-an-option': '値が選択肢にない',
+  } satisfies Record<RowReason, string>,
 
   refused: {
     'not-late-layout': 'late layout ではないため書きません。',
@@ -104,6 +113,14 @@ const EN: typeof JA = {
     curve: 'An array (a curve): shown, not coded.',
     'single-option': 'Its options set only one value: nothing to change it to.',
     'not-an-option': 'The chip holds a value none of the options set: not written.',
+  },
+  short: {
+    'protected-range': 'VIN / odometer area',
+    'outside-codable': 'outside the checksums',
+    'direct-value': 'direct value',
+    curve: 'curve',
+    'single-option': 'one option only',
+    'not-an-option': 'not an option',
   },
 
   refused: {

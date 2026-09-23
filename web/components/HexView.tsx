@@ -49,14 +49,6 @@ export type HexViewProps = {
   /** Where the VIN fields were FOUND in this image - coded and/or ASCII. */
   vins?: readonly VinSpan[];
   onSelect?: (address: number) => void;
-  /**
-   * A text colour per byte that replaces the region's, for a view that knows more about the
-   * bytes than their region (CODING's MAP: codable, protected, checksum). A changed byte keeps
-   * the change colour whatever this says.
-   */
-  textFor?: (address: number) => string | null;
-  /** Bytes to ring - the one parameter picked elsewhere - with the same pointer outline as `selected`. */
-  ring?: ReadonlySet<number>;
 };
 
 export function HexView({
@@ -66,8 +58,6 @@ export function HexView({
   selected = null,
   onSelect,
   vins = [],
-  textFor,
-  ring,
 }: HexViewProps) {
   const rows = useMemo(() => hexRows(image), [image]);
   const changed = useMemo(() => {
@@ -122,14 +112,14 @@ export function HexView({
                 const address = row.address + i;
                 const region = regionOf(address, vins);
                 const isChanged = changed?.has(address) ?? false;
-                const isSelected = selected === address || (ring?.has(address) ?? false);
+                const isSelected = selected === address;
                 return (
                   <td
                     key={i}
                     onClick={() => onSelect?.(address)}
                     title={`0x${formatAddress(address)} · ${region}`}
                     className={`cursor-default px-1 py-0.5 text-center tabular-nums transition-colors
-                      ${isChanged ? changeText : (textFor?.(address) ?? REGION_TEXT[region])}
+                      ${isChanged ? changeText : REGION_TEXT[region]}
                       ${isSelected ? 'outline outline-1 outline-slate-100' : ''}`}
                     style={{
                       background: isChanged ? changeFill : REGION_TINT[region],

@@ -1,16 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { chooseDefinition, rowsFor, type ParamRow } from '@/lib/ncs/decode';
 import {
-  byteRoles,
   differingFrom,
   effectiveChanges,
   formatValue,
-  groupByBlock,
   maskBits,
   matches,
   optionName,
   paramName,
-  passes,
+  inFilter,
+  listOrder,
   tally,
 } from '@/lib/ncs/view';
 import { recordFilename } from '@/lib/domain/records';
@@ -20,9 +19,10 @@ import type { CodingDoc } from '@/lib/refdata/types';
 import { codingFixture, P } from './support/codingDoc';
 
 /**
- * What REWRITE's coding is built from: names in the reader's language with their source, rows by
- * block, the filters and the search, the MAP's byte roles, a dump's differences from the chip, and
- * the picks that become the job's coding - on the synthetic definition only. The hub and the
+ * What REWRITE's coding is built from: names in the reader's language with their source, the
+ * list in NCS Dummy's order (functions, then the direct values), the filters and the search, a
+ * dump's differences from the chip, and the picks that become the job's coding - on the synthetic
+ * definition only. The hub and the
  * record's note are the job's (bridgeHub.test.ts, job.test.ts).
  */
 
@@ -66,29 +66,20 @@ describe('names', () => {
   });
 });
 
-describe('rows, blocks, filters', () => {
-  it('groups every row under the block that holds it, in address order, with the checksum over it', () => {
-    const { def, rows } = setup();
-    const groups = groupByBlock(def, rows);
-    expect(groups.flatMap((g) => g.rows).length).toBe(rows.length);
-    for (const g of groups) {
-      const addresses = g.rows.map((r) => r.param.address);
-      expect(addresses).toEqual([...addresses].sort((a, b) => a - b));
-      if (g.block) for (const r of g.rows) expect(r.param.address).toBeGreaterThanOrEqual(g.block.address);
-    }
-    const body = groups.find((g) => g.rows.some((r) => r.index === P.mode))!;
-    expect(body.block).toMatchObject({ address: 0x088, length: 0xe6 });
-    expect(body.checksum?.at).toBe(0x16e);
-    const upper = groups.find((g) => g.rows.some((r) => r.index === P.upper))!;
-    expect(upper.block).toBeNull(); // 0x320 is in no declared block of the demo layout
+describe('the list: order, filters, search', () => {
+  it("lists the functions as NCS Dummy does - in the definition's order - and the direct values apart", () => {
+    const { rows } = setup();
+    const { functions, values } = listOrder(rows);
+    expect(functions.map((r) => r.index)).toEqual([P.mode, P.flag, P.fixed, P.curve, P.guarded, P.low, P.level, P.upper]);
+    expect(values.map((r) => r.index)).toEqual([P.vin, P.index]);
   });
 
   it('filters by status, by change and by donor, and counts what each would show', () => {
     const { rows } = setup();
     const changed = new Set([P.mode]);
     const differing = new Set([P.level, P.upper]);
-    const by = (f: Parameters<typeof passes>[1], d: ReadonlySet<number> | null = differing) =>
-      rows.filter((r) => passes(r, f, changed, d)).map((r) => r.index);
+    const by = (f: Parameters<typeof inFilter>[1], d: ReadonlySet<number> | null = differing) =>
+      rows.filter((r) => inFilter(r, f, changed, d)).map((r) => r.index);
     expect(by('all')).toHaveLength(rows.length);
     // DEMO_FLAG sets both values its one bit can hold: it tells no definition apart, but it is codable.
     expect(by('codable')).toEqual([P.mode, P.flag, P.level, P.upper]);
@@ -111,26 +102,12 @@ describe('rows, blocks, filters', () => {
   });
 });
 
-describe('values and the map', () => {
+describe('values', () => {
   it('writes a value as hex, a digit pair per mask byte, and as its bits, mask-wide', () => {
     const { rows } = setup();
     expect(formatValue(rows[P.mode]!.param, 2)).toEqual({ hex: '02', bits: '10' });
     expect(formatValue(rows[P.level]!.param, 5)).toEqual({ hex: '05', bits: '0101' });
     expect(maskBits(rows[P.upper]!.param)).toEqual([{ address: 0x320, bits: [true, true, false, false, false, false, false, false] }]);
-  });
-
-  it("gives every byte a parameter covers that parameter's role, every protected byte and checksum theirs", () => {
-    const { rows } = setup();
-    const roles = byteRoles(rows);
-    expect(roles[0x0a0]).toBe('codable');
-    expect(roles[0x080]).toBe('protected');
-    expect(roles[0x010]).toBe('protected'); // the odometer, which no parameter names
-    expect(roles[0x16f]).toBe('protected');
-    expect(roles[0x0b2]).toBe('value'); // inside the curve
-    expect(roles[0x16e]).toBe('checksum');
-    expect(roles[0x3cd]).toBe('checksum');
-    expect(roles[0x3df]).toBe('checksum');
-    expect(roles[0x200]).toBeNull();
   });
 
   it('names the rows a donor holds differently, read with the same definition', () => {

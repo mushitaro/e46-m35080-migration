@@ -538,10 +538,7 @@ export default function Page() {
     return (
       <CodingTable
         doc={codingDoc}
-        def={codingDef.def}
         rows={codingRows}
-        image={preCoding}
-        after={jobPlan?.ok && jobPlan.coding ? jobPlan.coding.after : null}
         lang={lang}
         staged={staged}
         changed={codingChanged}

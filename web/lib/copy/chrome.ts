@@ -168,11 +168,11 @@ export const CHROME = {
     oneValue: 'ONE VALUE',
     arrays: 'ARRAYS',
     rows: 'ROWS',
-    list: 'LIST',
-    map: 'MAP',
+    /* the list's columns, as NCS Dummy's: the function (FSW), what it is set to, what it will be */
+    function: 'FUNCTION',
+    values: 'VALUES',
     search: 'SEARCH',
     noRows: 'NO ROWS',
-    noBlock: 'NO BLOCK',
     options: 'OPTIONS',
     mask: 'MASK',
     current: 'CURRENT',
@@ -194,7 +194,6 @@ export const CHROME = {
       all: 'ALL',
       codable: 'CODABLE',
       changed: 'CHANGED',
-      unknown: 'UNKNOWN',
       diff: 'DIFF',
     },
     /* where a name came from (lib/refdata/types.ts NameSource) */
@@ -202,12 +201,6 @@ export const CHROME = {
       authored: 'AUTHORED',
       heuristic: 'HEURISTIC',
       raw: 'RAW',
-    },
-    /* the block kinds a definition declares */
-    block: {
-      coding: 'CODING',
-      maker: 'MAKER',
-      reserved: 'RESERVED',
     },
   },
 

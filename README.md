@@ -127,9 +127,13 @@ before driving.** If it still reads 0 km, set a target on REWRITE.
 ### CODING, inside the job
 
 The coding section reads the source with every E46 cluster coding definition (NCS Expert's
-KMBE46M3.Cxx and KMB_E46.Cxx), picks the one it was coded with, and lists every parameter — by
-block, in the reader's language, with its keyword, address, current value and what may be done
-with it (the HEX / CODING switch on REWRITE's work surface). A definition is chosen only when
+KMBE46M3.Cxx and KMB_E46.Cxx), picks the one it was coded with, and lists it the way NCS Dummy
+does: one row per function, in the definition's order, with the option it is set to now and a
+choice of the option it will be set to — names in the reader's language, the keyword beside them
+(the HEX / CODING switch on REWRITE's work surface). A function that may not be changed says why
+in a word where the choice would be. The direct values (the VIN field, the coding index) follow,
+read only. Where a function lives — address, mask, raw value — is in the side panel's detail of
+the row picked. A definition is chosen only when
 every parameter that can tell definitions apart holds one of its options **and** the
 definition's coding index is the one the source carries; anything else is a refusal with the
 closest fit shown.

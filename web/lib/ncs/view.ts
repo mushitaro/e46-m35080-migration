@@ -1,15 +1,14 @@
 /**
- * What the CODING screen shows, derived from a definition, a chip image and the reader's own
- * choices - names in the reader's language, blocks, filters, search, the tally, a value as hex
- * and bits, and a donor chip's differences.
+ * What REWRITE's coding shows, derived from a definition, an image and the reader's own choices -
+ * names in the reader's language, search, the tally, a value as hex and bits, and a dump's
+ * differences from the chip.
  *
  * Pure, so the screen only draws and the tests read the same answers. Nothing here decides what
  * may be written: that is planCoding's (encode.ts), and a row the screen offers a choice on is
  * still refused there if a gate says so.
  */
 
-import { CHECKSUM_REGIONS, PROTECTED_RANGES, type ChecksumRegion } from '@/lib/domain/layout';
-import type { CodingBlock, CodingDefinition, CodingDoc, CodingOption, CodingParameter, Named, NameSource } from '@/lib/refdata/types';
+import type { CodingDefinition, CodingDoc, CodingOption, CodingParameter, Named, NameSource } from '@/lib/refdata/types';
 import type { CodingChange } from './encode';
 import { be, isScalar, optionValue, readScalar, type ParamRow, type RowStatus } from './decode';
 
@@ -32,8 +31,6 @@ export const paramName = (doc: CodingDoc, p: CodingParameter, lang: Lang): Shown
   shown((p.kind === 'fsw' ? doc.names.fsw : doc.names.dir)[p.keyword], p.keyword, lang);
 
 export const optionName = (doc: CodingDoc, o: CodingOption, lang: Lang): Shown => shown(doc.names.psw[o.keyword], o.keyword, lang);
-
-export const blockName = (doc: CodingDoc, b: CodingBlock, lang: Lang): Shown => shown(doc.names.block[b.name], b.name, lang);
 
 /* ----------------------------------------------------------------- values */
 
@@ -61,36 +58,6 @@ export function maskBits(p: CodingParameter): { address: number; bits: boolean[]
 
 /** An option's value under the mask it writes into - hex and bits, as the rows show values. */
 export const formatOption = (p: CodingParameter, o: CodingOption) => formatValue(p, optionValue(o));
-
-/* ----------------------------------------------------------------- blocks */
-
-export type BlockGroup = {
-  /** The block the rows sit in, or null for rows no block claims. */
-  block: CodingBlock | null;
-  /** The checksum that covers the block, if one does. */
-  checksum: ChecksumRegion | null;
-  rows: ParamRow[];
-};
-
-const covering = (from: number, to: number) => CHECKSUM_REGIONS.find((r) => from >= r.from && to <= r.to) ?? null;
-
-/** Rows grouped by the block that holds them, in address order - blocks first, then any leftovers. */
-export function groupByBlock(def: CodingDefinition, rows: readonly ParamRow[]): BlockGroup[] {
-  const blocks = [...def.blocks].sort((a, b) => a.address - b.address);
-  const holder = (p: CodingParameter) =>
-    blocks.find((b) => p.address >= b.address && p.address + p.length <= b.address + b.length) ?? null;
-  const byBlock = new Map<CodingBlock | null, ParamRow[]>();
-  for (const r of rows) {
-    const b = holder(r.param);
-    byBlock.set(b, [...(byBlock.get(b) ?? []), r]);
-  }
-  const order = [...blocks, null].filter((b) => byBlock.has(b));
-  return order.map((block) => ({
-    block,
-    checksum: block ? covering(block.address, block.address + block.length - 1) : null,
-    rows: byBlock.get(block)!.sort((a, b) => a.param.address - b.param.address || a.param.keyword.localeCompare(b.param.keyword)),
-  }));
-}
 
 /* ---------------------------------------------------------------- changes */
 
@@ -124,24 +91,31 @@ export function differingFrom(def: CodingDefinition, image: Uint8Array, donor: U
   return out;
 }
 
-/* ---------------------------------------------------------- filter, search */
+/* ------------------------------------------------------ the list, search */
 
-export type CodingFilter = 'all' | 'codable' | 'changed' | 'unknown' | 'diff';
-export const CODING_FILTERS: readonly CodingFilter[] = ['all', 'codable', 'changed', 'unknown', 'diff'];
+/** The list's filters: every function, the ones picked to change, the ones that can, a dump's differences. */
+export type ListFilter = 'all' | 'changed' | 'codable' | 'diff';
+export const LIST_FILTERS: readonly ListFilter[] = ['all', 'changed', 'codable', 'diff'];
 
-export function passes(row: ParamRow, filter: CodingFilter, changed: ReadonlySet<number>, differing: ReadonlySet<number> | null): boolean {
-  switch (filter) {
+export function inFilter(row: ParamRow, f: ListFilter, changed: ReadonlySet<number>, differing: ReadonlySet<number> | null): boolean {
+  switch (f) {
     case 'all':
       return true;
-    case 'codable':
-      return row.status === 'codable';
     case 'changed':
       return changed.has(row.index);
-    case 'unknown':
-      return row.status === 'unknown';
+    case 'codable':
+      return row.status === 'codable';
     case 'diff':
       return differing?.has(row.index) ?? false;
   }
+}
+
+/**
+ * The list NCS Dummy shows: the switchable functions (FSW) in the definition's own order, then the
+ * direct values apart from them.
+ */
+export function listOrder(rows: readonly ParamRow[]): { functions: ParamRow[]; values: ParamRow[] } {
+  return { functions: rows.filter((r) => r.param.kind === 'fsw'), values: rows.filter((r) => r.param.kind === 'dir') };
 }
 
 /**
@@ -167,30 +141,3 @@ export function tally(rows: readonly ParamRow[]): Tally {
   for (const r of rows) t[r.status]++;
   return t;
 }
-
-/* ----------------------------------------------------------------- the map */
-
-/** What a byte is to CODING - the MAP colours it by this. */
-export type ByteRole = 'codable' | 'unknown' | 'value' | 'protected' | 'checksum' | null;
-
-/**
- * The role of every byte a definition's parameters cover: a byte that belongs to a CODABLE row is
- * codable, and so on. Every protected range is protected and the checksum bytes are checksum,
- * whether or not a parameter names them - the odometer is protected on the MAP even where no
- * definition mentions it. A byte nothing names is null. Where roles meet, the more guarded wins.
- */
-export function byteRoles(rows: readonly ParamRow[]): ByteRole[] {
-  const rank: Record<Exclude<ByteRole, null>, number> = { codable: 1, value: 2, unknown: 3, protected: 4, checksum: 5 };
-  const out: ByteRole[] = new Array(0x400).fill(null);
-  const put = (a: number, role: Exclude<ByteRole, null>) => {
-    const cur = out[a];
-    if (a >= 0 && a < out.length && (cur === null || rank[role] > rank[cur!])) out[a] = role;
-  };
-  for (const r of rows) for (let a = r.param.address; a < r.param.address + r.param.length; a++) put(a, r.status);
-  for (const [from, to] of PROTECTED_RANGES) for (let a = from; a <= to; a++) put(a, 'protected');
-  for (const region of CHECKSUM_REGIONS) for (const a of [region.at, ...region.mirrors]) put(a, 'checksum');
-  return out;
-}
-
-/** The bytes a parameter covers, for the MAP to ring. */
-export const bytesOf = (p: CodingParameter): Set<number> => new Set(Array.from({ length: p.length }, (_, i) => p.address + i));
