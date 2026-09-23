@@ -18,32 +18,34 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
+/* This is PRODUCTION's identity, and the source never says anything else.
+   A preview is branded AFTER the compile by scripts/brand-preview.mjs
+   (tsunagi-m-release section 4.2): it adds app-variant, and moves every icon
+   reference - here, in the manifest and in the RSC payloads - to the -dev-
+   set. One compiled output, every variant; a source edit to make a preview is
+   how a release ships saying PREVIEW. <title> stays the product name in every
+   variant, on purpose (section 4.2). */
 export const metadata: Metadata = {
-  title: 'E46 M35080 /// Migration — PREVIEW',
-  applicationName: 'E46 M35080 /// Migration — PREVIEW',
+  title: 'E46 M35080 /// MIGRATION',
+  applicationName: 'E46 M35080 /// MIGRATION',
   description:
-    'Read, back up, rewrite and reset the M35080 EEPROM in a BMW E46 instrument cluster.' +
-    ' — PREVIEW BUILD, not the production tool.',
+    'Read, back up, rewrite and reset the M35080 EEPROM in a BMW E46 instrument cluster.',
   manifest: './manifest.webmanifest',
-  /* What this build IS, readable from the served HTML without opening the
-     app. The skill's architecture injects this AFTER the build so one
-     compiled output can serve every environment; there is no branding step
-     in this repo yet, so it is static and honest rather than absent. */
-  other: { 'app-variant': 'preview' },
-  /* From M ICON, not from the repo's mark generator: the three-stripe SVG
-     is the mark INSIDE the app, and shipping it as the OS icon is the
-     mix-up tsunagi-m-release section 4 exists to end. */
+  /* From M ICON (tsunagi-m3 scripts/m-icons.mjs --word migration), not from
+     the repo's mark generator: the three-stripe SVG is the mark INSIDE the
+     app, and shipping it as the OS icon is the mix-up tsunagi-m-release
+     section 4 exists to end. favicon 32, apple-touch 256 as-is. Relative, as
+     the manifest is, so a basePath build still finds them. */
   icons: {
     icon: [
-      { url: './icons/migration-dev-32.png', sizes: '32x32', type: 'image/png' },
-      { url: './icons/migration-dev-192.png', sizes: '192x192', type: 'image/png' },
+      { url: './icons/migration-32.png', sizes: '32x32', type: 'image/png' },
+      { url: './icons/migration-192.png', sizes: '192x192', type: 'image/png' },
     ],
-    apple: './apple-touch-icon.png',
+    apple: [{ url: './icons/migration-256.png', sizes: '256x256', type: 'image/png' }],
   },
   /* No `title` here on purpose: unset, iOS falls back to the manifest's
-     short_name, so the home-screen label has exactly one source. Setting it
-     here would let the manifest say PREVIEW while the icon under the thumb
-     did not. */
+     short_name, so the home-screen label has exactly one source - the one
+     brand-preview rewrites. */
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent' },
 };
 

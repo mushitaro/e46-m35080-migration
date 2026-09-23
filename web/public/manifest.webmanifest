@@ -1,7 +1,7 @@
 {
-  "name": "E46 M35080 /// Migration — PREVIEW",
-  "short_name": "P M35080",
-  "description": "Read, back up, rewrite and reset the M35080 EEPROM in a BMW E46 instrument cluster. — PREVIEW BUILD, not the production tool.",
+  "name": "E46 M35080 /// MIGRATION",
+  "short_name": "M35080",
+  "description": "Read, back up, rewrite and reset the M35080 EEPROM in a BMW E46 instrument cluster.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -14,19 +14,25 @@
   ],
   "icons": [
     {
-      "src": "./icons/migration-dev-192.png",
+      "src": "./icons/migration-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/migration-dev-512.png",
+      "src": "./icons/migration-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/migration-dev-512.png",
+      "src": "./icons/migration-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/migration-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

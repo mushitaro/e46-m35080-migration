@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/build-id.mjs && node scripts/gen-sw.mjs",
+    "build": "next build && node scripts/build-id.mjs && node scripts/gen-sw.mjs && node scripts/verify-export.mjs",
     "start": "next start",
     "lint": "next lint",
     "deploy": "node scripts/deploy.mjs",
@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p functions",
     "check:public": "cd .. && node scripts/check-public-tree.mjs",
     "hooks:install": "git config core.hooksPath .githooks",
-    "gate:verify": "node scripts/gate-verify.mjs --functions functions --client lib/sync/owner-sync.ts"
+    "gate:verify": "node scripts/gate-verify.mjs --functions functions --client lib/sync/owner-sync.ts",
+    "build:preview": "next build && node scripts/build-id.mjs && node scripts/brand-preview.mjs out PREVIEW && node scripts/gen-sw.mjs && node scripts/verify-export.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
