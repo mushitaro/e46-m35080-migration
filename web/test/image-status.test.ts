@@ -33,12 +33,12 @@ describe('regionOf', () => {
     /* The VIN range is passed in, because it is found per image rather than
        fixed. With none given, no byte is a VIN byte - which is the honest
        answer for an image whose VIN has not been located. */
-    const vin = { from: 0x183, to: 0x18a };
-    expect(regionOf(0x182, vin)).toBe('standard');
-    expect(regionOf(0x183, vin)).toBe('vin');
+    const vin = { from: 0x184, to: 0x18a };
+    expect(regionOf(0x183, vin)).toBe('standard');
+    expect(regionOf(0x184, vin)).toBe('vin');
     expect(regionOf(0x18a, vin)).toBe('vin');
     expect(regionOf(0x18b, vin)).toBe('standard');
-    expect(regionOf(0x183)).toBe('standard');
+    expect(regionOf(0x184)).toBe('standard');
     expect(regionOf(0x3ff)).toBe('standard');
   });
 });
@@ -257,8 +257,8 @@ describe('backupFilename - the mode is in the name', () => {
        written. */
     const { backupFilename } = await import('@/lib/domain/records');
     const at = new Date(2026, 8, 23, 10, 20);
-    expect(backupFilename('ABC12345', 155_940, at, true)).toMatch(/^PRACTICE_Backup_/);
-    expect(backupFilename('ABC12345', 155_940, at, false)).toMatch(/^Backup_/);
-    expect(backupFilename('ABC12345', 155_940, at)).toMatch(/^Backup_/);
+    expect(backupFilename('AB12345', 155_940, at, true)).toMatch(/^PRACTICE_Backup_/);
+    expect(backupFilename('AB12345', 155_940, at, false)).toMatch(/^Backup_/);
+    expect(backupFilename('AB12345', 155_940, at)).toMatch(/^Backup_/);
   });
 });

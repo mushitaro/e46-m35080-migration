@@ -10,11 +10,12 @@ import { encodeOdometer, slotsToBytes } from '@/lib/domain/odometer';
 
 const ascii = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0));
 
-/** The bench chip: 155,940 km and ABC12345 at 0x183. */
+/** The bench chip: 155,940 km, 0x4C at 0x183, AB12345 at 0x184, NUL at 0x18B. */
 function chip(km = 155_940): Uint8Array {
   const img = new Uint8Array(IMAGE_SIZE).fill(0xff);
   img.set(slotsToBytes(encodeOdometer(km)), 0);
-  img.set(ascii('ABC12345'), 0x183);
+  img[0x183] = 0x4c;
+  img.set(ascii('AB12345'), 0x184);
   img[0x18b] = 0x00;
   return img;
 }
@@ -58,8 +59,12 @@ describe('explainAddress - named only where naming is earned', () => {
   });
 
   it('names the VIN where the scan found it, with the character index', () => {
-    const e = explainAddress(chip(), 0x185);
-    expect(e).toMatchObject({ kind: 'vin', from: 0x183, to: 0x18a, charIndex: 2 });
+    const e = explainAddress(chip(), 0x186);
+    expect(e).toMatchObject({ kind: 'vin', from: 0x184, to: 0x18a, charIndex: 2 });
+  });
+
+  it('does not call the letter in front of the VIN part of it', () => {
+    expect(explainAddress(chip(), 0x183)).toEqual({ kind: 'unidentified' });
   });
 
   it('refuses to name 0x2E8', () => {
@@ -75,14 +80,14 @@ describe('explainAddress - named only where naming is earned', () => {
     for (let a = 0; a < IMAGE_SIZE; a++) {
       if (explainAddress(img, a).kind === 'unidentified') unknown++;
     }
-    // 1024 - 32 odometer bytes - 8 VIN bytes
-    expect(unknown).toBe(IMAGE_SIZE - 32 - 8);
+    // 1024 - 32 odometer bytes - 7 VIN bytes
+    expect(unknown).toBe(IMAGE_SIZE - 32 - 7);
   });
 });
 
 describe('vinRange - what the hex view tints', () => {
   it('reports the found range, not a constant', () => {
-    expect(vinRange(chip())).toEqual({ from: 0x183, to: 0x18a });
+    expect(vinRange(chip())).toEqual({ from: 0x184, to: 0x18a });
   });
 
   it('is null when there is no VIN, so nothing is tinted', () => {

@@ -49,8 +49,10 @@ class SimulatedChip {
       this.memory.fill(0x00);
       // A plausible donor cluster: 155,940 km and a VIN in the E46 location.
       this.memory.set(slotsToBytes(encodeOdometer(155_940)), 0);
-      // A real chip's VIN sits at 0x183 as NUL-terminated ASCII, so the mock
-      // puts one there too - PRACTICE has to exercise the SCAN, not a constant.
+      // The V6 layout, byte for byte: a VIN-shaped neighbour, seven VIN
+      // characters, NUL. PRACTICE has to exercise the SCAN - including the
+      // letter in front that is not part of the VIN - not a constant.
+      this.memory[MOCK_VIN_OFFSET - 1] = MOCK_VIN_LEAD;
       this.memory.set(encodeVin(MOCK_VIN), MOCK_VIN_OFFSET);
       this.memory[MOCK_VIN_OFFSET + MOCK_VIN.length] = 0x00; // NUL terminator
     }
@@ -108,14 +110,17 @@ const MOCK_INFO: BridgeInfo = {
 /**
  * Where the mock puts its VIN.
  *
- * 0x183, because that is where the V6 chip on this bench carries its VIN as
- * NUL-terminated ASCII. The characters are a stand-in; the offset is real. The mock used to write an invented VIN
- * to an invented offset, and an export from that run was then read back as if
- * it were evidence for the offset. A mock that agrees with the code rather
- * than with a chip proves only that the code is self-consistent.
+ * 0x184-0x18A, NUL at 0x18B, and 0x4C at 0x183 - the V6 chip on this bench,
+ * byte for byte. The characters are a stand-in; the offsets and the byte in
+ * front are real. The mock used to write an invented VIN to an invented
+ * offset, and an export from that run was then read back as if it were
+ * evidence for the offset. A mock that agrees with the code rather than with a
+ * chip proves only that the code is self-consistent.
  */
-export const MOCK_VIN_OFFSET = 0x183;
-export const MOCK_VIN = 'ABC12345';
+export const MOCK_VIN_OFFSET = 0x184;
+export const MOCK_VIN = 'AB12345';
+/** The V6's 0x183: an uppercase `L` that is not part of the VIN. */
+export const MOCK_VIN_LEAD = 0x4c;
 
 export class MockM35080Link implements M35080Link {
   readonly kind = 'mock' as const;

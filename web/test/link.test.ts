@@ -22,7 +22,7 @@ import { encodeOdometer, decodeOdometer, readSecureSlots } from '@/lib/domain/od
 import { encodeVin } from '@/lib/domain/vin';
 
 /** Where a real V6 chip carries its VIN. Not a constant in the app. */
-const VIN_AT = 0x183;
+const VIN_AT = 0x184;
 import {
   planReset,
   planRepairStandard,
@@ -347,7 +347,7 @@ describe('restore: the verification basis', () => {
        did - the comparison would pass while proving nothing. */
     const backup = new Uint8Array(IMAGE_SIZE).fill(0x5a);
     backup.set(slotsToBytes(encodeOdometer(45_198)), 0);
-    backup.set(encodeVin('ABC12345'), VIN_AT);
+    backup.set(encodeVin('AB12345'), VIN_AT);
 
     const sim = new M35080Simulator({ blank: true });
     const { link } = await connected(sim);
@@ -400,7 +400,7 @@ describe('restore onto a new chip - the RESTORE step path', () => {
     const backup = new Uint8Array(IMAGE_SIZE);
     for (let i = 0; i < IMAGE_SIZE; i++) backup[i] = (i * 7 + 3) & 0xff; // cluster-like
     backup.set(slotsToBytes(encodeOdometer(155_940)), 0);
-    backup.set(encodeVin('ABC12345'), VIN_AT);
+    backup.set(encodeVin('AB12345'), VIN_AT);
 
     const sim = new M35080Simulator({ blank: true });
     const { link, transport } = await connected(sim);

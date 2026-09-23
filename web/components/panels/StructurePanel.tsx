@@ -12,6 +12,7 @@
 
 import { useMemo } from 'react';
 import { analyzeStructure, type Finding } from '@/lib/domain/structure';
+import { readVin } from '@/lib/domain/vin';
 import { formatAddress } from '@/lib/domain/image';
 import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
@@ -51,6 +52,10 @@ export function StructurePanel({
 }) {
   const c = g();
   const findings = useMemo(() => analyzeStructure(image), [image]);
+  /* A run can carry bytes in front of the VIN that are not part of it (0x183
+     on the V6). The run is reported as found; the part that is not the VIN is
+     dimmed, so this list and the address view say the same thing. */
+  const vin = useMemo(() => readVin(image).found, [image]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -62,6 +67,8 @@ export function StructurePanel({
       <ul className="flex flex-col gap-0.5">
         {findings.map((f) => {
           const { tag, tone, text } = label(f, c);
+          const lead =
+            f.kind === 'ascii' && vin?.lead && vin.lead.offset === f.from ? vin.lead.text : null;
           return (
             <li key={`${f.kind}-${f.from}`}>
               <button
@@ -75,7 +82,16 @@ export function StructurePanel({
                 <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider ${tone}`}>
                   {tag}
                 </span>
-                <span className="truncate font-mono text-[10px] text-slate-400">{text}</span>
+                <span className="truncate font-mono text-[10px] text-slate-400">
+                  {lead && f.kind === 'ascii' ? (
+                    <>
+                      &quot;<span className="text-slate-600">{lead}</span>
+                      {f.text.slice(lead.length)}&quot;
+                    </>
+                  ) : (
+                    text
+                  )}
+                </span>
               </button>
             </li>
           );

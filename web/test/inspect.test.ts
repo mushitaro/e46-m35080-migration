@@ -17,7 +17,8 @@ const ascii = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0));
 function realish(): Uint8Array {
   const img = new Uint8Array(IMAGE_SIZE).fill(0xff);
   img.set(slotsToBytes(encodeOdometer(155_940)), 0);
-  img.set(ascii('ABC12345'), 0x183);
+  img[0x183] = 0x4c;
+  img.set(ascii('AB12345'), 0x184);
   for (let i = 0x40; i < 0x80; i++) img[i] = (i * 7 + 13) & 0xff;
   return img;
 }

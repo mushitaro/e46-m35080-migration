@@ -111,6 +111,11 @@ export function AddressPanel({
                 {vin.found.bytes.length} B ASCII
               </span>
             </button>
+            {vin.found.lead && (
+              <p className="text-[10px] leading-snug text-slate-500">
+                {c.mapVinLead(`0x${addr(vin.found.lead.offset)}`, vin.found.lead.text)}
+              </p>
+            )}
             {vin.candidates.length > 1 && (
               <p className="font-mono text-[10px] text-amber-500">
                 {c.mapVinOthers(

@@ -45,7 +45,8 @@ export class M35080Simulator {
     } else {
       this.memory.fill(0x00);
       this.memory.set(slotsToBytes(encodeOdometer(opts.km ?? 155_940)), 0);
-      this.memory.set(encodeVin(opts.vin ?? 'ABC12345'), 0x183);
+      this.memory[0x183] = 0x4c; // the V6's non-VIN byte in front
+      this.memory.set(encodeVin(opts.vin ?? 'AB12345'), 0x184);
     }
   }
 

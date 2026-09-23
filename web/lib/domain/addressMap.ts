@@ -11,9 +11,11 @@
  *             address - that is the chip's own datasheet, so it is true of
  *             every M35080 in every car.
  *
- *   VIN       Wherever the scan finds it. NOT fixed: the V6 on this bench has
- *             it at 0x183, and the other cluster generation does not put it
- *             there at all. See vin.ts for how a constant here went wrong.
+ *   VIN       Wherever the scan finds it, seven characters (VIN positions
+ *             11-17). NOT fixed: the V6 on this bench has it at 0x184-0x18A,
+ *             and the other cluster generation does not put it there at all.
+ *             See vin.ts for how a constant - and then a run length - went
+ *             wrong.
  *
  * Everything else in the 1 KB stays unexplained on purpose. Four real chips
  * were compared byte for byte and, outside 0xFF, not one address held the same

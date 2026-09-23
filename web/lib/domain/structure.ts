@@ -7,7 +7,7 @@
  * part of the array. A fixed map would be a guess dressed as a fact, and one
  * such guess was already wrong in this project (0x2E8 was called "the VIN"; on
  * two of those four chips it holds live data, and the only ASCII identifier
- * found anywhere sat at 0x183).
+ * found anywhere sat at 0x183-0x18A - a VIN at 0x184 and one byte that is not).
  *
  * NCS SP-DATEN names the fields a cluster stores - Fahrgestell_Nr, km_Offset,
  * km_Service_Intervall, SIA_Zaehler, Teilenummer_BMW, Produktionsdaten and the

@@ -15,9 +15,9 @@ import type { RefusalCode } from '@/lib/domain/operations';
  * Derived, not hand-written.
  *
  * This was a literal array and it had already drifted: ten entries against
- * twelve RefusalCode members, silently omitting `vin-no-target` and
- * `vin-length` - both of which a user reaches from the REWRITE tab by asking
- * for a VIN on a chip that has none, or one of a different length.
+ * twelve RefusalCode members, silently omitting `vin-no-target` - which a
+ * user reaches from the REWRITE tab by asking for a VIN on a chip that has
+ * none - and a second VIN code that has since been removed.
  *
  * `Record<RefusalCode, true>` moves that from a thing someone must remember to
  * a thing the compiler enforces: add a code to the union and this file stops
@@ -30,7 +30,6 @@ const CODE_TABLE: Record<RefusalCode, true> = {
   'cannot-lower': true,
   'vin-invalid': true,
   'vin-no-target': true,
-  'vin-length': true,
   'not-blank': true,
   'backup-no-data': true,
   'backup-size': true,
@@ -53,7 +52,6 @@ describe('refusal copy', () => {
           floorKm: 155_940,
           backupKm: 100_000,
           maxKm: 1_048_560,
-          vinLength: 8,
         });
         expect(r, `no entry for ${code}`).toBeDefined();
         expect(typeof r.reason).toBe('string');

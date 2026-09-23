@@ -25,7 +25,6 @@ export type RefusalInfo = {
   floorKm?: number;
   backupKm?: number;
   maxKm?: number;
-  vinLength?: number;
   /** How many bytes a refused file actually had. */
   fileSize?: number;
 };
@@ -215,7 +214,7 @@ const JA = {
       case 'vin-invalid':
         return {
           reason: 'VIN の形式が不正です',
-          detail: '大文字の英数字のみ、7〜17 文字で入力してください（例 ABC12345）。',
+          detail: 'VIN（17 桁）の最後の 7 桁を、大文字の英数字で入力してください（例 AB12345）。',
         };
       case 'vin-no-target':
         return {
@@ -223,14 +222,6 @@ const JA = {
           detail:
             'VIN の位置は固定ではなく、チップ上にある VIN を探して同じ場所に書きます。' +
             '新品チップには VIN を書かず、車両接続後に NCS Expert で入れるのが標準手順です。',
-        };
-      case 'vin-length':
-        return {
-          reason: '文字数がチップ上の VIN と一致しません。',
-          detail:
-            r.vinLength === undefined
-              ? undefined
-              : `チップ上の VIN は ${r.vinLength} 文字です。長さが違うと、隣の領域まで書き換えてしまいます。`,
         };
       case 'km-invalid':
         return { reason: '走行距離は 0 以上の整数で入力してください' };
@@ -362,7 +353,7 @@ const EN: typeof JA = {
       case 'vin-invalid':
         return {
           reason: 'That is not a VIN this tool will write',
-          detail: 'Uppercase letters and digits only, 7 to 17 characters (e.g. ABC12345).',
+          detail: 'Enter the last 7 characters of the 17-character VIN, uppercase letters and digits (e.g. AB12345).',
         };
       case 'vin-no-target':
         return {
@@ -371,14 +362,6 @@ const EN: typeof JA = {
             'The VIN is found by scanning, not at a fixed address, and it is written ' +
             'back where it was found. A new chip is meant to go in without one and be ' +
             'coded over OBD with the car connected.',
-        };
-      case 'vin-length':
-        return {
-          reason: 'That is not the same length as the VIN on the chip.',
-          detail:
-            r.vinLength === undefined
-              ? undefined
-              : `The chip holds ${r.vinLength} characters. A different length would run past them.`,
         };
       case 'km-invalid':
         return { reason: 'Mileage must be a whole number of kilometres, 0 or more' };

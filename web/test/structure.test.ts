@@ -11,12 +11,15 @@ const ascii = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0));
 
 describe('structure - what the bytes say, not what a map claims', () => {
   it('finds an uppercase identifier and flags a VIN-shaped one', () => {
-    // The real case: the only identifier on a V6 sat at 0x183, not at 0x2E8.
+    // The real case: the only identifier on a V6 sat at 0x183-0x18A, not at
+    // 0x2E8. Structure reports the raw run - the 0x4C in front included; it is
+    // vin.ts, not this file, that knows the VIN is the last seven of it.
     const img = new Uint8Array(IMAGE_SIZE).fill(0xff);
-    img.set(ascii('ABC12345'), 0x183);
+    img[0x183] = 0x4c;
+    img.set(ascii('AB12345'), 0x184);
     const runs = asciiRuns(img);
     expect(runs).toHaveLength(1);
-    expect(runs[0]).toMatchObject({ from: 0x183, to: 0x18a, text: 'ABC12345', vinShaped: true });
+    expect(runs[0]).toMatchObject({ from: 0x183, to: 0x18a, text: 'LAB12345', vinShaped: true });
   });
 
   it('does NOT turn lowercase noise into an identifier', () => {

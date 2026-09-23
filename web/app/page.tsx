@@ -34,6 +34,7 @@ import { VariantBadge } from '@/components/VariantBadge';
 import { parseImageFile } from '@/lib/domain/image';
 import { openWorkspace, type Workspace } from '@/lib/domain/inspect';
 import { vinRange } from '@/lib/domain/addressMap';
+import { VIN_LENGTH } from '@/lib/domain/vin';
 import { listRecords, deleteRecord, type DeviceRecord } from '@/lib/domain/records';
 import {
   applyLangToDocument,
@@ -608,10 +609,9 @@ export default function Page() {
                       <input
                         value={vinInput}
                         onChange={(e) => setVinInput(e.target.value.toUpperCase())}
-                        placeholder="ABC12345"
-                        // 17, not 7: a 7-character field rejected ABC12345, the
-                        // VIN actually on the chip in front of us.
-                        maxLength={17}
+                        placeholder="AB12345"
+                        // The chip holds VIN positions 11-17 and nothing else.
+                        maxLength={VIN_LENGTH}
                         className="mt-2 w-full rounded bg-slate-800 px-2 py-1 font-mono text-sm tracking-widest
                                    text-slate-200 outline-none placeholder:text-slate-700 focus:ring-1 focus:ring-blue-500"
                       />

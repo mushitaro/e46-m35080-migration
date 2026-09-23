@@ -11,13 +11,19 @@ import { IMAGE_SIZE, STANDARD_START, secureOf } from '@/lib/domain/image';
 import { slotsToBytes, encodeOdometer, decodeOdometer, MAX_KM } from '@/lib/domain/odometer';
 import { encodeVin, readVin } from '@/lib/domain/vin';
 
-/** Where a real V6 chip carries its VIN, NUL-terminated. */
-const VIN_AT = 0x183;
-const VIN_LEN = 8;
+/**
+ * Where a real V6 chip carries its VIN: seven characters, NUL-terminated, with
+ * an uppercase 0x4C in front that is NOT part of it.
+ */
+const VIN_AT = 0x184;
+const VIN_LEN = 7;
+const LEAD_AT = 0x183;
+const LEAD = 0x4c;
 
-function usedChip(km = 155_940, vin = 'ABC12345'): Uint8Array {
+function usedChip(km = 155_940, vin = 'AB12345'): Uint8Array {
   const img = new Uint8Array(IMAGE_SIZE).fill(0x00);
   img.set(slotsToBytes(encodeOdometer(km)), 0);
+  img[LEAD_AT] = LEAD;
   img.set(encodeVin(vin), VIN_AT);
   return img;
 }
@@ -79,21 +85,43 @@ describe('planRewrite', () => {
   });
 
   it('plans a VIN write alongside the odometer', () => {
-    const p = planRewrite(usedChip(), 200_000, { kind: 'write', vin: 'abc12346' });
+    const p = planRewrite(usedChip(), 200_000, { kind: 'write', vin: 'ab12346' });
     expect(p.ok).toBe(true);
     if (!p.ok) return;
     expect(p.byteWrites).toHaveLength(1);
     expect(p.byteWrites[0].address).toBe(VIN_AT);
-    expect(String.fromCharCode(...p.byteWrites[0].data)).toBe('ABC12346');
+    expect(String.fromCharCode(...p.byteWrites[0].data)).toBe('AB12346');
   });
 
-  it('plans a VIN blank over the whole region including the checksum byte', () => {
+  it('plans a VIN blank over exactly the seven VIN bytes', () => {
     const p = planRewrite(usedChip(), 200_000, { kind: 'blank' });
     expect(p.ok).toBe(true);
     if (!p.ok) return;
     expect(p.byteWrites[0].address).toBe(VIN_AT);
-    expect(p.byteWrites[0].data).toHaveLength(8);
+    expect(p.byteWrites[0].data).toHaveLength(VIN_LEN);
     expect(Array.from(p.byteWrites[0].data).every((b) => b === 0xff)).toBe(true);
+  });
+
+  it('never touches the byte in front of the VIN, on a write or a blank', () => {
+    /* 0x183 on the V6 is 0x4C - an uppercase L, so it joins the scan's run.
+       The car's registration VIN shows it is not the VIN's 10th character.
+       The app used to take all eight and write the first of any new VIN
+       over it. */
+    for (const action of [{ kind: 'write', vin: 'CD67890' }, { kind: 'blank' }] as const) {
+      const before = usedChip();
+      const p = planRewrite(before, 155_940, action);
+      expect(p.ok).toBe(true);
+      if (!p.ok) continue;
+      const after = applyPlanPreview(before, p.byteWrites, p.secureOps);
+      expect(after[LEAD_AT]).toBe(LEAD);
+      expect(after[VIN_AT + VIN_LEN]).toBe(before[VIN_AT + VIN_LEN]);
+    }
+  });
+
+  it('refuses the old eight-character form', () => {
+    const p = planRewrite(usedChip(), 200_000, { kind: 'write', vin: 'LAB12345' });
+    expect(p.ok).toBe(false);
+    if (!p.ok) expect(p.code).toBe('vin-invalid');
   });
 
   it('writes nothing to the VIN when the action is keep', () => {
@@ -180,12 +208,12 @@ describe('planReset - a backup onto a new blank chip', () => {
 
 describe('planRestore - onto a new blank chip', () => {
   it('plans the standard array plus the counter climb', () => {
-    const backup = usedChip(155_940, 'ABC12345');
+    const backup = usedChip(155_940, 'AB12345');
     const p = planRestore(backup, blankChip());
     expect(p.ok).toBe(true);
     if (!p.ok) return;
     expect(p.restoredKm).toBe(155_940);
-    expect(p.vin).toBe('ABC12345');
+    expect(p.vin).toBe('AB12345');
     expect(p.byteWrites[0].address).toBe(STANDARD_START);
     expect(p.secureOps).toHaveLength(16);
     expect(p.secureOps.every((o) => o.from === 0)).toBe(true);
@@ -229,7 +257,7 @@ describe('applyPlanPreview', () => {
 
     const after = applyPlanPreview(before, p.byteWrites, p.secureOps);
     expect(decodeOdometer(secureOf(after))).toMatchObject({ ok: true, km: 160_000 });
-    expect(readVin(after).found?.text).toBe('ABC12345');
+    expect(readVin(after).found?.text).toBe('AB12345');
     // the original image was not mutated
     expect(decodeOdometer(secureOf(before))).toMatchObject({ ok: true, km: 155_940 });
   });
@@ -256,7 +284,7 @@ describe('applyPlanPreview', () => {
 describe('totalBytes', () => {
   it('sums the planned byte writes', () => {
     const p = planRewrite(usedChip(), 200_000, { kind: 'blank' });
-    expect(p.ok && totalBytes(p.byteWrites)).toBe(8);
+    expect(p.ok && totalBytes(p.byteWrites)).toBe(VIN_LEN);
   });
 
   it('is zero for an empty plan', () => {
@@ -314,15 +342,13 @@ describe('planRepairStandard - putting back what a chip has lost', () => {
   it('repairs 0x2E8-0x2EF too - it is not the VIN and not special', () => {
     const backup = clusterBackup();
     const chip = Uint8Array.from(backup);
-    for (let a = VIN_AT; a < VIN_AT + VIN_LEN; a++) chip[a] = 0xff;
+    for (let a = 0x2e8; a <= 0x2ef; a++) chip[a] = 0xff;
     const p = planRepairStandard(chip, backup);
     if (!p.ok) throw new Error('should plan');
     expect(p.addresses).toHaveLength(8);
     expect(p.byteWrites).toHaveLength(1);
-    expect(p.byteWrites[0].address).toBe(VIN_AT);
-    expect(Array.from(p.byteWrites[0].data)).toEqual(
-      Array.from(backup.subarray(VIN_AT, VIN_AT + VIN_LEN)),
-    );
+    expect(p.byteWrites[0].address).toBe(0x2e8);
+    expect(Array.from(p.byteWrites[0].data)).toEqual(Array.from(backup.subarray(0x2e8, 0x2f0)));
   });
 
   it('does NOT require a blank chip - that is the whole point of it', () => {
@@ -350,26 +376,26 @@ describe('planRepairStandard - putting back what a chip has lost', () => {
 
    The app told the user, on the dialog where an irreversible write is
    approved, that the VIN was "not written" or "set to 0xFF". Both plans write
-   the whole standard array, and the real VIN (0x183 on every chip here) is
+   the whole standard array, and the real VIN (0x184 on every chip here) is
    inside it. These pin the behaviour so the copy cannot drift back.
    ------------------------------------------------------------------------- */
 
 describe('restore and repair carry the VIN - the copy must not claim otherwise', () => {
   it('planReset copies the backup VIN onto the new chip', () => {
-    const backup = usedChip(155_940, 'ABC12345');
+    const backup = usedChip(155_940, 'AB12345');
     const blank = new Uint8Array(IMAGE_SIZE).fill(0xff);
     blank.fill(0x00, 0, 0x20);
     const p = planReset(blank, backup);
     expect(p.ok).toBe(true);
     if (!p.ok) return;
     const after = applyPlanPreview(blank, p.byteWrites);
-    expect(readVin(after).found?.text).toBe('ABC12345');
+    expect(readVin(after).found?.text).toBe('AB12345');
     expect(readVin(after).found?.offset).toBe(VIN_AT);
   });
 
   it('planRepairStandard restores a VIN the chip has lost', () => {
-    const backup = usedChip(155_940, 'ABC12345');
-    const chip = usedChip(155_940, 'ABC12345');
+    const backup = usedChip(155_940, 'AB12345');
+    const chip = usedChip(155_940, 'AB12345');
     for (let a = VIN_AT; a < VIN_AT + VIN_LEN; a++) chip[a] = 0xff;
     expect(readVin(chip).found).toBeNull();
 
@@ -378,11 +404,11 @@ describe('restore and repair carry the VIN - the copy must not claim otherwise',
     if (!p.ok) return;
     expect(p.addresses).toContain(VIN_AT);
     const after = applyPlanPreview(chip, p.byteWrites);
-    expect(readVin(after).found?.text).toBe('ABC12345');
+    expect(readVin(after).found?.text).toBe('AB12345');
   });
 
   it('neither plan ever touches the odometer', () => {
-    const backup = usedChip(155_940, 'ABC12345');
+    const backup = usedChip(155_940, 'AB12345');
     const chip = usedChip(100_000, 'AW72288');
     for (const p of [planRepairStandard(chip, backup)]) {
       expect(p.ok).toBe(true);

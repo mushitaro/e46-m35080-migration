@@ -31,7 +31,7 @@ const JA = {
     'バックアップのクラスターデータを新品チップへ、1 バイトも変えずに書き込みます。'
     + 'VIN もバックアップに入っていれば一緒に写ります。走行距離だけは書きません。',
   restoreRowData: '0x020–0x3FF　バックアップの値（クラスターのデータ）',
-  restoreRowVin: '0x183 付近　バックアップの VIN をそのまま複製（位置は探索で特定）',
+  restoreRowVin: '0x184 付近　バックアップの VIN をそのまま複製（位置は探索で特定）',
   restoreRowOdo: '0x000–0x01F　書かない（0 km のまま）',
   restoreProcedure:
     '書き込んだチップをクラスターへ実装して車両に戻し、コーディングツール（NCS Expert / PA Soft 等）で ' +
@@ -169,13 +169,15 @@ const JA = {
   mapOdoUndecodable: (reason: string) => `この領域は解読できません（${reason}）`,
 
   mapVinNote:
-    'VIN の位置は固定ではありません。クラスターの世代で変わるため、' +
-    '大文字英数字が 7 文字以上連続する箇所を探索して特定します。' +
-    '実チップでは 0x183 に NUL 終端の ASCII で入っていました。',
+    'チップに入っているのは VIN（17 桁）の最後の 7 桁（11〜17 桁目）です。' +
+    '位置はクラスターの世代で変わるため、大文字英数字が 7 文字以上続く箇所を探し、' +
+    'その末尾 7 文字を VIN とします。実チップでは 0x184〜0x18A に入り、0x18B が NUL でした。',
   mapVinNone:
     'このチップに VIN はありません。新品チップはこの状態が正常で、' +
     '車両接続後に NCS Expert で書き込みます。',
   mapVinOthers: (others: string[]) => `他の候補: ${others.join(' / ')}`,
+  mapVinLead: (at: string, text: string) =>
+    `${at} の "${text}" は英大文字ですが VIN ではありません（VIN の 10 桁目でもありません）。読み取りにも書き込みにも含めません。`,
 
   mapRestNote:
     'ここでは命名しません。実チップ 4 個を 1 バイトずつ比較したところ、' +
@@ -222,7 +224,7 @@ const EN: typeof JA = {
     "Write a backup's cluster data to a new chip, byte for byte. If the backup carries " +
     'a VIN it is copied across too. Only the odometer is left alone.',
   restoreRowData: '0x020-0x3FF   from the backup (the cluster data)',
-  restoreRowVin: 'around 0x183   the backup\'s VIN, copied as-is (located by scanning)',
+  restoreRowVin: 'around 0x184   the backup\'s VIN, copied as-is (located by scanning)',
   restoreRowOdo: '0x000-0x01F   not written (stays at 0 km)',
   restoreProcedure:
     'Fit the chip, put the cluster back in the car and set the VIN and coding (ZCS/FA) with a ' +
@@ -349,13 +351,16 @@ const EN: typeof JA = {
   mapOdoUndecodable: (reason: string) => `This area cannot be decoded (${reason})`,
 
   mapVinNote:
-    'The VIN is not at a fixed address - it moves between cluster generations, ' +
-    'so it is found by scanning for a run of 7 or more uppercase alphanumerics. ' +
-    'On the real chip it sits at 0x183 as NUL-terminated ASCII.',
+    'The chip holds the last 7 characters of the 17-character VIN (positions 11-17). ' +
+    'Its address moves between cluster generations, so it is found by scanning for a ' +
+    "run of 7 or more uppercase alphanumerics and taking the run's last 7. On the real " +
+    'chip it sits at 0x184-0x18A with a NUL at 0x18B.',
   mapVinNone:
     'This chip carries no VIN. That is the correct state for a new one: the VIN ' +
     'is coded in with NCS Expert once the car is connected.',
   mapVinOthers: (others: string[]) => `Other candidates: ${others.join(' / ')}`,
+  mapVinLead: (at: string, text: string) =>
+    `"${text}" at ${at} is an uppercase letter but not part of the VIN (nor its 10th character). It is never read or written as VIN.`,
 
   mapRestNote:
     'Not named here. Four real chips were compared byte for byte and, outside ' +

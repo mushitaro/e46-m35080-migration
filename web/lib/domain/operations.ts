@@ -45,7 +45,6 @@ export type RefusalCode =
   | 'cannot-lower'
   | 'vin-invalid'
   | 'vin-no-target'
-  | 'vin-length'
   | 'not-blank'
   | 'backup-no-data'
   | 'backup-size'
@@ -60,8 +59,6 @@ export type Refusal = {
   floorKm?: number;
   backupKm?: number;
   maxKm?: number;
-  /** How many characters the VIN already on the chip has. */
-  vinLength?: number;
   /** How many bytes a refused file actually had. */
   fileSize?: number;
 };
@@ -159,11 +156,11 @@ function planVinWrite(
       } catch {
         return refuse('vin-invalid');
       }
-      const target = vinTarget(image, v);
+      const target = vinTarget(image);
       if (!target.ok) return refuse('vin-no-target');
-      /* A different length would either truncate the old value or run past it
-         into whatever follows. Neither is a VIN write, so neither is offered. */
-      if (!target.sameLength) return refuse('vin-length', { vinLength: target.existing.text.length });
+      /* Seven over seven: encodeVin accepts nothing else and the scan finds
+         nothing else, so the write covers the old VIN exactly - never the
+         byte in front of it (0x183 on the V6), never the NUL after it. */
       return {
         ok: true,
         writes: [
@@ -198,10 +195,10 @@ export type ResetPlan = {
  *   0x020-0x3FF  from the backup  The cluster's data. A new chip holds 0xFF
  *                                 here, and a cluster with nothing in this
  *                                 region is not a working cluster.
- *   0x2E8-0x2EF  0xFF             The VIN, in factory state so it is set over
- *                                 OBD ("you may want to write the whole area
- *                                 blank ... the VIN can be set with
- *                                 manufacturer tools via OBD").
+ *   (the VIN)    from the backup  Copied with the rest, not blanked. The
+ *                                 README blanks 0x2E8-0x2EF as "the VIN"; on
+ *                                 these chips that address is not the VIN
+ *                                 (see the note in the body below).
  *   0x000-0x01F  NOT WRITTEN      The odometer stays at 0 km. "Mileage on new
  *                                 cluster MUST be lower than mileage on your
  *                                 car" - 0 always is, and the car syncs the
@@ -224,7 +221,7 @@ export function planReset(image: Uint8Array, backup: Uint8Array): ResetPlan | Re
   /* The whole array, byte for byte.
      This used to force 0x2E8-0x2EF to 0xFF, "blanking the VIN". That address
      is not the VIN: of four real dumps, two hold live data there and the only
-     ASCII identifier found anywhere sat at 0x183. Blanking it destroyed eight
+     VIN found anywhere sat at 0x184-0x18A. Blanking it destroyed eight
      bytes of a cluster's data and blanked no VIN at all. A region this tool
      cannot prove the meaning of is a region it must copy, not erase. */
   return {
