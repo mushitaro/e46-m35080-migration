@@ -18,7 +18,7 @@ import {
   odometerSlots,
   type OdoSlot,
 } from '@/lib/domain/addressMap';
-import { readVin } from '@/lib/domain/vin';
+import { readVins } from '@/lib/domain/vin';
 import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
 import { MicroLabel, Well } from '@/components/ui';
@@ -44,7 +44,8 @@ export function AddressPanel({
   const c = g();
   const slots = useMemo(() => odometerSlots(image), [image]);
   const math = useMemo(() => odometerArithmetic(image), [image]);
-  const vin = useMemo(() => readVin(image), [image]);
+  const vins = useMemo(() => readVins(image), [image]);
+  const vin = { found: vins.ascii, candidates: vins.candidates };
 
   return (
     <div className="flex flex-col gap-4">
@@ -92,8 +93,25 @@ export function AddressPanel({
         <MicroLabel as="h3">
           {CHROME.map.vin}
         </MicroLabel>
+        {vins.coded && (
+          <>
+            <button
+              onClick={() => onSelect(vins.coded!.from)}
+              className="flex items-baseline gap-2 rounded bg-slate-800/40 px-2.5 py-1.5 text-left
+                         transition-colors hover:bg-slate-800"
+            >
+              <span className="font-mono text-[10px] text-slate-600">
+                {addr(vins.coded.from)}-{addr(vins.coded.to)}
+              </span>
+              <span className="font-mono text-[11px] font-bold tracking-wider text-blue-300">{vins.coded.text}</span>
+              <span className="ml-auto font-mono text-[10px] text-slate-600">{CHROME.readout.coded} · 2+5 BCD</span>
+            </button>
+            <p className="text-[10px] leading-snug text-slate-500">{c.mapVinCoded}</p>
+          </>
+        )}
+        {vins.differ && <p className="text-[10px] leading-snug text-amber-400">{c.mapVinDiffer}</p>}
         {vin.found === null ? (
-          <p className="text-[10px] leading-snug text-slate-500">{c.mapVinNone}</p>
+          vins.coded ? null : <p className="text-[10px] leading-snug text-slate-500">{c.mapVinNone}</p>
         ) : (
           <>
             <button
@@ -108,7 +126,7 @@ export function AddressPanel({
                 {vin.found.text}
               </span>
               <span className="ml-auto font-mono text-[10px] text-slate-600">
-                {vin.found.bytes.length} B ASCII
+                {CHROME.readout.ascii} · {vin.found.bytes.length} B
               </span>
             </button>
             {vin.found.lead && (

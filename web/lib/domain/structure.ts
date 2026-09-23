@@ -9,13 +9,15 @@
  * two of those four chips it holds live data, and the only ASCII identifier
  * found anywhere sat at 0x183-0x18A - a VIN at 0x184 and one byte that is not).
  *
- * NCS SP-DATEN names the fields a cluster stores - Fahrgestell_Nr, km_Offset,
- * km_Service_Intervall, SIA_Zaehler, Teilenummer_BMW, Produktionsdaten and the
- * rest - but its BLOCKNR/WORTADR/BYTEADR are coding-block addresses, and
- * nothing here establishes how they land in this 1 KB. Until that mapping is
- * proven, naming an address would be inventing it.
+ * For ONE cluster generation the mapping is now measured (layout.ts,
+ * docs/CODING.md): its coding definitions' addresses are this array's byte
+ * addresses, two checksums hold on real chips, and the coded VIN sits at 0x07A.
+ * That knowledge lives in layout.ts and is used only when an image proves it is
+ * that layout by its checksums. For every other image - the older generation,
+ * a blank chip, a file of unknown origin - nothing here establishes what an
+ * address means, and naming one would be inventing it.
  *
- * So: report structure, never meaning.
+ * So: this file reports structure, never meaning.
  */
 
 import { SECURE_BYTES } from './odometer';

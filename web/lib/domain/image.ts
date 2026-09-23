@@ -20,12 +20,12 @@ export const STANDARD_END = 0x3ff;
 
 export type Region = 'secure' | 'vin' | 'standard';
 
-/** Where the VIN was found in THIS image, if anywhere. */
-export type VinRange = { from: number; to: number } | null;
+/** Where a VIN field was found in THIS image. There can be two (vin.ts): coded and ASCII. */
+export type VinSpan = { from: number; to: number; field: 'coded' | 'ascii' };
 
-export function regionOf(address: number, vin: VinRange = null): Region {
+export function regionOf(address: number, vins: readonly VinSpan[] = []): Region {
   if (address <= SECURE_END) return 'secure';
-  if (vin && address >= vin.from && address <= vin.to) return 'vin';
+  if (vins.some((v) => address >= v.from && address <= v.to)) return 'vin';
   return 'standard';
 }
 

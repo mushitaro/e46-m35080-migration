@@ -31,8 +31,35 @@ import { delay, LinkError } from '@/lib/transport/webSerialTransport';
 import { decodeStatus, STATUS_UV, STATUS_INC, type StatusBits } from '@/lib/domain/status';
 import { slotsToBytes, encodeOdometer, SECURE_BYTES } from '@/lib/domain/odometer';
 import { encodeVin } from '@/lib/domain/vin';
+import { CODED_VIN_AT, encodeCodedVin, recomputeChecksums } from '@/lib/domain/layout';
 
-export type MockChipPreset = 'used' | 'blank';
+/**
+ * `used`   a donor chip with only the ASCII VIN field, and no layout the app can recognise
+ * `late`   a late-layout chip: both checksums hold, a coded VIN at 0x07A AND an ASCII VIN at
+ *          0x184 that disagree - the shape of the V6 chip on the bench, with made-up values -
+ *          so PRACTICE shows both fields, DIFFER, and a VIN rewrite that recomputes 0x16E
+ * `blank`  a new chip
+ */
+export type MockChipPreset = 'used' | 'late' | 'blank';
+
+/** Made-up, and deliberately different from MOCK_VIN: the two fields of one chip can disagree. */
+export const MOCK_CODED_VIN = 'CD67890';
+
+/**
+ * Deterministic filler for the two checksummed regions. Practice data, not a test oracle: the
+ * tests build their own late image and compute its checksums independently of layout.ts.
+ */
+function fillLateLayout(memory: Uint8Array): void {
+  let x = 0x2468ace1;
+  const next = () => {
+    x = (Math.imul(x, 1103515245) + 12345) >>> 0;
+    return (x >>> 16) & 0xff;
+  };
+  for (let a = 0x020; a <= 0x16d; a++) memory[a] = next();
+  for (let a = 0x310; a <= 0x3cc; a++) memory[a] = next();
+  memory.set(encodeCodedVin(memory, MOCK_CODED_VIN), CODED_VIN_AT);
+  memory.set(recomputeChecksums(memory).image);
+}
 
 /** A simulated M35080 with the behaviour that actually matters. */
 class SimulatedChip {
@@ -46,7 +73,8 @@ class SimulatedChip {
       this.memory.fill(0xff);
       this.memory.fill(0x00, 0, SECURE_BYTES); // virgin counter reads zero
     } else {
-      this.memory.fill(0x00);
+      this.memory.fill(preset === 'late' ? 0xff : 0x00);
+      if (preset === 'late') fillLateLayout(this.memory);
       // A plausible donor cluster: 155,940 km and a VIN in the E46 location.
       this.memory.set(slotsToBytes(encodeOdometer(155_940)), 0);
       // The V6 layout, byte for byte: a VIN-shaped neighbour, seven VIN

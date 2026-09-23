@@ -7,6 +7,8 @@ import {
   readVin,
   vinTarget,
 } from '@/lib/domain/vin';
+import { readVins, recordVin } from '@/lib/domain/vin';
+import { lateImage } from './support/lateImage';
 import { IMAGE_SIZE } from '@/lib/domain/image';
 
 const ascii = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0));
@@ -180,5 +182,34 @@ describe('vinTarget - a VIN can only replace one that is there', () => {
        offset here is exactly how 0x2E8 got into this codebase. */
     const t = vinTarget(new Uint8Array(IMAGE_SIZE).fill(0xff));
     expect(t).toEqual({ ok: false, reason: 'no-vin-on-chip' });
+  });
+});
+
+describe('readVins - the two fields', () => {
+  it('reads the coded field and the ASCII field separately and says when they differ', () => {
+    const v = readVins(lateImage({ codedVin: 'AB12345', asciiVin: 'CD67890' }));
+    expect(v.coded).toEqual({ text: 'AB12345', from: 0x07a, to: 0x07e });
+    expect(v.ascii?.text).toBe('CD67890');
+    expect(v.ascii?.offset).toBe(0x184);
+    expect(v.differ).toBe(true);
+    expect(v.none).toBe(false);
+  });
+
+  it('does not report DIFFER when the two fields agree', () => {
+    expect(readVins(lateImage({ codedVin: 'AB12345', asciiVin: 'AB12345' })).differ).toBe(false);
+  });
+
+  it('reads no coded field outside a late layout, however VIN-shaped 0x07A looks', () => {
+    const img = new Uint8Array(1024).fill(0x00);
+    img.set([0x41, 0x42, 0x12, 0x34, 0x50], 0x07a);
+    const v = readVins(img);
+    expect(v.coded).toBeNull();
+    expect(v.none).toBe(true);
+  });
+
+  it('names a record by the ASCII field, then the coded field, then nothing', () => {
+    expect(recordVin(lateImage({ codedVin: 'AB12345', asciiVin: 'CD67890' }))).toBe('CD67890');
+    expect(recordVin(lateImage({ codedVin: 'AB12345' }))).toBe('AB12345');
+    expect(recordVin(new Uint8Array(1024).fill(0xff))).toBeNull();
   });
 });

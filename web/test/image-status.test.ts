@@ -33,11 +33,16 @@ describe('regionOf', () => {
     /* The VIN range is passed in, because it is found per image rather than
        fixed. With none given, no byte is a VIN byte - which is the honest
        answer for an image whose VIN has not been located. */
-    const vin = { from: 0x184, to: 0x18a };
-    expect(regionOf(0x183, vin)).toBe('standard');
-    expect(regionOf(0x184, vin)).toBe('vin');
-    expect(regionOf(0x18a, vin)).toBe('vin');
-    expect(regionOf(0x18b, vin)).toBe('standard');
+    const vins = [
+      { from: 0x07a, to: 0x07e, field: 'coded' as const },
+      { from: 0x184, to: 0x18a, field: 'ascii' as const },
+    ];
+    expect(regionOf(0x183, vins)).toBe('standard');
+    expect(regionOf(0x184, vins)).toBe('vin');
+    expect(regionOf(0x18a, vins)).toBe('vin');
+    expect(regionOf(0x18b, vins)).toBe('standard');
+    expect(regionOf(0x07a, vins)).toBe('vin');
+    expect(regionOf(0x07f, vins)).toBe('standard');
     expect(regionOf(0x184)).toBe('standard');
     expect(regionOf(0x3ff)).toBe('standard');
   });

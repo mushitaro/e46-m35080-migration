@@ -69,6 +69,10 @@ export const CHROME = {
   readout: {
     odometer: 'ODOMETER',
     vin: 'VIN',
+    /* The two VIN fields (vin.ts). One word each, used by every panel that names them. */
+    coded: 'CODED',
+    ascii: 'ASCII',
+    differ: 'DIFFER',
     chip: 'CHIP',
     none: 'NONE',
     current: 'CURRENT',

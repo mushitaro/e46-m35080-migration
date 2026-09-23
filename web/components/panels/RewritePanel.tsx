@@ -79,6 +79,15 @@ export function RewritePanel({
                        text-slate-200 outline-none placeholder:text-slate-700 focus:ring-1 focus:ring-blue-500"
           />
         )}
+        {/* What the VIN action will write, field by field - the label is the promise, so it
+            names every address, including the checksum a coded-field write recomputes. */}
+        {plan?.ok && vinAction.kind !== 'keep' && plan.byteWrites.length > 0 && (
+          <ul className="mt-2 flex flex-col gap-0.5 font-mono text-[10px] leading-snug text-slate-400">
+            {plan.byteWrites.map((w) => (
+              <li key={w.address}>{w.label}</li>
+            ))}
+          </ul>
+        )}
       </FormField>
       <PlanNote plan={plan} />
     </JobPanel>

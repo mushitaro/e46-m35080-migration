@@ -26,7 +26,7 @@ import { api, gzipB64, outbox } from './owner-sync';
 import { appBuild, canSync } from './cloud';
 import { decodeOdometer } from '@/lib/domain/odometer';
 import { hashImage, secureOf } from '@/lib/domain/image';
-import { readVin } from '@/lib/domain/vin';
+import { recordVin } from '@/lib/domain/vin';
 import type { StatusBits } from '@/lib/domain/status';
 
 const box = outbox('m35080-outbox');
@@ -66,7 +66,7 @@ function newId(): string {
 
 /** The wire body for one failure. Exported for the tests; the app calls `reportLinkFailure`. */
 export async function diagnosticBody(f: LinkFailure, at = Date.now()) {
-  const vin = f.image ? readVin(f.image).found?.text ?? null : null;
+  const vin = f.image ? recordVin(f.image) : null;
   const odo = f.image ? decodeOdometer(secureOf(f.image)) : null;
   return {
     id: newId(),

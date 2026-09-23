@@ -223,6 +223,21 @@ const JA = {
             'VIN の位置は固定ではなく、チップ上にある VIN を探して同じ場所に書きます。' +
             '新品チップには VIN を書かず、車両接続後に NCS Expert で入れるのが標準手順です。',
         };
+      case 'vin-coded-shape':
+        return {
+          reason: 'この VIN は、チップのコーディング側の VIN 欄に入りません。',
+          detail:
+            '0x07A の欄は「英数字 2 文字 + 数字 5 桁」しか持てません。この欄のあるチップでは、' +
+            'VIN の書き換えは両方の欄にそろえて書くため、片方だけを書くことはしません。',
+        };
+      case 'checksum-broken':
+        return {
+          reason: 'このチップはチェックサムが合っていないため、コーディング側の VIN 欄を書き換えません。',
+          detail:
+            '0x07A の VIN を書くには 0x16E のチェックサムを計算し直します。書く前から合っていない' +
+            'イメージで計算し直すと、何が壊したのかを隠してしまいます。読み直すか、バックアップを ' +
+            'INSPECT で確認してください。',
+        };
       case 'km-invalid':
         return { reason: '走行距離は 0 以上の整数で入力してください' };
       case 'km-too-large':
@@ -362,6 +377,21 @@ const EN: typeof JA = {
             'The VIN is found by scanning, not at a fixed address, and it is written ' +
             'back where it was found. A new chip is meant to go in without one and be ' +
             'coded over OBD with the car connected.',
+        };
+      case 'vin-coded-shape':
+        return {
+          reason: "That VIN does not fit the chip's coded VIN field.",
+          detail:
+            'The field at 0x07A holds two letters or digits followed by five digits. On a chip that ' +
+            'has that field, a VIN rewrite writes both fields to the same VIN, never one of them.',
+        };
+      case 'checksum-broken':
+        return {
+          reason: "This chip's checksums do not hold, so its coded VIN field is not rewritten.",
+          detail:
+            'Writing the VIN at 0x07A means recomputing the checksum at 0x16E. Recomputing it over ' +
+            'an image that was already inconsistent would hide whatever broke it. Read the chip ' +
+            'again, or check the backup in INSPECT.',
         };
       case 'km-invalid':
         return { reason: 'Mileage must be a whole number of kilometres, 0 or more' };

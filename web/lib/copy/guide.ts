@@ -31,7 +31,7 @@ const JA = {
     'バックアップのクラスターデータを新品チップへ、1 バイトも変えずに書き込みます。'
     + 'VIN もバックアップに入っていれば一緒に写ります。走行距離だけは書きません。',
   restoreRowData: '0x020–0x3FF　バックアップの値（クラスターのデータ）',
-  restoreRowVin: '0x184 付近　バックアップの VIN をそのまま複製（位置は探索で特定）',
+  restoreRowVin: '0x07A / 0x184 付近　VIN の 2 つの欄もバックアップのまま複製（チェックサムごと）',
   restoreRowOdo: '0x000–0x01F　書かない（0 km のまま）',
   restoreProcedure:
     '書き込んだチップをクラスターへ実装して車両に戻し、コーディングツール（NCS Expert / PA Soft 等）で ' +
@@ -169,9 +169,15 @@ const JA = {
   mapOdoUndecodable: (reason: string) => `この領域は解読できません（${reason}）`,
 
   mapVinNote:
-    'チップに入っているのは VIN（17 桁）の最後の 7 桁（11〜17 桁目）です。' +
-    '位置はクラスターの世代で変わるため、大文字英数字が 7 文字以上続く箇所を探し、' +
-    'その末尾 7 文字を VIN とします。実チップでは 0x184〜0x18A に入り、0x18B が NUL でした。',
+    'チップに入っているのは VIN（17 桁）の最後の 7 桁（11〜17 桁目）で、欄が 2 つあり得ます。' +
+    'CODED はコーディング側の欄で、チェックサムで確認できたレイアウトのときだけ 0x07A〜0x07E を読みます。' +
+    'ASCII は大文字英数字が 7 文字以上続く箇所を探した末尾 7 文字です（実チップでは 0x184〜0x18A、0x18B が NUL）。',
+  mapVinCoded:
+    '0x07A〜0x07E: 英数字 2 文字のあとに数字 5 桁（BCD）。0x07E の下位 4 ビットは VIN ではありません。' +
+    'この欄は 0x16E のチェックサムの範囲に入っているため、書き換えるとチェックサムも計算し直します。',
+  mapVinDiffer:
+    '2 つの欄の VIN が違います。メータがどちらを使うかは TEST（DS2 の VIN 読み出し）で確かめられます。' +
+    'REWRITE で VIN を書くときは、両方の欄を同じ VIN にそろえます。',
   mapVinNone:
     'このチップに VIN はありません。新品チップはこの状態が正常で、' +
     '車両接続後に NCS Expert で書き込みます。',
@@ -224,7 +230,7 @@ const EN: typeof JA = {
     "Write a backup's cluster data to a new chip, byte for byte. If the backup carries " +
     'a VIN it is copied across too. Only the odometer is left alone.',
   restoreRowData: '0x020-0x3FF   from the backup (the cluster data)',
-  restoreRowVin: 'around 0x184   the backup\'s VIN, copied as-is (located by scanning)',
+  restoreRowVin: '0x07A / ~0x184 both VIN fields, copied as-is with the rest (checksums included)',
   restoreRowOdo: '0x000-0x01F   not written (stays at 0 km)',
   restoreProcedure:
     'Fit the chip, put the cluster back in the car and set the VIN and coding (ZCS/FA) with a ' +
@@ -351,10 +357,16 @@ const EN: typeof JA = {
   mapOdoUndecodable: (reason: string) => `This area cannot be decoded (${reason})`,
 
   mapVinNote:
-    'The chip holds the last 7 characters of the 17-character VIN (positions 11-17). ' +
-    'Its address moves between cluster generations, so it is found by scanning for a ' +
-    "run of 7 or more uppercase alphanumerics and taking the run's last 7. On the real " +
-    'chip it sits at 0x184-0x18A with a NUL at 0x18B.',
+    'The chip holds the last 7 characters of the 17-character VIN (positions 11-17), and it can ' +
+    'hold them in two fields. CODED is the coding field at 0x07A-0x07E, read only when the layout is ' +
+    "confirmed by its checksums. ASCII is found by scanning for a run of 7 or more uppercase " +
+    "alphanumerics and taking the run's last 7 (on the real chip: 0x184-0x18A, NUL at 0x18B).",
+  mapVinCoded:
+    '0x07A-0x07E: two letters or digits, then five digits as BCD. The low nibble of 0x07E is not ' +
+    'part of the VIN. The field is inside the 0x16E checksum region, so rewriting it recomputes that byte.',
+  mapVinDiffer:
+    'The two fields hold different VINs. Which one the cluster uses can be checked on TEST (the DS2 ' +
+    'VIN read). A VIN rewrite on REWRITE sets both fields to the same VIN.',
   mapVinNone:
     'This chip carries no VIN. That is the correct state for a new one: the VIN ' +
     'is coded in with NCS Expert once the car is connected.',

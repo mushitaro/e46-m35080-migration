@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { WebSerialM35080Link, type M35080Link } from '@/lib/link/m35080Link';
-import { MockM35080Link } from '@/lib/link/mockLink';
+import { MockM35080Link, MOCK_CODED_VIN, MOCK_VIN } from '@/lib/link/mockLink';
+import { detectLayout } from '@/lib/domain/layout';
+import { readVins } from '@/lib/domain/vin';
+import { secureOf } from '@/lib/domain/image';
 import { M35080Simulator, ScriptedTransport, TEST_TIMING } from './support/m35080Simulator';
 import { IMAGE_SIZE } from '@/lib/codec/bridgeProtocol';
-import { readSecureSlots } from '@/lib/domain/odometer';
+import { readSecureSlots, decodeOdometer } from '@/lib/domain/odometer';
 
 /**
  * PRACTICE must rehearse the REAL refusals.
@@ -114,5 +117,18 @@ describe('mock / hardware parity', () => {
     await mock.writeSecure(0x00, 101); // strictly greater is accepted
     const image = await mock.readImage();
     expect((image[0] << 8) | image[1]).toBe(101);
+  });
+});
+
+describe('the late-layout PRACTICE chip', () => {
+  it('reads as a late layout with both checksums holding and two VIN fields that differ', async () => {
+    const link = new MockM35080Link('late');
+    await link.connect();
+    const img = await link.readImage();
+    const l = detectLayout(img);
+    expect(l.kind === 'late' && l.consistent).toBe(true);
+    const v = readVins(img);
+    expect([v.coded?.text, v.ascii?.text, v.differ]).toEqual([MOCK_CODED_VIN, MOCK_VIN, true]);
+    expect(decodeOdometer(secureOf(img))).toMatchObject({ ok: true, km: 155_940 });
   });
 });

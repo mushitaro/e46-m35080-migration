@@ -37,9 +37,12 @@ export class M35080Simulator {
   /** Set to make the chip accept a write but not store it (verify-failure). */
   swallowWrites = false;
 
-  constructor(opts: { blank?: boolean; km?: number; vin?: string } = {}) {
+  constructor(opts: { blank?: boolean; km?: number; vin?: string; image?: Uint8Array } = {}) {
     this.erased = opts.blank ?? false;
-    if (opts.blank) {
+    if (opts.image) {
+      // A whole image, as built by test/support/lateImage.ts - never a real chip's.
+      this.memory.set(opts.image);
+    } else if (opts.blank) {
       this.memory.fill(0xff);
       this.memory.fill(0x00, 0, SECURE_BYTES); // virgin counter is zero
     } else {

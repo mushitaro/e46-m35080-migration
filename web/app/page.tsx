@@ -35,7 +35,7 @@ import { PrivacyLink } from '@/components/PrivacyLink';
 import { SyncPanel } from '@/components/SyncPanel';
 import { parseImageFile } from '@/lib/domain/image';
 import { isDirty, openWorkspace, type Workspace } from '@/lib/domain/inspect';
-import { vinRange } from '@/lib/domain/addressMap';
+import { vinRanges } from '@/lib/domain/addressMap';
 import { listRecords, deleteRecord, type DeviceRecord } from '@/lib/domain/records';
 import {
   applyLangToDocument,
@@ -108,7 +108,7 @@ export default function Page() {
     setSerialSupported(isWebSerialSupported());
   }, []);
 
-  const { image, status, chip, odometer, vin, phase, busy, progress } = link;
+  const { image, status, chip, odometer, vins, phase, busy, progress } = link;
   const backedUp = link.backedUpHash !== null;
 
   /* ------------------------- derived, never stored ---------------------- */
@@ -229,7 +229,9 @@ export default function Page() {
         repairPlan,
         copy,
         act: {
-          connect: () => void link.connect(practiceIntent ? 'practice' : 'serial', 'used'),
+          /* PRACTICE rehearses on a late-layout chip: both VIN fields, both checksums - the
+             shape of the bench's own chip, with made-up values. */
+          connect: () => void link.connect(practiceIntent ? 'practice' : 'serial', 'late'),
           read: () => void link.read().then((ok) => ok && setStep('read')),
           backup: () => void link.backup(),
           ask,
@@ -312,10 +314,10 @@ export default function Page() {
     />
   ) : (
     <div className="flex h-full flex-col gap-2">
-      <HexLegend changedCount={changedCount} vin={vinRange(preview ?? image)} />
+      <HexLegend changedCount={changedCount} vins={vinRanges(preview ?? image)} />
       <div className="min-h-0 flex-1">
         <HexView
-          vin={vinRange(preview ?? image)}
+          vins={vinRanges(preview ?? image)}
           image={preview ?? image}
           reference={preview ? image : null}
           changeMode="pending"
@@ -329,7 +331,7 @@ export default function Page() {
   /** What was read, and what each address holds for the things that are actually known. */
   const vehiclePanel = (
     <div className="flex flex-col">
-      <VehicleInfo odometer={odometer} vin={vin} chip={chip} status={status} />
+      <VehicleInfo odometer={odometer} vins={vins} chip={chip} status={status} />
       {image && (
         <>
           {/* Above the structure list because a reader wants the meaning before the shape. */}
@@ -352,7 +354,7 @@ export default function Page() {
       case 'inspect':
         return workspace ? (
           <div className="flex h-full flex-col gap-2">
-            <HexLegend changedCount={null} vin={vinRange(workspace.current)} />
+            <HexLegend changedCount={null} vins={vinRanges(workspace.current)} />
             <div className="min-h-0 flex-1">
               {/* reference is the file as opened, so every edit is marked against what was
                   actually on disk. */}
@@ -360,7 +362,7 @@ export default function Page() {
                 image={workspace.current}
                 reference={workspace.original}
                 changeMode="pending"
-                vin={vinRange(workspace.current)}
+                vins={vinRanges(workspace.current)}
                 selected={selected}
                 onSelect={setSelected}
               />

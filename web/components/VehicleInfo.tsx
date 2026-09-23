@@ -10,7 +10,7 @@
 
 import { Cpu, Fingerprint, Gauge } from 'lucide-react';
 import type { OdometerDecode } from '@/lib/domain/odometer';
-import type { VinRead } from '@/lib/domain/vin';
+import type { VinFields } from '@/lib/domain/vin';
 import type { ChipAssessment } from '@/lib/domain/image';
 import { STATUS_BIT_DEFS, type StatusBits } from '@/lib/domain/status';
 import { t } from '@/lib/i18n';
@@ -19,12 +19,12 @@ import { LABEL } from '@/components/ui';
 
 export type VehicleInfoProps = {
   odometer: OdometerDecode | null;
-  vin: VinRead | null;
+  vins: VinFields | null;
   chip: ChipAssessment | null;
   status: StatusBits | null;
 };
 
-export function VehicleInfo({ odometer, vin, chip, status }: VehicleInfoProps) {
+export function VehicleInfo({ odometer, vins, chip, status }: VehicleInfoProps) {
   const copy = t();
 
   return (
@@ -70,26 +70,25 @@ export function VehicleInfo({ odometer, vin, chip, status }: VehicleInfoProps) {
 
       {/* VIN */}
       <Readout icon={<Fingerprint className="h-3 w-3" />} label={CHROME.readout.vin}>
-        {vin === null ? (
+        {vins === null ? (
           <Dim>—</Dim>
-        ) : vin.found === null ? (
+        ) : vins.none ? (
           <span className="font-mono text-[11px] text-emerald-400">{CHROME.readout.none}</span>
         ) : (
-          <span className="flex items-baseline gap-2">
-            <span className="font-mono text-base font-bold tracking-wider text-slate-200">
-              {vin.found.text}
-            </span>
-            {/* The address is part of the reading. It is not a constant, and a
-                reader who cannot see where it came from cannot check it. */}
-            <span className="font-mono text-[10px] text-slate-600">
-              @0x{vin.found.offset.toString(16).toUpperCase().padStart(3, '0')}
-            </span>
-            {vin.candidates.length > 1 && (
-              <span className="font-mono text-[10px] text-amber-500">
-                +{vin.candidates.length - 1}
-              </span>
+          /* Both fields, each with its address: they can disagree (vin.ts), and a reader who
+             cannot see which bytes a VIN came from cannot check it. */
+          <div className="flex flex-col gap-1">
+            {vins.coded && <VinLine field={CHROME.readout.coded} text={vins.coded.text} at={vins.coded.from} />}
+            {vins.ascii && (
+              <VinLine
+                field={CHROME.readout.ascii}
+                text={vins.ascii.text}
+                at={vins.ascii.offset}
+                extra={vins.candidates.length > 1 ? `+${vins.candidates.length - 1}` : undefined}
+              />
             )}
-          </span>
+            {vins.differ && <span className={`${LABEL} text-amber-400`}>{CHROME.readout.differ}</span>}
+          </div>
         )}
       </Readout>
 
@@ -153,6 +152,17 @@ function Readout({
       </span>
       <div className="pl-5">{children}</div>
     </div>
+  );
+}
+
+function VinLine({ field, text, at, extra }: { field: string; text: string; at: number; extra?: string }) {
+  return (
+    <span className="flex items-baseline gap-2">
+      <span className={`${LABEL} w-12 text-slate-600`}>{field}</span>
+      <span className="font-mono text-base font-bold tracking-wider text-slate-200">{text}</span>
+      <span className="font-mono text-[10px] text-slate-600">@0x{at.toString(16).toUpperCase().padStart(3, '0')}</span>
+      {extra && <span className="font-mono text-[10px] text-amber-500">{extra}</span>}
+    </span>
   );
 }
 

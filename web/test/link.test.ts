@@ -30,6 +30,10 @@ import {
   applyPlanPreview,
 } from '@/lib/domain/operations';
 import { diff } from '@/lib/domain/image';
+import { planRewrite } from '@/lib/domain/operations';
+import { readVins } from '@/lib/domain/vin';
+import { checksumStatus } from '@/lib/domain/layout';
+import { lateImage } from './support/lateImage';
 import { slotsToBytes } from '@/lib/domain/odometer';
 
 /**
@@ -452,5 +456,28 @@ describe('repair - the RESTORE step on a chip that is not blank', () => {
     expect(diff(after, applyPlanPreview(before, plan.byteWrites, []))).toEqual([]);
     expect(transport.countOf(Cmd.WRINC)).toBe(0);
     expect(Array.from(after.subarray(0, 0x20))).toEqual(Array.from(before.subarray(0, 0x20)));
+  });
+});
+
+
+describe('a VIN rewrite on a late-layout chip, through the real link', () => {
+  it('lands both fields and the recomputed checksum, and the chip reads back consistent', async () => {
+    const sim = new M35080Simulator({ image: lateImage({ codedVin: 'AB12345', asciiVin: 'CD67890' }) });
+    const { link, transport } = await connected(sim);
+    const before = await link.readImage();
+    const plan = planRewrite(before, 155_940, { kind: 'write', vin: 'EF24680' });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    transport.clearTrace();
+    for (const w of plan.byteWrites) await link.writeAndVerify(w.address, w.data);
+
+    // Three ranges, three pages - no WRINC, the odometer is untouched.
+    expect(transport.countOf(Cmd.WRITE)).toBe(3);
+    expect(transport.countOf(Cmd.WRINC)).toBe(0);
+    const after = await link.readImage();
+    expect(diff(after, applyPlanPreview(before, plan.byteWrites))).toEqual([]);
+    const v = readVins(after);
+    expect([v.coded?.text, v.ascii?.text, v.differ]).toEqual(['EF24680', 'EF24680', false]);
+    expect(checksumStatus(after).every((c) => c.ok)).toBe(true);
   });
 });

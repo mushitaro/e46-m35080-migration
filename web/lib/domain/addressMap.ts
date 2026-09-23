@@ -29,8 +29,8 @@ import {
   decodeOdometer,
   readSecureSlots,
 } from './odometer';
-import { secureOf } from './image';
-import { readVin } from './vin';
+import { secureOf, type VinSpan } from './image';
+import { readVins } from './vin';
 
 /** One of the sixteen odometer registers, with where it lives. */
 export type OdoSlot = {
@@ -106,7 +106,16 @@ export type AddressMeaning =
       value: number;
       role: OdoSlot['role'];
     }
-  | { kind: 'vin'; from: number; to: number; text: string; charIndex: number }
+  | {
+      kind: 'vin';
+      /** Which of the two VIN fields (vin.ts). */
+      field: 'coded' | 'ascii';
+      from: number;
+      to: number;
+      text: string;
+      /** The first character this byte holds (a coded byte holds two digits). */
+      charIndex: number;
+    }
   /** Inside the standard array, and honestly not identified. */
   | { kind: 'unidentified' };
 
@@ -127,10 +136,24 @@ export function explainAddress(image: Uint8Array, address: number): AddressMeani
       role: slot.role,
     };
   }
-  const found = readVin(image).found;
+  const vins = readVins(image);
+  const coded = vins.coded;
+  if (coded && address >= coded.from && address <= coded.to) {
+    return {
+      kind: 'vin',
+      field: 'coded',
+      from: coded.from,
+      to: coded.to,
+      text: coded.text,
+      // Two ASCII bytes, then two BCD digits per byte: 0,1,2,4,6.
+      charIndex: [0, 1, 2, 4, 6][address - coded.from] ?? 0,
+    };
+  }
+  const found = vins.ascii;
   if (found && address >= found.offset && address < found.offset + found.bytes.length) {
     return {
       kind: 'vin',
+      field: 'ascii',
       from: found.offset,
       to: found.offset + found.bytes.length - 1,
       text: found.text,
@@ -140,9 +163,12 @@ export function explainAddress(image: Uint8Array, address: number): AddressMeani
   return { kind: 'unidentified' };
 }
 
-/** The VIN's byte range in this image, for tinting the hex view. */
-export function vinRange(image: Uint8Array | null): { from: number; to: number } | null {
-  if (!image) return null;
-  const found = readVin(image).found;
-  return found ? { from: found.offset, to: found.offset + found.bytes.length - 1 } : null;
+/** Both VIN fields' byte ranges in this image, for tinting the hex view. */
+export function vinRanges(image: Uint8Array | null): VinSpan[] {
+  if (!image) return [];
+  const v = readVins(image);
+  const out: VinSpan[] = [];
+  if (v.coded) out.push({ from: v.coded.from, to: v.coded.to, field: 'coded' });
+  if (v.ascii) out.push({ from: v.ascii.offset, to: v.ascii.offset + v.ascii.bytes.length - 1, field: 'ascii' });
+  return out;
 }

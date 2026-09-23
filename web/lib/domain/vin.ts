@@ -1,26 +1,33 @@
 /**
- * The VIN, FOUND rather than indexed - and exactly seven characters of it.
+ * The VIN - two fields, found rather than indexed, each exactly seven characters.
  *
- * WHAT THE CLUSTER STORES
+ * TWO FIELDS, TWO ROLES
  *
- * BMW's short VIN: positions 11-17 of the 17-character VIN (plant letter plus
- * serial), the same seven characters coding tools call the FG number. On the
- * V6 chip, five dumps agree on this layout. The characters below are a
- * stand-in - `AB12345` - because the real ones identify a specific car and do
- * not belong in a repository that may one day be copied to a public branch.
- * Everything that matters to this module survives the substitution: the
- * offsets, the terminator, the length, and the byte in front.
+ * A cluster can carry positions 11-17 of the VIN (plant letter plus serial, the "FG number") in
+ * two different places, and on the V6 chip on this bench the two do not agree:
+ *
+ *   CODED  0x07A-0x07E, late layout only (layout.ts). Two ASCII characters, then five digits as
+ *          BCD nibbles. This is where the cluster's coding definitions put the VIN, and the
+ *          shape the cluster's own diagnostic VIN reply uses. It sits inside the region the 0x16E
+ *          checksum covers, so writing it means recomputing that byte.
+ *   ASCII  wherever the scan below finds seven uppercase alphanumerics. On the V6 chip:
+ *          0x184-0x18A, NUL at 0x18B, and it matches the registration VIN of the car the cluster
+ *          is fitted to - the car's registration settled that (its 10th character is not the
+ *          0x4C at 0x183, and its last seven are exactly 0x184-0x18A).
+ *
+ * The characters in the tests are stand-ins (`AB12345`, `CD67890`): the real ones identify cars
+ * and do not belong in this public repository.
  *
  *     0x180  64 06 60 4C 41 42 31 32 33 34 35 00 FF FF FF FF
  *                    ^^ A  B  1  2  3  4  5  NUL
  *                    0x183: NOT the VIN
  *
- * Seven characters at 0x184-0x18A, NUL at 0x18B. The 0x4C at 0x183 is an
- * uppercase `L`, so it joins the run - but the car's registration VIN settles
- * it: its 10th character is not an `L`, and its last seven are exactly
- * 0x184-0x18A. The byte in front belongs to whatever precedes the VIN field.
+ * Which of the two the cluster answers with over diagnostics, and which the car checks, is
+ * measured on the bench (TEST reads the cluster's VIN and compares it with both). Until then the
+ * app names both, says when they differ, and a VIN rewrite writes every field the chip has - it
+ * never picks one silently.
  *
- * WHAT WENT WRONG, TWICE
+ * WHAT WENT WRONG, TWICE (the ASCII field)
  *
  *   1. This file used to declare `VIN_OFFSET = 0x2E8`, on the strength of an
  *      example in the reference README. On the two chips that use that part
@@ -33,13 +40,13 @@
  *      A VIN write then had to be eight characters and overwrote 0x183 with
  *      the first of them. The field is seven; the run is not the field.
  *
- * So: SCAN for a run, because the offset is not fixed - the other cluster
- * generation does not put the VIN here at all, and the reference's own
- * `find_vin()` scans for the same reason - then take the run's LAST seven
- * characters, right-aligned against the terminator.
+ * So the ASCII field is SCANNED, because its offset is not fixed - the other cluster generation
+ * does not put it here at all, and the reference's own `find_vin()` scans for the same reason -
+ * and the run's LAST seven characters, right-aligned against the terminator, are the field.
  */
 
 import { STANDARD_START } from './image';
+import { readCodedVin, CODED_VIN_AT, CODED_VIN_BYTES } from './layout';
 
 /**
  * The scan starts after the secure area.
@@ -181,4 +188,45 @@ export function vinTarget(image: Uint8Array): VinTarget {
   const { found } = readVin(image);
   if (!found) return { ok: false, reason: 'no-vin-on-chip' };
   return { ok: true, offset: found.offset, existing: found };
+}
+
+/* ------------------------------ both fields ------------------------------ */
+
+/** The coded field, when the image is a late layout and the bytes are VIN-shaped. */
+export type CodedVin = { text: string; from: number; to: number };
+
+export type VinFields = {
+  coded: CodedVin | null;
+  /** The ASCII field the scan found, or null. */
+  ascii: VinFind | null;
+  /** Every ASCII candidate, so an unusual image still shows what it has. */
+  candidates: VinFind[];
+  /** Both fields present, holding different VINs. */
+  differ: boolean;
+  /** Neither field present. */
+  none: boolean;
+};
+
+export function readVins(image: Uint8Array): VinFields {
+  const c = readCodedVin(image);
+  const coded = c.ok ? { text: c.text, from: CODED_VIN_AT, to: CODED_VIN_AT + CODED_VIN_BYTES - 1 } : null;
+  const { found, candidates } = readVin(image);
+  return {
+    coded,
+    ascii: found,
+    candidates,
+    differ: coded !== null && found !== null && coded.text !== found.text,
+    none: coded === null && found === null,
+  };
+}
+
+/**
+ * The one VIN a record and a file name carry: the ASCII field when there is one (what backups
+ * have always been named by, and what matches the car on the bench chip), else the coded field,
+ * else none. The image itself is in the record, so the other field is never lost - it is read
+ * back from the bytes wherever it is shown.
+ */
+export function recordVin(image: Uint8Array): string | null {
+  const v = readVins(image);
+  return v.ascii?.text ?? v.coded?.text ?? null;
 }

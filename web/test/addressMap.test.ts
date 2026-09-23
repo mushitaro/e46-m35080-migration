@@ -3,8 +3,9 @@ import {
   explainAddress,
   odometerArithmetic,
   odometerSlots,
-  vinRange,
+  vinRanges,
 } from '@/lib/domain/addressMap';
+import { lateImage } from './support/lateImage';
 import { IMAGE_SIZE } from '@/lib/domain/image';
 import { encodeOdometer, slotsToBytes } from '@/lib/domain/odometer';
 
@@ -60,7 +61,7 @@ describe('explainAddress - named only where naming is earned', () => {
 
   it('names the VIN where the scan found it, with the character index', () => {
     const e = explainAddress(chip(), 0x186);
-    expect(e).toMatchObject({ kind: 'vin', from: 0x184, to: 0x18a, charIndex: 2 });
+    expect(e).toMatchObject({ kind: 'vin', field: 'ascii', from: 0x184, to: 0x18a, charIndex: 2 });
   });
 
   it('does not call the letter in front of the VIN part of it', () => {
@@ -85,13 +86,39 @@ describe('explainAddress - named only where naming is earned', () => {
   });
 });
 
-describe('vinRange - what the hex view tints', () => {
-  it('reports the found range, not a constant', () => {
-    expect(vinRange(chip())).toEqual({ from: 0x184, to: 0x18a });
+describe('vinRanges - what the hex view tints', () => {
+  it('reports the found ASCII range, not a constant', () => {
+    expect(vinRanges(chip())).toEqual([{ from: 0x184, to: 0x18a, field: 'ascii' }]);
   });
 
-  it('is null when there is no VIN, so nothing is tinted', () => {
-    expect(vinRange(new Uint8Array(IMAGE_SIZE).fill(0xff))).toBeNull();
-    expect(vinRange(null)).toBeNull();
+  it('reports the coded field too, first, on a late-layout image', () => {
+    expect(vinRanges(lateImage({ asciiVin: 'CD67890' }))).toEqual([
+      { from: 0x07a, to: 0x07e, field: 'coded' },
+      { from: 0x184, to: 0x18a, field: 'ascii' },
+    ]);
+  });
+
+  it('is empty when there is no VIN, so nothing is tinted', () => {
+    expect(vinRanges(new Uint8Array(IMAGE_SIZE).fill(0xff))).toEqual([]);
+    expect(vinRanges(null)).toEqual([]);
+  });
+});
+
+describe('explainAddress on the coded VIN', () => {
+  it('names each byte of 0x07A-0x07E and the first character it holds', () => {
+    const img = lateImage({ codedVin: 'CD67890' });
+    expect([0x07a, 0x07b, 0x07c, 0x07d, 0x07e].map((a) => explainAddress(img, a))).toEqual([
+      { kind: 'vin', field: 'coded', from: 0x07a, to: 0x07e, text: 'CD67890', charIndex: 0 },
+      { kind: 'vin', field: 'coded', from: 0x07a, to: 0x07e, text: 'CD67890', charIndex: 1 },
+      { kind: 'vin', field: 'coded', from: 0x07a, to: 0x07e, text: 'CD67890', charIndex: 2 },
+      { kind: 'vin', field: 'coded', from: 0x07a, to: 0x07e, text: 'CD67890', charIndex: 4 },
+      { kind: 'vin', field: 'coded', from: 0x07a, to: 0x07e, text: 'CD67890', charIndex: 6 },
+    ]);
+  });
+
+  it('does not name 0x07A on an image that is not a late layout', () => {
+    const img = chip();
+    img.set([0x41, 0x42, 0x12, 0x34, 0x50], 0x07a);
+    expect(explainAddress(img, 0x07a)).toEqual({ kind: 'unidentified' });
   });
 });

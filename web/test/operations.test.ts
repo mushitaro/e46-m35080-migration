@@ -9,7 +9,10 @@ import {
 } from '@/lib/domain/operations';
 import { IMAGE_SIZE, STANDARD_START, secureOf } from '@/lib/domain/image';
 import { slotsToBytes, encodeOdometer, decodeOdometer, MAX_KM } from '@/lib/domain/odometer';
-import { encodeVin, readVin } from '@/lib/domain/vin';
+import { encodeVin, readVin, readVins } from '@/lib/domain/vin';
+import { checksumStatus } from '@/lib/domain/layout';
+import { diff } from '@/lib/domain/image';
+import { lateImage } from './support/lateImage';
 
 /**
  * Where a real V6 chip carries its VIN: seven characters, NUL-terminated, with
@@ -415,5 +418,65 @@ describe('restore and repair carry the VIN - the copy must not claim otherwise',
       if (!p.ok) continue;
       for (const w of p.byteWrites) expect(w.address).toBeGreaterThanOrEqual(STANDARD_START);
     }
+  });
+});
+
+/* ----------------------- both VIN fields (vin.ts) ----------------------- */
+
+describe('planRewrite on a late-layout chip - both VIN fields', () => {
+  it('writes the coded field, its checksum, and the ASCII field, and the result is consistent', () => {
+    const img = lateImage({ codedVin: 'AB12345', asciiVin: 'CD67890' });
+    const p = planRewrite(img, 155_940, { kind: 'write', vin: 'EF24680' });
+    expect(p.ok).toBe(true);
+    if (!p.ok) return;
+    expect(p.secureOps).toEqual([]);
+    expect(p.byteWrites.map((w) => w.address)).toEqual([0x184, 0x07a, 0x16e]);
+    const after = applyPlanPreview(img, p.byteWrites);
+    const v = readVins(after);
+    expect(v.coded?.text).toBe('EF24680');
+    expect(v.ascii?.text).toBe('EF24680');
+    expect(v.differ).toBe(false);
+    expect(checksumStatus(after).every((c) => c.ok)).toBe(true);
+    // Everything else is untouched, including the low nibble of 0x07E.
+    const changed = diff(img, after);
+    expect(changed.every((a) => (a >= 0x07a && a <= 0x07e) || a === 0x16e || (a >= 0x184 && a <= 0x18a))).toBe(true);
+    expect(after[0x07e]! & 0x0f).toBe(img[0x07e]! & 0x0f);
+  });
+
+  it('writes only the coded field (and checksum) when the chip has no ASCII field', () => {
+    const img = lateImage({ codedVin: 'AB12345' });
+    const p = planRewrite(img, 155_940, { kind: 'write', vin: 'EF24680' });
+    expect(p.ok && p.byteWrites.map((w) => w.address)).toEqual([0x07a, 0x16e]);
+  });
+
+  it('writes nothing for a field that already holds the target', () => {
+    const img = lateImage({ codedVin: 'AB12345', asciiVin: 'CD67890' });
+    const p = planRewrite(img, 155_940, { kind: 'write', vin: 'AB12345' });
+    expect(p.ok && p.byteWrites.map((w) => w.address)).toEqual([0x184]);
+  });
+
+  it('refuses a VIN the coded field cannot hold, instead of writing half the identity', () => {
+    const img = lateImage({ codedVin: 'AB12345', asciiVin: 'CD67890' });
+    expect(planRewrite(img, 155_940, { kind: 'write', vin: 'ABC1234' })).toMatchObject({
+      ok: false,
+      code: 'vin-coded-shape',
+    });
+  });
+
+  it('refuses to write the coded field over an image whose checksums already disagree', () => {
+    const img = lateImage({ codedVin: 'AB12345' });
+    img[0x3cd] ^= 0x01; // the other region's checksum: the image is late but inconsistent
+    expect(planRewrite(img, 155_940, { kind: 'write', vin: 'EF24680' })).toMatchObject({
+      ok: false,
+      code: 'checksum-broken',
+    });
+  });
+
+  it('blanks only the ASCII field', () => {
+    const img = lateImage({ codedVin: 'AB12345', asciiVin: 'CD67890' });
+    const p = planRewrite(img, 155_940, { kind: 'blank' });
+    expect(p.ok && p.byteWrites.map((w) => w.address)).toEqual([0x184]);
+    if (!p.ok) return;
+    expect(readVins(applyPlanPreview(img, p.byteWrites)).coded?.text).toBe('AB12345');
   });
 });

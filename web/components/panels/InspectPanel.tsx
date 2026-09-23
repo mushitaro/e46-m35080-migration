@@ -32,7 +32,7 @@ import {
 import { assessChip, formatAddress, formatByte } from '@/lib/domain/image';
 import { decodeOdometer } from '@/lib/domain/odometer';
 import { secureOf } from '@/lib/domain/image';
-import { readVin } from '@/lib/domain/vin';
+import { readVins } from '@/lib/domain/vin';
 import { downloadImage } from '@/lib/domain/records';
 import { g } from '@/lib/copy/guide';
 import { CHROME } from '@/lib/copy/chrome';
@@ -62,7 +62,7 @@ export function InspectPanel({
   const verdict = useMemo(() => (image ? verdictFor(image) : null), [image]);
   const changed = useMemo(() => (workspace ? changedAddresses(workspace) : []), [workspace]);
   const odometer = useMemo(() => (image ? decodeOdometer(secureOf(image)) : null), [image]);
-  const vin = useMemo(() => (image ? readVin(image) : null), [image]);
+  const vins = useMemo(() => (image ? readVins(image) : null), [image]);
   const chip = useMemo(() => (image ? assessChip(image) : null), [image]);
 
   if (!workspace || !image || !verdict) {
@@ -199,7 +199,7 @@ export function InspectPanel({
         </div>
       ) : (
         <>
-          <VehicleInfo odometer={odometer} vin={vin} chip={chip} status={null} />
+          <VehicleInfo odometer={odometer} vins={vins} chip={chip} status={null} />
           <div className="border-t border-slate-800 px-5 py-4">
             <AddressPanel image={image} onSelect={onSelect} />
           </div>

@@ -24,6 +24,7 @@ import {
   IMAGE_SIZE,
   BYTES_PER_ROW,
   type Region,
+  type VinSpan,
 } from '@/lib/domain/image';
 
 const REGION_TINT: Record<Region, string> = {
@@ -45,8 +46,8 @@ export type HexViewProps = {
   /** How to read a difference: pending = about to write, written = already sent. */
   changeMode?: 'pending' | 'written';
   selected?: number | null;
-  /** Where the VIN was FOUND in this image. There is no constant for it. */
-  vin?: { from: number; to: number } | null;
+  /** Where the VIN fields were FOUND in this image - coded and/or ASCII. */
+  vins?: readonly VinSpan[];
   onSelect?: (address: number) => void;
 };
 
@@ -56,7 +57,7 @@ export function HexView({
   changeMode = 'pending',
   selected = null,
   onSelect,
-  vin = null,
+  vins = [],
 }: HexViewProps) {
   const rows = useMemo(() => hexRows(image), [image]);
   const changed = useMemo(() => {
@@ -109,7 +110,7 @@ export function HexView({
               </td>
               {Array.from(row.bytes).map((b, i) => {
                 const address = row.address + i;
-                const region = regionOf(address, vin);
+                const region = regionOf(address, vins);
                 const isChanged = changed?.has(address) ?? false;
                 const isSelected = selected === address;
                 return (
@@ -142,11 +143,11 @@ export function HexView({
 /** The legend. Says what the colours mean once, beside the thing they are about. */
 export function HexLegend({
   changedCount,
-  vin = null,
+  vins = [],
 }: {
   changedCount: number | null;
-  /** The range the scan found, so the legend names the same bytes it tints. */
-  vin?: { from: number; to: number } | null;
+  /** The fields found, so the legend names the same bytes it tints. */
+  vins?: readonly VinSpan[];
 }) {
   const hx = (a: number) => a.toString(16).toUpperCase().padStart(3, '0');
   return (
@@ -155,7 +156,9 @@ export function HexLegend({
       {/* Only when there IS one. This used to read "vin 2E8-2EF" always, which
           named an address that is not the VIN and advertised a colour that
           tinted nothing at all on a chip without one. */}
-      {vin && <Swatch color="rgba(10,155,219,0.4)" label={`vin ${hx(vin.from)}-${hx(vin.to)}`} />}
+      {vins.map((v) => (
+        <Swatch key={v.field} color="rgba(10,155,219,0.4)" label={`vin ${v.field} ${hx(v.from)}-${hx(v.to)}`} />
+      ))}
       {changedCount !== null && changedCount > 0 && (
         <span className="text-blue-400">{changedCount} changed</span>
       )}

@@ -24,11 +24,14 @@ import {
   SECURE_BYTES,
   type WriteOp,
 } from './odometer';
+import { encodeVin, readVin, readVins, recordVin } from './vin';
 import {
-  encodeVin,
-  readVin,
-  vinTarget,
-} from './vin';
+  CODED_VIN_AT,
+  detectLayout,
+  encodeCodedVin,
+  fitsCodedVin,
+  recomputeChecksums,
+} from './layout';
 import { IMAGE_SIZE, STANDARD_START, STANDARD_END, assessChip, secureOf } from './image';
 
 export type VinAction =
@@ -45,6 +48,8 @@ export type RefusalCode =
   | 'cannot-lower'
   | 'vin-invalid'
   | 'vin-no-target'
+  | 'vin-coded-shape'
+  | 'checksum-broken'
   | 'not-blank'
   | 'backup-no-data'
   | 'backup-size'
@@ -117,13 +122,22 @@ export function planRewrite(
 }
 
 /**
- * The bytes a VIN change writes.
+ * The bytes a VIN change writes - to EVERY VIN field the chip has (vin.ts).
  *
- * Both the address and the length come from the image, never from a constant.
- * `blank` clears exactly the characters that are there; `write` replaces them
- * at the same place. Neither can invent a location, so on a chip with no VIN
- * both refuse - which is correct rather than limiting: a new chip is meant to
- * go in with no VIN and be coded over OBD once the car is connected.
+ * The ASCII field's address and length come from the scan; the coded field is fixed at 0x07A in
+ * a late-layout image and exists only there. Neither can be invented, so on a chip with no VIN
+ * field a write refuses - which is correct rather than limiting: a new chip is meant to go in
+ * with no VIN and be coded over OBD once the car is connected.
+ *
+ *   write  Every field present gets the new VIN. The coded field sits inside the 0x16E checksum
+ *          region, so writing it also rewrites that byte - and only on an image whose checksums
+ *          held BEFORE the write: recomputing over an inconsistent image would paper over
+ *          whatever broke it. A VIN whose last five characters are not digits cannot be stored
+ *          in the coded field, so it refuses rather than writing only half the identity.
+ *   blank  The ASCII field only. What an unset coded field looks like is not known, and a value
+ *          chosen here would be a guess written to the one field the cluster answers with.
+ *
+ * A field that already holds the target is not rewritten: the plan is exactly the change.
  */
 function planVinWrite(
   image: Uint8Array,
@@ -142,7 +156,7 @@ function planVinWrite(
           {
             address: found.offset,
             data: new Uint8Array(found.bytes.length).fill(0xff),
-            label: `VIN "${found.text}" at ${hexAddr(found.offset)} -> 0xFF`,
+            label: `VIN (ASCII) "${found.text}" at ${hexAddr(found.offset)} -> 0xFF`,
           },
         ],
       };
@@ -150,31 +164,52 @@ function planVinWrite(
 
     case 'write': {
       const v = action.vin.trim().toUpperCase();
-      let data: Uint8Array;
+      let ascii: Uint8Array;
       try {
-        data = encodeVin(v);
+        ascii = encodeVin(v);
       } catch {
         return refuse('vin-invalid');
       }
-      const target = vinTarget(image);
-      if (!target.ok) return refuse('vin-no-target');
-      /* Seven over seven: encodeVin accepts nothing else and the scan finds
-         nothing else, so the write covers the old VIN exactly - never the
-         byte in front of it (0x183 on the V6), never the NUL after it. */
-      return {
-        ok: true,
-        writes: [
-          {
-            address: target.offset,
-            data,
-            label: `VIN at ${hexAddr(target.offset)} -> "${v}"`,
-          },
-        ],
-      };
+      const fields = readVins(image);
+      if (fields.none) return refuse('vin-no-target');
+
+      const writes: ByteWrite[] = [];
+      /* Seven over seven: encodeVin accepts nothing else and the scan finds nothing else, so
+         the write covers the old ASCII VIN exactly - never the byte in front of it (0x183 on the
+         V6), never the NUL after it. */
+      if (fields.ascii && fields.ascii.text !== v) {
+        writes.push({
+          address: fields.ascii.offset,
+          data: ascii,
+          label: `VIN (ASCII) at ${hexAddr(fields.ascii.offset)} -> "${v}"`,
+        });
+      }
+      if (fields.coded && fields.coded.text !== v) {
+        if (!fitsCodedVin(v)) return refuse('vin-coded-shape');
+        const layout = detectLayout(image);
+        if (layout.kind !== 'late' || !layout.consistent) return refuse('checksum-broken');
+        const bytes = encodeCodedVin(image, v);
+        const next = Uint8Array.from(image);
+        next.set(bytes, CODED_VIN_AT);
+        writes.push({
+          address: CODED_VIN_AT,
+          data: bytes,
+          label: `VIN (CODED) at ${hexAddr(CODED_VIN_AT)} -> "${v}"`,
+        });
+        for (const w of recomputeChecksums(next).writes) {
+          writes.push({
+            address: w.address,
+            data: Uint8Array.of(w.after),
+            label: `checksum at ${hexAddr(w.address)} 0x${hexByte(w.before)} -> 0x${hexByte(w.after)}`,
+          });
+        }
+      }
+      return { ok: true, writes };
     }
   }
 }
 
+const hexByte = (b: number) => b.toString(16).toUpperCase().padStart(2, '0');
 const hexAddr = (a: number) => `0x${a.toString(16).toUpperCase().padStart(3, '0')}`;
 
 /* ------------------------- RESTORE ONTO A NEW CHIP ------------------------- */
@@ -368,7 +403,7 @@ export function planRestore(
     ],
     secureOps: plan.ops,
     restoredKm: decoded.ok ? decoded.km : null,
-    vin: readVin(backup).found?.text ?? null,
+    vin: recordVin(backup),
   };
 }
 

@@ -32,7 +32,7 @@ import {
 } from '@/lib/domain/image';
 import { applyPlanPreview } from '@/lib/domain/operations';
 import { decodeOdometer } from '@/lib/domain/odometer';
-import { readVin } from '@/lib/domain/vin';
+import { readVins, recordVin } from '@/lib/domain/vin';
 import type { ByteWrite } from '@/lib/domain/operations';
 import type { WriteOp } from '@/lib/domain/odometer';
 import {
@@ -278,12 +278,12 @@ export function useM35080Link() {
     if (!image) return null;
     clearError();
     const decoded = decodeOdometer(secureOf(image));
-    const vin = readVin(image);
+    const vin = recordVin(image);
     try {
       const record = await addRecord({
         kind: 'backup',
         bytes: image,
-        vin: vin.found?.text ?? null,
+        vin,
         km: decoded.ok ? decoded.km : null,
         practice: state.practice,
       });
@@ -295,7 +295,7 @@ export function useM35080Link() {
          someone might not press. */
       downloadImage(
         image,
-        backupFilename(vin.found?.text ?? null, decoded.ok ? decoded.km : null, new Date(), state.practice),
+        backupFilename(vin, decoded.ok ? decoded.km : null, new Date(), state.practice),
       );
       patch({ backedUpHash: record.hash, notice: null });
       return record;
@@ -365,12 +365,10 @@ export function useM35080Link() {
         const status = await link.readStatus();
         const after = await link.readImage();
         const decoded = decodeOdometer(secureOf(after));
-        const vin = readVin(after);
-
         await addRecord({
           kind: job.kind,
           bytes: after,
-          vin: vin.found?.text ?? null,
+          vin: recordVin(after),
           km: decoded.ok ? decoded.km : null,
           practice: state.practice,
         });
@@ -441,7 +439,7 @@ export function useM35080Link() {
 
   const chip = state.image ? assessChip(state.image, { uv: state.status?.uv }) : null;
   const odometer = state.image ? decodeOdometer(secureOf(state.image)) : null;
-  const vin = state.image ? readVin(state.image) : null;
+  const vins = state.image ? readVins(state.image) : null;
   const busy =
     state.phase === 'connecting' ||
     state.phase === 'reading' ||
@@ -453,7 +451,7 @@ export function useM35080Link() {
     link: linkRef.current,
     chip,
     odometer,
-    vin,
+    vins,
     busy,
     connect,
     disconnect,
