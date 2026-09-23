@@ -11,9 +11,10 @@
     "deploy": "node scripts/deploy.mjs",
     "test": "node tools/check_ui_tokens.mjs && vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p functions",
     "check:public": "cd .. && node scripts/check-public-tree.mjs",
-    "hooks:install": "git config core.hooksPath .githooks"
+    "hooks:install": "git config core.hooksPath .githooks",
+    "gate:verify": "node scripts/gate-verify.mjs --functions functions --client lib/sync/owner-sync.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -24,6 +25,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260923.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.5.1",
     "@types/react": "^19.3.0",
