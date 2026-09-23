@@ -18,7 +18,7 @@ import {
   BridgeConnectionError,
   type M35080Link,
 } from '@/lib/link/m35080Link';
-import { MockM35080Link, type MockChipPreset } from '@/lib/link/mockLink';
+import { MockM35080Link, type PracticeChip } from '@/lib/link/mockLink';
 import { LinkError, requestPort } from '@/lib/transport/webSerialTransport';
 import type { BridgeInfo } from '@/lib/codec/bridgeProtocol';
 import { type StatusBits } from '@/lib/domain/status';
@@ -62,6 +62,8 @@ export type WriteJob = {
   kind: Exclude<RecordKind, 'backup'>;
   byteWrites: ByteWrite[];
   secureOps: WriteOp[];
+  /** Kept with the record: what the write was FOR, where the bytes alone do not say (CODING). */
+  note?: string;
 };
 
 export type LinkState = {
@@ -160,7 +162,7 @@ export function useM35080Link() {
   /* ----------------------------- connect ------------------------------- */
 
   const connect = useCallback(
-    async (mode: 'serial' | 'practice', preset: MockChipPreset = 'used') => {
+    async (mode: 'serial' | 'practice', preset: PracticeChip = 'used') => {
       clearError();
       patch({ phase: 'connecting', notice: null });
       try {
@@ -174,7 +176,7 @@ export function useM35080Link() {
           phase: 'connected',
           info,
           practice: mode === 'practice',
-          notice: mode === 'practice' ? t().practiceMode : null,
+          notice: mode !== 'practice' ? null : typeof preset === 'string' ? t().practiceMode : t().practiceModeFile(preset.name),
         });
       } catch (e) {
         linkRef.current = null;
@@ -371,6 +373,7 @@ export function useM35080Link() {
           vin: recordVin(after),
           km: decoded.ok ? decoded.km : null,
           practice: state.practice,
+          ...(job.note ? { note: job.note } : {}),
         });
 
         /* Compare the chip against the INTENT, not just show it.

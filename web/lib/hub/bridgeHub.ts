@@ -18,6 +18,7 @@ import type { StepId } from '@/lib/domain/workflow';
 import type { RepairPlan, ResetPlan, Refusal, RewritePlan } from '@/lib/domain/operations';
 import type { t } from '@/lib/i18n';
 import { CHROME } from '@/lib/copy/chrome';
+import { codingHubFor, type CodingHubState } from './codingHub';
 
 type Catalog = ReturnType<typeof t>;
 
@@ -33,7 +34,9 @@ export type BridgeHubState = {
   rewritePlan: RewritePlan | Refusal | null;
   restorePlan: ResetPlan | Refusal | null;
   repairPlan: RepairPlan | Refusal | null;
-  copy: Pick<Catalog, 'confirmOdometer' | 'confirmReset' | 'confirmRepair'>;
+  /** CODING's own state; null where there is no CODING tab to speak for. */
+  coding: CodingHubState | null;
+  copy: Pick<Catalog, 'confirmOdometer' | 'confirmReset' | 'confirmRepair' | 'confirmCoding'>;
   act: {
     connect: () => void;
     /** Read the chip; the caller moves to READ only when the read succeeded. */
@@ -129,6 +132,7 @@ export function bridgeHubFor(s: BridgeHubState): HubConfig {
         ),
     };
   }
+  if (s.step === 'coding' && s.coding) return codingHubFor(s.coding, s.copy.confirmCoding, s.act.ask);
   if (s.step === 'restore') {
     const label = !s.hasBackupFile
       ? CHROME.hub.selectBackup

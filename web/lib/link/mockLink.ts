@@ -42,6 +42,13 @@ import { CODED_VIN_AT, encodeCodedVin, recomputeChecksums } from '@/lib/domain/l
  */
 export type MockChipPreset = 'used' | 'late' | 'blank';
 
+/**
+ * What PRACTICE reads: one of the presets, or a file the reader chose in INSPECT (USE AS PRACTICE
+ * CHIP) - so CODING and REWRITE can be rehearsed on a real chip's image, in memory, with nothing
+ * sent anywhere. The file is copied; the simulated chip never writes back to it.
+ */
+export type PracticeChip = MockChipPreset | { name: string; image: Uint8Array };
+
 /** Made-up, and deliberately different from MOCK_VIN: the two fields of one chip can disagree. */
 export const MOCK_CODED_VIN = 'CD67890';
 
@@ -91,9 +98,11 @@ class SimulatedChip {
   private incFailed = false;
   private erased: boolean;
 
-  constructor(preset: MockChipPreset) {
+  constructor(preset: PracticeChip) {
     this.erased = preset === 'blank';
-    this.memory = presetImage(preset);
+    if (typeof preset === 'string') this.memory = presetImage(preset);
+    else if (preset.image.length === IMAGE_SIZE) this.memory = Uint8Array.from(preset.image);
+    else throw new RangeError(`a practice chip is ${IMAGE_SIZE} bytes, not ${preset.image.length}`);
   }
 
   status(): number {
@@ -166,12 +175,12 @@ export class MockM35080Link implements M35080Link {
   private open = false;
   private gateHeld = false;
 
-  constructor(preset: MockChipPreset = 'used') {
+  constructor(preset: PracticeChip = 'used') {
     this.chip = new SimulatedChip(preset);
   }
 
   /** Swap the simulated part, as if a different chip were seated. */
-  setPreset(preset: MockChipPreset): void {
+  setPreset(preset: PracticeChip): void {
     this.chip = new SimulatedChip(preset);
   }
 

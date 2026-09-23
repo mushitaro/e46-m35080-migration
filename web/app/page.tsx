@@ -24,6 +24,14 @@ import { ClusterBenchDiagram } from '@/components/ClusterBenchDiagram';
 import { BENCH_STEPS, type BenchStepId } from '@/components/ClusterBenchGuide';
 import { ClusterDiagram } from '@/components/ClusterDiagram';
 import { TestPanel, type TestView } from '@/components/panels/TestPanel';
+import { CodingTable } from '@/components/CodingTable';
+import { CodingPanel, type DonorState } from '@/components/panels/CodingPanel';
+import { useRefData } from '@/lib/refdata/useRefData';
+import { chooseDefinition, optionValue, rowsFor } from '@/lib/ncs/decode';
+import { planCoding } from '@/lib/ncs/encode';
+import { codingNote, differingFrom, effectiveChanges, type Staged } from '@/lib/ncs/view';
+import { detectLayout } from '@/lib/domain/layout';
+import type { PracticeChip } from '@/lib/link/mockLink';
 import type { BenchWireId } from '@/lib/domain/clusterBench';
 import { pickReference } from '@/lib/kombi/checks';
 import {
@@ -78,6 +86,9 @@ function useLang(): Lang {
   return lang;
 }
 
+/** No picks: one shared empty map, so "nothing staged" is the same value every render. */
+const NO_PICKS: Staged = new Map();
+
 export default function Page() {
   const lang = useLang();
   const copy = t();
@@ -118,6 +129,16 @@ export default function Page() {
   const [benchStep, setBenchStep] = useState<BenchStepId>('parts');
   const [benchDone, setBenchDone] = useState<Set<BenchStepId>>(new Set());
   const [benchWire, setBenchWire] = useState<BenchWireId | null>(null);
+
+  /* CODING-local: the reader's picks, tied to the image AND the definition they were made
+     against - a new read, a write, or other data makes them someone else's picks, so they are
+     simply not used then (derived below, never cleared by an effect). And the row picked. */
+  const [codingPicks, setCodingPicks] = useState<{ image: Uint8Array; file: string; picks: Map<number, number> } | null>(null);
+  const [codingSelected, setCodingSelected] = useState<number | null>(null);
+
+  /* INSPECT's USE AS PRACTICE CHIP: the image the next PRACTICE connect reads, if the reader chose
+     one. A copy - editing the file afterwards does not change it. */
+  const [practiceChip, setPracticeChip] = useState<{ name: string; image: Uint8Array } | null>(null);
 
   /* Web Serial support is a CLIENT-ONLY fact; seeded true so SSR and the first
      client render agree, then corrected on mount. */
@@ -168,6 +189,55 @@ export default function Page() {
     [image, backupFile],
   );
 
+  /* ------------------------------ CODING -------------------------------- */
+
+  /* The definitions: asked for the first time CODING is opened (the preview serves them to its
+     owner; anywhere else the reader opens the file), then kept in memory. */
+  const codingRef = useRefData('kombi-coding', step === 'coding');
+  const codingDoc = codingRef.state?.ok ? codingRef.state.doc : null;
+  const codingChoice = useMemo(() => (image && codingDoc ? chooseDefinition(image, codingDoc) : null), [image, codingDoc]);
+  const codingDef = codingChoice?.kind === 'chosen' ? codingChoice : null;
+  const codingRows = useMemo(() => (image && codingDef ? rowsFor(image, codingDef.def) : null), [image, codingDef]);
+  const staged: Staged =
+    codingPicks && codingDef && codingPicks.image === image && codingPicks.file === codingDef.file ? codingPicks.picks : NO_PICKS;
+  const codingChanges = useMemo(() => (codingRows ? effectiveChanges(codingRows, staged) : []), [codingRows, staged]);
+  const codingChanged = useMemo(() => new Set(codingChanges.map((c) => c.param)), [codingChanges]);
+  const codingPlan = useMemo(
+    () => (image && codingDoc && codingChanges.length > 0 ? planCoding(image, codingDoc, codingChanges) : null),
+    [image, codingDoc, codingChanges],
+  );
+  /* DIFF: the backup opened in RESTORE, read with the same definition - only when it is the same
+     layout, because the definition's addresses mean nothing on any other. */
+  const donorLate = useMemo(() => (backupFile ? detectLayout(backupFile).kind === 'late' : false), [backupFile]);
+  const codingDiffering = useMemo(
+    () => (image && codingDef && backupFile && donorLate ? differingFrom(codingDef.def, image, backupFile) : null),
+    [image, codingDef, backupFile, donorLate],
+  );
+  const donor: DonorState = !backupFile
+    ? { kind: 'none' }
+    : !donorLate
+      ? { kind: 'layout' }
+      : { kind: 'ok', count: codingDiffering?.size ?? 0 };
+
+  const pickCoding = useCallback(
+    (param: number, option: number | null) => {
+      if (!image || !codingDef) return;
+      /* Picking the value the chip already holds is taking the pick back, not a change. */
+      const row = codingRows?.[param];
+      const to = row?.param.kind === 'fsw' ? row.param.options.find((o) => o.id === option) : undefined;
+      const same = to && row?.option && optionValue(to) === optionValue(row.option);
+      setCodingPicks((prev) => {
+        const base = prev && prev.image === image && prev.file === codingDef.file ? prev.picks : new Map<number, number>();
+        const next = new Map(base);
+        if (option === null || same) next.delete(param);
+        else next.set(param, option);
+        return { image, file: codingDef.file, picks: next };
+      });
+      setCodingSelected(param);
+    },
+    [image, codingDef, codingRows],
+  );
+
   /** The whole strip, derived from live state. Nothing about progress is stored. */
   const workflow = useMemo(
     () => ({
@@ -187,6 +257,7 @@ export default function Page() {
     read: CHROME.tab.read,
     restore: CHROME.tab.restore,
     rewrite: CHROME.tab.rewrite,
+    coding: CHROME.tab.coding,
     test: CHROME.tab.test,
     inspect: CHROME.tab.inspect,
     records: CHROME.tab.records,
@@ -246,17 +317,24 @@ export default function Page() {
         rewritePlan,
         restorePlan,
         repairPlan,
+        coding: {
+          ready: codingDef !== null,
+          staged: codingChanges.length,
+          plan: codingPlan,
+          note: codingPlan?.ok ? codingNote(codingPlan, codingRef.state?.ok ? codingRef.state.origin.sha256 : null) : '',
+        },
         copy,
         act: {
           /* PRACTICE rehearses on a late-layout chip: both VIN fields, both checksums - the
-             shape of the bench's own chip, with made-up values. */
-          connect: () => void link.connect(practiceIntent ? 'practice' : 'serial', 'late'),
+             shape of the bench's own chip, with made-up values. Or on the file INSPECT made
+             the practice chip, so CODING can be rehearsed on a real image. */
+          connect: () => void link.connect(practiceIntent ? 'practice' : 'serial', (practiceChip ?? 'late') satisfies PracticeChip),
           read: () => void link.read().then((ok) => ok && setStep('read')),
           backup: () => void link.backup(),
           ask,
         },
       }),
-    [busy, phase, practiceIntent, image, backedUp, step, rewritePlan, restorePlan, repairPlan, chip, backupFile, copy, link, ask],
+    [busy, phase, practiceIntent, practiceChip, image, backedUp, step, rewritePlan, restorePlan, repairPlan, codingDef, codingChanges, codingPlan, codingRef.state, chip, backupFile, copy, link, ask],
   );
 
   /* ----------------------------- the owner ---------------------------- */
@@ -473,6 +551,27 @@ export default function Page() {
       case 'restore':
       case 'rewrite':
         return chipView;
+      case 'coding':
+        /* Every parameter of the chip's own definition, or what is missing before there can be. */
+        if (!image) return chipView;
+        if (!codingDoc) return <EmptyState Icon={FileCode} label={CHROME.awaiting.definition} />;
+        if (!codingDef || !codingRows) return <EmptyState Icon={FileCode} label={CHROME.hub.noDefinition} />;
+        return (
+          <CodingTable
+            doc={codingDoc}
+            def={codingDef.def}
+            rows={codingRows}
+            image={image}
+            after={codingPlan?.ok ? codingPlan.after : null}
+            lang={lang}
+            staged={staged}
+            changed={codingChanged}
+            differing={codingDiffering}
+            selected={codingSelected}
+            onSelect={setCodingSelected}
+            onPick={pickCoding}
+          />
+        );
       default: {
         const unreachable: never = step;
         return unreachable;
@@ -535,6 +634,29 @@ export default function Page() {
               setWorkspace(null);
               setInspectError(null);
             }}
+            practiceChip={practiceChip}
+            onUseAsPractice={() => {
+              if (workspace) setPracticeChip({ name: workspace.name, image: Uint8Array.from(workspace.current) });
+            }}
+            onClearPractice={() => setPracticeChip(null)}
+          />
+        );
+      case 'coding':
+        return (
+          <CodingPanel
+            lang={lang}
+            refLoad={codingRef.state}
+            onOpenFile={(file) => void codingRef.openFile(file)}
+            onReload={codingRef.reload}
+            image={image}
+            choice={codingChoice}
+            rows={codingRows}
+            selected={codingSelected}
+            staged={staged}
+            onPick={pickCoding}
+            onDiscard={() => setCodingPicks(null)}
+            plan={codingPlan}
+            donor={donor}
           />
         );
       case 'test':
@@ -761,7 +883,9 @@ export default function Page() {
           if (!job) return;
           const ok = await link.runWrite(job);
           setPending(null);
-          if (ok) setStep('read');
+          /* CODING stays put: the chip as written is decoded again right where the change was
+             made. Every other write lands on READ, which shows the chip. */
+          if (ok && job.kind !== 'coding') setStep('read');
         }}
       />
     </main>

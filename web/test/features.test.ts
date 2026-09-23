@@ -57,6 +57,12 @@ describe('the feature registry', () => {
     }
   });
 
+  it('keeps CODING out of a release: it writes a chip on rules not yet confirmed in a cluster', () => {
+    expect(ownerOf('coding')).toMatchObject({ id: 'coding-ncs', stage: 'experimental' });
+    expect(enabledSurfaces(false).has('coding')).toBe(false);
+    expect(enabledSurfaces(true).has('coding')).toBe(true);
+  });
+
   it('never lets a feature own a surface twice', () => {
     for (const f of FEATURES) {
       expect(new Set(f.surfaces).size).toBe(f.surfaces.length);

@@ -20,6 +20,7 @@ export function linkOwnerOf(step: StepId): LinkOwner {
     case 'read':
     case 'restore':
     case 'rewrite':
+    case 'coding':
     case 'inspect':
     case 'records':
       return 'bridge';

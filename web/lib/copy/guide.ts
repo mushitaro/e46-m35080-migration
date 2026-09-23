@@ -229,6 +229,9 @@ const JA = {
   inspectSaveNote:
     '保存は必ず別名です。元ファイルには上書きしません — そのダンプが、' +
     '既に書き換えたチップの唯一の記録であることがあるためです。',
+  inspectPracticeChip:
+    'このファイル（今の編集を含む）を PRACTICE の模擬チップにします。次の PRACTICE の CONNECT から、このイメージを読みます。実機には何も書きません。',
+  inspectPracticeArmed: '次の PRACTICE の CONNECT で読みます。接続中のチップは変わりません。',
 };
 
 const EN: typeof JA = {
@@ -430,6 +433,9 @@ const EN: typeof JA = {
   inspectSaveNote:
     'A save always writes a new name, never the source. These dumps are often ' +
     'the only record of a chip that has since been written over.',
+  inspectPracticeChip:
+    'Make this file, with its edits, the PRACTICE chip. The next PRACTICE CONNECT reads this image. Nothing touches hardware.',
+  inspectPracticeArmed: 'The next PRACTICE CONNECT reads it. A chip already connected is not replaced.',
 };
 
 /** Read the bench copy for the currently resolved language. */

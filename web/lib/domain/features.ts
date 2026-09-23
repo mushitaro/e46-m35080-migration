@@ -87,6 +87,16 @@ export const FEATURES: Feature[] = [
     surfaces: ['inspect'],
   },
   {
+    /* CODING: the chip read with its own NCS coding definition, and changed through the one
+       write path (lib/ncs, docs/CODING.md). The definitions are served behind the owner gate or
+       opened from disk - never in this build. */
+    id: 'coding-ncs',
+    stage: 'experimental',
+    surfaces: ['coding'],
+    reason:
+      'Measured on chip images and definitions only: no chip changed this way has been put back in a cluster yet (docs/CODING.md, "Not yet confirmed"). Promote after one has, and TEST read it back.',
+  },
+  {
     /* TEST: the cluster on the bench over DS2, through the K+DCAN cable (lib/kombi). */
     id: 'cluster-test-ds2',
     stage: 'experimental',

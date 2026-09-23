@@ -148,6 +148,8 @@ const JA = {
     'セキュア領域は元に戻せないため、このまま次の操作へ進まないでください。',
 
   practiceMode: 'PRACTICE モード — 実機には書き込みません',
+  /* INSPECT's USE AS PRACTICE CHIP: the simulated chip is a file, and the notice says which. */
+  practiceModeFile: (name: string) => `PRACTICE モード — 模擬チップ: ${name}（実機には書き込みません）`,
 
   // odometer
   odometerUnreadable: 'セキュア領域を解読できません',
@@ -174,6 +176,11 @@ const JA = {
     'バックアップに VIN が入っていれば、その VIN も一緒に写ります。\n' +
     '走行距離 0x00–0x1F は書きません（0 km のまま）。\n\n' +
     '走行距離に触れないため、この書き込みは後から別のバックアップでやり直せます。',
+  confirmCoding: (changes: number, bytes: number) =>
+    `コーディングを ${changes} 項目変更します。\n` +
+    `書くのは ${bytes} バイトで、変わる項目の mask のビットと、計算し直したチェックサムだけです。\n` +
+    `1 バイトずつ書いて読み返し、最後にチップ全体を読み直して照合し、記録します。\n\n` +
+    `走行距離・VIN・K 値には触れません。元に戻すには、書く前の BACKUP を RESTORE で書き戻します。`,
   confirmRepair: (n: number) =>
     `標準領域の ${n} バイトを、バックアップの値へ書き戻します。\n` +
     `書き込まないのは走行距離 0x00–0x1F だけです。\n` +
@@ -317,6 +324,7 @@ const EN: typeof JA = {
     'not move on from here.',
 
   practiceMode: 'PRACTICE mode — nothing is written to hardware',
+  practiceModeFile: (name: string) => `PRACTICE mode — simulated chip: ${name} (nothing is written to hardware)`,
 
   odometerUnreadable: 'Cannot decode the secure area',
 
@@ -336,6 +344,11 @@ const EN: typeof JA = {
     "If the backup carries a VIN, that VIN is copied across with it.\n" +
     'The odometer 0x00-0x1F is not written (it stays at 0 km).\n\n' +
     'Because the odometer is untouched, this write can be redone later from another backup.',
+  confirmCoding: (changes: number, bytes: number) =>
+    `Change ${changes} coding parameter(s).\n` +
+    `${bytes} byte(s) are written: only the bits under each changed parameter's mask, and the recomputed checksums.\n` +
+    `Each byte is written and read back, then the whole chip is read again, compared and recorded.\n\n` +
+    `The odometer, the VIN and the K-numbers are not touched. To undo, RESTORE the BACKUP taken before this write.`,
   confirmRepair: (n: number) =>
     `Write ${n} standard-array byte(s) back to the backup's values.\n` +
     `The odometer (0x00-0x1F) is the only thing not written.\n` +

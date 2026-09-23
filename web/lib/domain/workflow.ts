@@ -13,7 +13,7 @@
  * I on" is stored, so the strip cannot disagree with the device.
  */
 
-export type StepId = 'setup' | 'read' | 'restore' | 'rewrite' | 'test' | 'inspect' | 'records';
+export type StepId = 'setup' | 'read' | 'restore' | 'rewrite' | 'coding' | 'test' | 'inspect' | 'records';
 
 /** Why a step cannot be entered yet. Rendered from i18n, never as prose here. */
 export type BlockedReason = 'need-image' | 'need-connection';
@@ -34,7 +34,7 @@ export type Step = {
   blockedBy: BlockedReason | null;
 };
 
-const ORDER: StepId[] = ['setup', 'read', 'restore', 'rewrite', 'test', 'inspect', 'records'];
+const ORDER: StepId[] = ['setup', 'read', 'restore', 'rewrite', 'coding', 'test', 'inspect', 'records'];
 
 /**
  * Derive the whole strip from state.
@@ -53,8 +53,12 @@ export function deriveSteps(s: WorkflowState): Step[] {
       case 'read':
         return { id, enabled: true, blockedBy: s.connected ? null : 'need-connection' };
 
+      /* CODING reads the chip with its own definition and writes through the same path, so it
+         needs what they need: an image, read off the chip on the UNO. After the job that set
+         the chip's contents (RESTORE / REWRITE), before the chip goes back for TEST. */
       case 'restore':
       case 'rewrite':
+      case 'coding':
         return { id, enabled: s.hasImage, blockedBy: s.hasImage ? null : 'need-image' };
 
       /* The cluster, not the chip: the chip is back on its board by now, and TEST talks to it

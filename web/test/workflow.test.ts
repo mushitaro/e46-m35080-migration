@@ -24,6 +24,7 @@ describe('deriveSteps - the strip is a sequence', () => {
       'read',
       'restore',
       'rewrite',
+      'coding',
       'test',
       'inspect',
       'records',
@@ -47,9 +48,9 @@ describe('deriveSteps - the strip is a sequence', () => {
     expect(stepById(steps, 'records')?.enabled).toBe(true);
   });
 
-  it('BLOCKS the two chip jobs until an image has been read', () => {
+  it('BLOCKS the chip jobs until an image has been read', () => {
     const steps = deriveSteps(s({ connected: true }));
-    for (const id of ['restore', 'rewrite'] as const) {
+    for (const id of ['restore', 'rewrite', 'coding'] as const) {
       const step = stepById(steps, id);
       expect(step?.enabled, `${id} should be blocked`).toBe(false);
       expect(step?.blockedBy).toBe('need-image');
@@ -60,6 +61,7 @@ describe('deriveSteps - the strip is a sequence', () => {
     const steps = deriveSteps(s({ connected: true, hasImage: true }));
     expect(stepById(steps, 'restore')?.enabled).toBe(true);
     expect(stepById(steps, 'rewrite')?.enabled).toBe(true);
+    expect(stepById(steps, 'coding')?.enabled).toBe(true);
     expect(stepById(steps, 'restore')?.blockedBy).toBeNull();
   });
 

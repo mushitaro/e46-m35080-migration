@@ -43,10 +43,12 @@ function state(over: Partial<BridgeHubState> = {}): BridgeHubState {
     rewritePlan: null,
     restorePlan: null,
     repairPlan: null,
+    coding: null,
     copy: {
       confirmOdometer: (from, to, n) => `odo ${from}->${to} (${n})`,
       confirmReset: 'reset',
       confirmRepair: (n) => `repair ${n}`,
+      confirmCoding: (n, bytes) => `coding ${n} (${bytes})`,
     },
     act: { connect: vi.fn(), read: vi.fn(), backup: vi.fn(), ask: vi.fn() },
     ...over,

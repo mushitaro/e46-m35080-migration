@@ -13,7 +13,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Download, RotateCcw, Undo2, Wrench, X } from 'lucide-react';
+import { Download, FlaskConical, RotateCcw, Undo2, Wrench, X } from 'lucide-react';
 
 import { DropZone } from '@/components/DropZone';
 import { VehicleInfo } from '@/components/VehicleInfo';
@@ -48,6 +48,9 @@ export function InspectPanel({
   selected,
   onSelect,
   fileError,
+  practiceChip,
+  onUseAsPractice,
+  onClearPractice,
 }: {
   workspace: Workspace | null;
   onOpen: (file: File) => void;
@@ -56,6 +59,10 @@ export function InspectPanel({
   selected: number | null;
   onSelect: (address: number) => void;
   fileError: string | null;
+  /** The file PRACTICE will read on its next CONNECT, if one was chosen here. */
+  practiceChip: { name: string } | null;
+  onUseAsPractice: () => void;
+  onClearPractice: () => void;
 }) {
   const c = g();
   const [value, setValue] = useState('');
@@ -152,6 +159,29 @@ export function InspectPanel({
           )}
         </div>
       </div>
+
+      {/* ---------------------------- practice chip ------------------------ */}
+      {/* A file that is not a chip read is never offered: a practice run on a floating-wire
+          image would rehearse nothing. */}
+      {!verdict.uniform && (
+        <div className="flex flex-col gap-2 border-b border-slate-800 px-5 py-4">
+          <div className="flex items-baseline gap-2">
+            <MicroLabel as="h3">{CHROME.inspect.practiceChip}</MicroLabel>
+            {practiceChip && <span className="min-w-0 truncate font-mono text-[10px] text-amber-400">{practiceChip.name}</span>}
+            {practiceChip && (
+              <TextButton tone="danger" Icon={X} onClick={onClearPractice} className="ml-auto">
+                {CHROME.inspect.clear}
+              </TextButton>
+            )}
+          </div>
+          <TextButton tone="caution" Icon={FlaskConical} onClick={onUseAsPractice} className="self-start">
+            {CHROME.inspect.useAsPractice}
+          </TextButton>
+          <p className="text-[10px] leading-snug text-slate-600">
+            {practiceChip ? c.inspectPracticeArmed : c.inspectPracticeChip}
+          </p>
+        </div>
+      )}
 
       {/* ------------------------------- edit ------------------------------ */}
       <div className="flex flex-col gap-2 border-b border-slate-800 px-5 py-4">

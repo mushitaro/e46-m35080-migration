@@ -249,6 +249,75 @@ export function TableBody({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * A list: rows separated by a hairline, and nothing else. `divide-y` lives here
+ * and in `TableBody`, nowhere else (check_ui_tokens.mjs).
+ */
+export function DataList({ children, label }: { children: React.ReactNode; label?: string }) {
+  return (
+    <ul aria-label={label} className="flex flex-col divide-y divide-slate-800/50">
+      {children}
+    </ul>
+  );
+}
+
+/**
+ * One row, three slots in order of importance (tsunagi-m-design section 4):
+ *
+ *   name   what the thing is CALLED, for a person - first, brightest, truncated last
+ *   ident  the machine's word for it, mono - capped, so it truncates first
+ *   code   a right-aligned gutter: an address, a count, a verdict. Its colour is a verdict.
+ *
+ * `marker` sits after the name (a quiet provenance word); `detail` is a second line under all
+ * three for what the row says about itself - a value, a control, a reason. The first line is the
+ * button that selects the row; the detail line is outside it, so a control can live there.
+ */
+export function DataRow({
+  name,
+  ident,
+  code,
+  codeTone = 'text-slate-500',
+  marker,
+  detail,
+  selected = false,
+  onSelect,
+}: {
+  name: React.ReactNode;
+  ident?: React.ReactNode;
+  code?: React.ReactNode;
+  codeTone?: string;
+  marker?: React.ReactNode;
+  detail?: React.ReactNode;
+  selected?: boolean;
+  onSelect?: () => void;
+}) {
+  return (
+    <li className={selected ? 'bg-blue-900/40' : ''}>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={onSelect ? selected : undefined}
+        className={`flex w-full items-baseline gap-2 px-2 text-left transition-colors ${detail ? 'pb-0.5 pt-1.5' : 'py-1.5'}
+          ${selected ? '' : 'hover:bg-slate-800/50'}`}
+      >
+        <span className={`min-w-0 flex-1 truncate text-[11px] ${selected ? 'text-blue-200' : 'text-slate-300'}`}>{name}</span>
+        {marker}
+        {ident !== undefined && (
+          <span className="max-w-[45%] shrink-0 truncate font-mono text-[10px] text-slate-500">{ident}</span>
+        )}
+        {code !== undefined && (
+          <span className={`w-10 shrink-0 text-right font-mono text-[10px] tabular-nums ${codeTone}`}>{code}</span>
+        )}
+      </button>
+      {detail && (
+        <div className="px-2 pb-1.5" onClick={onSelect}>
+          {detail}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/**
  * A label and its value - the readout atom. `labelKind="data"` for a name the
  * machine supplied, which must not be uppercased.
  */

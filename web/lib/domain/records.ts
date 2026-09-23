@@ -14,7 +14,7 @@ const DB_NAME = 'm35080-odo';
 const DB_VERSION = 1;
 const STORE = 'records';
 
-export type RecordKind = 'backup' | 'rewrite' | 'reset' | 'restore';
+export type RecordKind = 'backup' | 'rewrite' | 'reset' | 'restore' | 'coding';
 
 export type DeviceRecord = {
   id: string;
@@ -149,7 +149,7 @@ export function recordFilename(
   when = new Date(),
   practice = false,
 ): string {
-  const word: Record<RecordKind, string> = { backup: 'Backup', rewrite: 'Rewrite', reset: 'Reset', restore: 'Restore' };
+  const word: Record<RecordKind, string> = { backup: 'Backup', rewrite: 'Rewrite', reset: 'Reset', restore: 'Restore', coding: 'Coding' };
   return backupFilename(vin, km, when, practice).replace(/^(PRACTICE_)?Backup/, `$1${word[kind]}`);
 }
 

@@ -11,8 +11,9 @@
  *   - The cluster's coding definitions (read on the operator's machine, never committed) place
  *     every coding block inside 0x000-0x3FF, and their last block ends exactly at 0x400. Decoding
  *     two real chips from two different cars against the matching definition, every informative
- *     parameter lands on a defined option (14/14 and 15/15); against the wrong one, 12/15 and
- *     13/14; the two older-generation chips, 2/15 and 3/15.
+ *     parameter lands on a defined option (14/14 and 15/15); against the other family's late
+ *     definitions, 12/15 and 13/14; on the two older-generation chips no definition comes closer
+ *     than 3/15 and 3/14.
  *   - Two bytes in that layout are checksums, and on both chips they hold:
  *         0x16E = XOR of 0x070..0x16D
  *         0x3CD = XOR of 0x310..0x3CC, and 0x3DF holds the same value

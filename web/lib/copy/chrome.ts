@@ -26,6 +26,7 @@ export const CHROME = {
     read: 'READ',
     restore: 'RESTORE',
     rewrite: 'REWRITE',
+    coding: 'CODING',
     test: 'TEST',
     inspect: 'INSPECT',
     records: 'RECORDS',
@@ -46,6 +47,11 @@ export const CHROME = {
     selectBackup: 'SELECT BACKUP',
     checkBackup: 'CHECK BACKUP',
     nothingToRepair: 'NOTHING TO REPAIR',
+    /* CODING: the one write, and why the ring is idle when it is */
+    writeCoding: 'WRITE CODING',
+    noChanges: 'NO CHANGES',
+    noDefinition: 'NO DEFINITION',
+    checkCoding: 'CHECK CODING',
     /* TEST: STOP is armed while the cluster may be holding anything this tool set */
     stop: 'STOP',
     stopping: 'STOPPING',
@@ -94,6 +100,7 @@ export const CHROME = {
     connection: 'AWAITING CONNECTION',
     read: 'AWAITING READ',
     file: 'AWAITING FILE',
+    definition: 'AWAITING DEFINITION',
   },
   empty: {
     records: 'NO RECORDS',
@@ -102,6 +109,7 @@ export const CHROME = {
   drop: {
     backup: 'DROP BACKUP .BIN · 1024 BYTES',
     file: 'DROP .BIN · 1024 BYTES',
+    coding: 'DROP .JSON · KOMBI-CODING',
   },
 
   /* ---- the two checksums of the late layout (lib/domain/layout.ts) ---- */
@@ -121,6 +129,66 @@ export const CHROME = {
     undo: 'UNDO',
     revert: 'REVERT',
     saveAs: 'SAVE AS',
+    /* the file becomes the chip PRACTICE reads (lib/link/mockLink.ts) */
+    practiceChip: 'PRACTICE CHIP',
+    useAsPractice: 'USE AS PRACTICE CHIP',
+    clear: 'CLEAR',
+  },
+
+  /* ---- CODING: the chip read with its own coding definition (lib/ncs) ---- */
+  coding: {
+    data: 'REFERENCE DATA',
+    reload: 'RELOAD',
+    loading: 'LOADING',
+    definition: 'DEFINITION',
+    fit: 'FIT',
+    index: 'INDEX',
+    closest: 'CLOSEST',
+    anyValue: 'ANY VALUE',
+    oneValue: 'ONE VALUE',
+    arrays: 'ARRAYS',
+    rows: 'ROWS',
+    list: 'LIST',
+    map: 'MAP',
+    search: 'SEARCH',
+    noRows: 'NO ROWS',
+    noBlock: 'NO BLOCK',
+    options: 'OPTIONS',
+    mask: 'MASK',
+    current: 'CURRENT',
+    next: 'NEW',
+    keep: 'KEEP',
+    changes: 'CHANGES',
+    discard: 'DISCARD',
+    donor: 'DONOR',
+    bytes: 'BYTES',
+    checksum: 'CHECKSUM',
+    /* what a row is to CODING (lib/ncs/decode.ts RowStatus) */
+    status: {
+      codable: 'CODABLE',
+      protected: 'PROTECTED',
+      value: 'VALUE',
+      unknown: 'UNKNOWN',
+    },
+    filter: {
+      all: 'ALL',
+      codable: 'CODABLE',
+      changed: 'CHANGED',
+      unknown: 'UNKNOWN',
+      diff: 'DIFF',
+    },
+    /* where a name came from (lib/refdata/types.ts NameSource) */
+    source: {
+      authored: 'AUTHORED',
+      heuristic: 'HEURISTIC',
+      raw: 'RAW',
+    },
+    /* the block kinds a definition declares */
+    block: {
+      coding: 'CODING',
+      maker: 'MAKER',
+      reserved: 'RESERVED',
+    },
   },
 
   /* ---- what the bytes hold ---- */
