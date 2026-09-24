@@ -307,8 +307,9 @@ PREVIEW row of the M menu.
   or delete them. TEST reports are downloaded, never sent.
 - **Nothing is sent before the owner says yes.** The first time the preview opens in a
   browser, a dialog says what it sends, when, what for, who can see it and how to delete it —
-  m3's words, verbatim — and covers the app until the owner presses 確認して続ける / Confirm
-  and continue (`components/PreviewNotice.tsx`, remembered as `preview-notice:v1` in
+  m3's words, with the lines about error records made exact for this app — and covers the
+  app until the owner presses 確認して続ける / Confirm and continue
+  (`components/PreviewNotice.tsx`, remembered as `preview-notice:v1` in
   localStorage). Until then SYNC, the account lists and the error records' outbox make no
   request, and an error record waits on the device (`lib/sync/cloud.ts` `maySend()`,
   pinned by `test/previewNotice.test.ts`). The full text is the privacy policy:

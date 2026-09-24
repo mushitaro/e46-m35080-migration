@@ -65,19 +65,22 @@ const JA = {
   waiting: (n: number) => `送信待ち ${n} 件（次にサインインしているときに送ります）`,
   reauthConfirm: 'REWRITE でファイルに加えた変更のうち、SAVE EDITED で保存していないものは失われます。サインインし直しますか？',
   privacyTitle: 'プライバシーポリシー（プレビュー版）',
-  /* The first-run notice (components/PreviewNotice.tsx). m3's words, verbatim: tsunagi-m3's
-     NOTICE_COPY, with `sessions` and `records` from its NOTICE_APPS['m35080-preview']. The privacy
-     policy says the same at length under #preview. Change them in m3 and here together, and keep
-     `sessions` and `records` in step with what lib/sync/cloud.ts and errorRecords.ts send. */
+  /* The first-run notice (components/PreviewNotice.tsx). m3's words - tsunagi-m3's NOTICE_COPY,
+     with `sessions` from its NOTICE_APPS['m35080-preview'] - except `records`, `recordsWhen` and
+     `alsoSent`, which say what THIS app sends (operator, 2026-09-24): an error record only when a
+     connection, read, backup or write fails or is refused (useM35080Link's fail() and refuse()),
+     and the browser type (navigator.userAgent) only in error records, never in a SYNCed session.
+     The privacy policy says the same at length under #preview. Change the shared lines in m3 and
+     here together, and keep these in step with what lib/sync/cloud.ts and errorRecords.ts send. */
   notice: {
     lead: 'このプレビュー版は、保存した記録を別の端末でも開けるよう、また不具合を調べられるよう、次のものを運営者のサーバーへ送ります。',
     sessionsTitle: '保存したセッション',
     sessions: 'メーターの EEPROM イメージ（VIN の下 7 桁と走行距離を含む）と、バックアップ・書き換え・復元の記録',
     sessionsWhen: 'SYNC を押して保存したときに送ります。',
     recordsTitle: 'エラーの記録',
-    records: '読み出し・書き込みごとの結果とエラーの文面（VIN の下 7 桁、走行距離、ブリッジのファームウェアの版を含む）',
-    recordsWhen: '操作のたびに自動で送ります。通信できないときは端末に残し、次に送ります。',
-    alsoSent: 'どちらにも、アプリの版とブラウザの種類が付きます。',
+    records: '接続・読み出し・バックアップ・書き込みが失敗したとき、または安全のために止めたときの、その段階とエラーの文面（VIN の下 7 桁、走行距離、ブリッジのファームウェアの版を含む）',
+    recordsWhen: '失敗したときに自動で送ります。通信できないときは端末に残し、次に送ります。',
+    alsoSent: 'どちらにも、アプリの版が付きます。エラーの記録には、ブラウザの種類も付きます。',
     purposeTitle: '使いみち',
     purpose: 'ご本人が別の端末で記録を開くため、そして不具合を調べてツールを直すためだけに使います。',
     whereTitle: '保存先と、見られる人',
@@ -124,9 +127,9 @@ const EN: SyncCopy = {
     sessions: 'the cluster EEPROM image (including the last seven characters of the VIN and the mileage) and the backup, rewrite and restore history',
     sessionsWhen: 'Sent when you press SYNC to save one.',
     recordsTitle: 'Error records',
-    records: 'the outcome and any error text of each read and write (including the last seven characters of the VIN, the mileage and the bridge firmware version)',
-    recordsWhen: 'Sent automatically after each operation. Without a connection they wait on the device and go next time.',
-    alsoSent: 'Both carry the app version and the browser type.',
+    records: 'when a connection, read, backup or write fails, or is stopped for safety: the step and its error text (including the last seven characters of the VIN, the mileage and the bridge firmware version)',
+    recordsWhen: 'Sent automatically when something fails. Without a connection they wait on the device and go next time.',
+    alsoSent: 'Both carry the app version; error records also carry the browser type.',
     purposeTitle: 'What it is for',
     purpose: 'Only for opening your records on your other devices, and for finding and fixing faults in the tool.',
     whereTitle: 'Where it is kept, and who can see it',

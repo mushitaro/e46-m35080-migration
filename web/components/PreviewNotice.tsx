@@ -5,8 +5,9 @@
  *
  * The first time the preview opens in a browser, this covers the app until the owner confirms it.
  * m3 used to say it on its own /preview-notice page before issuing the session; the operator moved
- * it into the app (2026-09-24), as TUNER's first-run dialog is. The words are m3's, verbatim
- * (lib/copy/sync.ts), and the privacy policy says the same at length under #preview.
+ * it into the app (2026-09-24), as TUNER's first-run dialog is. The words are m3's, with the lines
+ * about error records made exact for this app (lib/copy/sync.ts), and the privacy policy says the
+ * same at length under #preview.
  *
  * A gate, not a dialog: no X, no backdrop click, no Escape. The one way past it is CONFIRM AND
  * CONTINUE, and behind it the header and the work area are `inert` (page.tsx), so neither a click

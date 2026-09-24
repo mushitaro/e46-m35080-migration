@@ -6,6 +6,7 @@ import { PreviewNotice, usePreviewNoticeOpen } from '@/components/PreviewNotice'
 import { NOTICE_TITLE, syncCopy } from '@/lib/copy/sync';
 import { readVariant } from '@/lib/domain/variant';
 import { getLang, setLangForTest } from '@/lib/i18n';
+import { gunzipB64 } from '@/lib/sync/owner-sync';
 import type { DeviceRecord } from '@/lib/domain/records';
 import type { LinkFailure } from '@/lib/sync/errorRecords';
 
@@ -240,6 +241,24 @@ describe('preview notice - what it says', () => {
       }
     });
   }
+
+  it('says only what is sent: the app version in both, the browser type in error records alone', async () => {
+    /* alsoSent. If either record changes what it carries, the notice (lib/copy/sync.ts) and the
+       privacy policy change with it - that is what this test is here to make someone do. */
+    vi.stubGlobal('document', {
+      querySelector: (sel: string) => (sel === 'meta[name="build-id"]' ? { getAttribute: () => '39.abcdef0' } : null),
+    });
+    const { cloud, errors } = await fresh();
+
+    const session = cloud.toWire(record());
+    expect(session.appBuild).toBe('39.abcdef0');
+    expect(JSON.stringify(session)).not.toContain(navigator.userAgent);
+
+    const error = await errors.diagnosticBody(failure());
+    expect(error.appBuild).toBe('39.abcdef0');
+    const payload = JSON.parse(new TextDecoder().decode(await gunzipB64(error.payloadGz)));
+    expect(payload.userAgent).toBe(navigator.userAgent);
+  });
 
   it('names its button as the operator did', () => {
     const orig = getLang();
