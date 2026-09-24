@@ -1,8 +1,8 @@
 /**
- * The words of the preview's SYNC panel and PRIVACY link.
+ * The words of the preview's SYNC panel, its PRIVACY link and its first-run notice.
  *
- * Kept in their own file rather than in lib/copy/chrome.ts and lib/i18n.ts: the panel exists only
- * in the preview build, and everything it says is in one place that production never draws.
+ * Kept in their own file rather than in lib/copy/chrome.ts and lib/i18n.ts: all three exist only
+ * in the preview build, and everything they say is in one place that production never draws.
  *
  * Two halves, the same split the rest of the app keeps (tsunagi-m-ux section 13):
  *   SYNC_WORDS  the instrument's words - buttons, headings, tags. Uppercase English for every
@@ -31,6 +31,13 @@ export function privacyUrl(): string {
     : 'https://m3.tsunagi.app/en/privacy-policy#preview';
 }
 
+/**
+ * The first-run notice's heading: the app's name and PREVIEW, as m3's notice names it. A proper
+ * noun, the same for every reader, so it is not in the language records below (lib/i18n.ts keeps
+ * the app's name out of its records for the same reason).
+ */
+export const NOTICE_TITLE = 'E46 M35080 /// MIGRATION — PREVIEW';
+
 const JA = {
   lead: 'この端末の記録（バックアップと、書き換え・リセット・復元のあとのイメージ）を、あなたのアカウントに保存します。別の端末でも取り出せます。',
   savedTo: (label: string) => `保存先 アカウント ${label}。このアカウントからだけ見えます。`,
@@ -58,6 +65,28 @@ const JA = {
   waiting: (n: number) => `送信待ち ${n} 件（次にサインインしているときに送ります）`,
   reauthConfirm: 'REWRITE でファイルに加えた変更のうち、SAVE EDITED で保存していないものは失われます。サインインし直しますか？',
   privacyTitle: 'プライバシーポリシー（プレビュー版）',
+  /* The first-run notice (components/PreviewNotice.tsx). m3's words, verbatim: tsunagi-m3's
+     NOTICE_COPY, with `sessions` and `records` from its NOTICE_APPS['m35080-preview']. The privacy
+     policy says the same at length under #preview. Change them in m3 and here together, and keep
+     `sessions` and `records` in step with what lib/sync/cloud.ts and errorRecords.ts send. */
+  notice: {
+    lead: 'このプレビュー版は、保存した記録を別の端末でも開けるよう、また不具合を調べられるよう、次のものを運営者のサーバーへ送ります。',
+    sessionsTitle: '保存したセッション',
+    sessions: 'メーターの EEPROM イメージ（VIN の下 7 桁と走行距離を含む）と、バックアップ・書き換え・復元の記録',
+    sessionsWhen: 'SYNC を押して保存したときに送ります。',
+    recordsTitle: 'エラーの記録',
+    records: '読み出し・書き込みごとの結果とエラーの文面（VIN の下 7 桁、走行距離、ブリッジのファームウェアの版を含む）',
+    recordsWhen: '操作のたびに自動で送ります。通信できないときは端末に残し、次に送ります。',
+    alsoSent: 'どちらにも、アプリの版とブラウザの種類が付きます。',
+    purposeTitle: '使いみち',
+    purpose: 'ご本人が別の端末で記録を開くため、そして不具合を調べてツールを直すためだけに使います。',
+    whereTitle: '保存先と、見られる人',
+    where: 'Cloudflare のデータベース（アジア太平洋地域）に、アカウントごとに分けて保存します。見られるのは、ご本人と運営者だけです。',
+    deleteTitle: '削除',
+    deleteBody: '保存したセッションとエラーの記録は、アプリの中でいつでも削除できます。まとめて削除したいときは、Discord からご連絡ください。',
+    policy: '詳しくはプライバシーポリシー',
+    confirm: '確認して続ける',
+  },
 };
 
 type SyncCopy = typeof JA;
@@ -89,6 +118,24 @@ const EN: SyncCopy = {
   waiting: (n: number) => `${n} waiting to send (sent the next time you are signed in)`,
   reauthConfirm: 'Changes made to the file on REWRITE and not saved with SAVE EDITED will be lost. Sign in again?',
   privacyTitle: 'Privacy policy (preview)',
+  notice: {
+    lead: 'So that what you save opens on your other devices, and so that faults can be investigated, this preview sends the following to our server.',
+    sessionsTitle: 'Sessions you save',
+    sessions: 'the cluster EEPROM image (including the last seven characters of the VIN and the mileage) and the backup, rewrite and restore history',
+    sessionsWhen: 'Sent when you press SYNC to save one.',
+    recordsTitle: 'Error records',
+    records: 'the outcome and any error text of each read and write (including the last seven characters of the VIN, the mileage and the bridge firmware version)',
+    recordsWhen: 'Sent automatically after each operation. Without a connection they wait on the device and go next time.',
+    alsoSent: 'Both carry the app version and the browser type.',
+    purposeTitle: 'What it is for',
+    purpose: 'Only for opening your records on your other devices, and for finding and fixing faults in the tool.',
+    whereTitle: 'Where it is kept, and who can see it',
+    where: 'In a Cloudflare database (Asia-Pacific), kept separately per account. Only you and the operator can see it.',
+    deleteTitle: 'Deleting it',
+    deleteBody: 'You can delete saved sessions and error records in the app at any time. To have everything deleted at once, contact us on Discord.',
+    policy: 'Privacy policy, in full',
+    confirm: 'Confirm and continue',
+  },
 };
 
 export function syncCopy(): SyncCopy {

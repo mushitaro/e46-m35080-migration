@@ -5,8 +5,9 @@
  * records the app sent by itself.
  *
  * Drawn only in the preview (page.tsx gates it on the variant, and every call below checks
- * `canSync()` again), beside the RECORDS table it extends. Production draws none of it and makes no
- * request.
+ * `maySend()` again), beside the RECORDS table it extends. Production draws none of it and makes no
+ * request, and neither does the preview until its owner has confirmed the first-run notice
+ * (components/PreviewNotice.tsx): no account read, no outbox flush, no SYNC.
  *
  *   SYNC     sends every record on this device the account does not have yet. Records never change,
  *            so "has it" is a question of the id; a second SYNC sends nothing.
@@ -27,12 +28,12 @@ import { LABEL, Pane, Pill, Section, TextButton } from '@/components/ui';
 import type { DeviceRecord } from '@/lib/domain/records';
 import type { Phase } from '@/lib/hooks/useM35080Link';
 import {
-  canSync,
   deleteCloudRecord,
   deleteDiagnostic,
   fetchCloudRecord,
   listCloudRecords,
   listDiagnostics,
+  maySend,
   sendRecord,
   type CloudDiagnosticRow,
   type CloudRecordRow,
@@ -41,6 +42,7 @@ import { flushErrorRecords, waitingErrorRecords } from '@/lib/sync/errorRecords'
 import { gateStatus, reauthHref, type GateState } from '@/lib/sync/owner-sync';
 import { importRecord } from '@/lib/sync/recordImport';
 import { SYNC_WORDS, syncCopy } from '@/lib/copy/sync';
+import { usePreviewNoticeOpen } from '@/components/PreviewNotice';
 
 type Notice = { text: string; tone: 'info' | 'ok' | 'warn' | 'error' };
 
@@ -99,6 +101,7 @@ export function SyncPanel({
 }) {
   const c = syncCopy();
   const online = useOnline();
+  const noticeOpen = usePreviewNoticeOpen();
   const [gate, setGate] = useState<{ state: GateState; label: string | null } | null>(null);
   const [cloud, setCloud] = useState<CloudRecordRow[] | null>(null);
   const [diagnostics, setDiagnostics] = useState<CloudDiagnosticRow[] | null>(null);
@@ -107,7 +110,7 @@ export function SyncPanel({
   const [notice, setNotice] = useState<Notice | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!canSync()) return;
+    if (!maySend()) return;
     const snap = await readAccount();
     setGate(snap.gate);
     setWaiting(snap.waiting);
@@ -115,10 +118,11 @@ export function SyncPanel({
     setDiagnostics(snap.diagnostics);
   }, []);
 
-  // Opened, or back online while open. Nothing is fetched for a tab nobody is looking at.
+  // Opened, back online while open, or the first-run notice just confirmed. Nothing is fetched for
+  // a tab nobody is looking at, and nothing at all before the notice is confirmed (`refresh`).
   useEffect(() => {
     void refresh();
-  }, [online, refresh]);
+  }, [online, noticeOpen, refresh]);
 
   const cloudIds = useMemo(() => new Set((cloud ?? []).map((r) => r.id)), [cloud]);
   const localIds = useMemo(() => new Set(records.map((r) => r.id)), [records]);
@@ -127,6 +131,7 @@ export function SyncPanel({
   const expire = useCallback(() => setGate((g) => ({ state: 'expired', label: g?.label ?? null })), []);
 
   const sync = useCallback(async () => {
+    if (!maySend()) return;
     setBusy('sync');
     try {
       // The account as it is now, not as the panel last saw it: another device may have sent some.

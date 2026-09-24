@@ -107,7 +107,8 @@ export const FEATURES: Feature[] = [
     surfaces: ['records'],
   },
   {
-    /* RECORDS › SYNC, the error records, and the PRIVACY link. No tab of its
+    /* RECORDS › SYNC, the error records, the PRIVACY link, and the first-run
+       notice that says what they send before anything is sent. No tab of its
        own: the SYNC panel sits beside the RECORDS table, and its surfaces are
        gated on the variant where they are drawn (tsunagi-m-chrome section 6). */
     id: 'owner-sync',

@@ -21,9 +21,15 @@
  *
  * Preview only: `canSync()` is false in production and under `next dev`, and then this does
  * nothing at all - no request, no IndexedDB.
+ *
+ * And not before the owner has confirmed the first-run notice (lib/sync/previewNotice.ts). Until
+ * then `send` answers "not sent" without a request, so a failure waits in the outbox exactly as it
+ * would without a connection, and the outbox is not flushed - not even asked whether the session
+ * is active.
  */
 import { api, gzipB64, outbox } from './owner-sync';
-import { appBuild, canSync } from './cloud';
+import { appBuild, canSync, maySend } from './cloud';
+import { noticeAcknowledged } from './previewNotice';
 import { decodeOdometer } from '@/lib/domain/odometer';
 import { hashImage, secureOf } from '@/lib/domain/image';
 import { recordVin } from '@/lib/domain/vin';
@@ -51,6 +57,8 @@ export interface LinkFailure {
  * signed in" keep it waiting.
  */
 async function send(body: unknown): Promise<boolean> {
+  // Before the notice is confirmed nothing goes: "not sent", so it waits in the outbox.
+  if (!noticeAcknowledged()) return false;
   const r = await api('/api/diagnostics', { method: 'POST', body });
   if (r.ok) return true;
   return r.status === 400 || r.status === 409 || r.status === 413;
@@ -106,7 +114,7 @@ export function reportLinkFailure(f: LinkFailure): void {
 
 /** Send whatever is waiting - after a SYNC went through, say. Never throws. */
 export async function flushErrorRecords(): Promise<number> {
-  if (!canSync()) return 0;
+  if (!maySend()) return 0;
   return box.flush(send);
 }
 

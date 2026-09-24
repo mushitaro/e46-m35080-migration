@@ -25,6 +25,7 @@ DS2 越しに机上で確かめる（TEST）。
 - 環境はオーナー向けプレビュー（`e46-m35080-migration-preview`）だけ。ソースは本番の名前とアイコンを持ち、プレビューは `build:preview` でビルド後に付ける。
 - `web/functions/_owner-gate/*` と `web/lib/sync/owner-sync.ts` は tsunagi-m3 `tools/owner-gate` の複写。ここで編集しない（`npm run gate:verify`）。
 - SYNC の API は持ち主を `ownerOf(context.data)` だけから取り、全クエリに `owner = ?`。配信は `npm run deploy` だけ（公開済みの `origin/main` でなければ拒む）。
+- **プレビューは、送るものを示して確認されるまで何も送らない。**初回起動のダイアログ（`web/components/PreviewNotice.tsx`、文言は m3 の告知と同文で `web/lib/copy/sync.ts`）が「確認して続ける」（`preview-notice:v1`）まで画面を塞ぐ。m3 の `/preview-notice` ではなくアプリ自身が示す（運営者、2026-09-24）。送る経路を足すときは `web/lib/sync/cloud.ts` の `maySend()` を通し、送る中身が変わったら m3 の告知とプライバシーポリシーと一緒に直す。
 
 ## 機器へ何を送るか
 

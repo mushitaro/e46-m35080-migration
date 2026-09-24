@@ -39,6 +39,7 @@ import { usePreviewSurfaces } from '@/lib/domain/variant';
 import { VariantBadge } from '@/components/VariantBadge';
 import { PrivacyLink } from '@/components/PrivacyLink';
 import { SyncPanel } from '@/components/SyncPanel';
+import { PreviewNotice, usePreviewNoticeOpen } from '@/components/PreviewNotice';
 import { diff, parseImageFile, secureOf, verdictFor } from '@/lib/domain/image';
 import {
   applyBytes,
@@ -120,6 +121,9 @@ export default function Page() {
   /* Whether this render may draw non-stable surfaces. A release always says
      false; in preview the badge can force it false too. */
   const previewSurfaces = usePreviewSurfaces();
+  /* The preview's first-run notice: until the owner confirms what the preview sends, it covers the
+     app, and the header and the work area behind it are inert. Never open in a release. */
+  const noticeOpen = usePreviewNoticeOpen();
 
   /* MODE (lib/domain/modes.ts) and, per mode, the tab the reader was last on - so switching to
      TEST and back lands where the job was left, not at the start of it. */
@@ -915,7 +919,7 @@ export default function Page() {
 
   return (
     <main className="flex h-screen flex-col overflow-hidden">
-      <header className="relative flex h-[48px] shrink-0 items-center gap-4 bg-slate-950/80 px-6 backdrop-blur-md">
+      <header inert={noticeOpen} className="relative flex h-[48px] shrink-0 items-center gap-4 bg-slate-950/80 px-6 backdrop-blur-md">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5"
@@ -947,7 +951,7 @@ export default function Page() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden min-[900px]:flex-row">
+      <div inert={noticeOpen} className="flex min-h-0 flex-1 flex-col overflow-hidden min-[900px]:flex-row">
         {/* Work surface - 61.8% */}
         <section className="flex h-[38.2%] min-h-0 flex-col border-b border-slate-900 min-[900px]:h-full min-[900px]:w-[61.8%] min-[900px]:border-b-0 min-[900px]:border-r">
           <div className="flex h-[44px] shrink-0 items-center border-b border-slate-900 bg-slate-900/50 px-4 backdrop-blur-sm">
@@ -1069,6 +1073,8 @@ export default function Page() {
           setPending(null);
         }}
       />
+
+      <PreviewNotice open={noticeOpen} />
     </main>
   );
 }

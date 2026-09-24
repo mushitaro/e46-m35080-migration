@@ -13,7 +13,7 @@
 //  lives in Diagnosis. Put it in every repo and run it."). Differences from the
 //  reference, each forced by this repo rather than chosen:
 //    - there is no src/: the app lives in app/, components/ and lib/
-//    - OUTLINE_ALLOWED names this repo's five outlined things
+//    - OUTLINE_ALLOWED names this repo's six outlined things
 //    - it runs as the first step of `npm run test`, so the same gate that
 //      blocks a deploy on a failing test blocks it on a token violation
 // ============================================================================
@@ -63,10 +63,11 @@ const OUTLINE_ALLOWED = new Set([
     'components/ui.tsx',
     // A drop zone genuinely is an area.
     'components/DropZone.tsx',
-    // The floating surfaces: the write-confirm modal, and the MODE sheet that
-    // opens from the hub panel's corner. Both are detached from the page and
-    // need an edge.
+    // The floating surfaces: the write-confirm modal, the preview's first-run
+    // notice, and the MODE sheet that opens from the hub panel's corner. All
+    // three are detached from the page and need an edge.
     'components/ConfirmDialog.tsx',
+    'components/PreviewNotice.tsx',
     'components/ModeCorner.tsx',
     // The hub ring is a STATE indicator, not a frame. Named here so a second
     // ring cannot appear without this list changing.

@@ -2,10 +2,12 @@
  * The account half of SYNC: this app's own /api/sessions and /api/diagnostics, through the owner
  * gate, with the cookie the gate set when the owner arrived from m3.
  *
- * Every call here first asks `canSync()`, and a build that answers no makes NO request - not a
+ * Every call here first asks `maySend()`, and a build that answers no makes NO request - not a
  * failed one, none. Production carries no `app-variant` tag, so `isPreviewBuild()` is false; so is
  * `next dev`, which has no tag and no /api to talk to. That is the property production's privacy
- * rests on: the release is local-only (tsunagi-m-chrome section 6).
+ * rests on: the release is local-only (tsunagi-m-chrome section 6). The preview answers no as well
+ * until its owner has confirmed the first-run notice (lib/sync/previewNotice.ts): before that it
+ * talks to its API exactly as much as production does.
  *
  * No token, no settings: the requests are same-origin and the gate knows who is asking. Nothing
  * here sends an owner id - the server takes the owner from the gate, never from the body.
@@ -14,10 +16,17 @@
  * append-only and a record never changes, so "has the account got it" is a question of its id.
  */
 import { api, isPreviewBuild, type ApiResult } from './owner-sync';
+import { noticeAcknowledged } from './previewNotice';
 import type { DeviceRecord } from '@/lib/domain/records';
 
 /** Only the preview build syncs. */
 export const canSync = (): boolean => isPreviewBuild();
+
+/**
+ * And only once its owner has read what it sends and confirmed it (components/PreviewNotice.tsx).
+ * Every request this app makes to its own API is behind this.
+ */
+export const maySend = (): boolean => canSync() && noticeAcknowledged();
 
 const notSent = <T>(): ApiResult<T> => ({ ok: false, status: 0, data: null, expired: false, tooLarge: false });
 
@@ -129,34 +138,34 @@ export function fromCloud(row: Record<string, unknown>): DeviceRecord | null {
 }
 
 export async function sendRecord(r: DeviceRecord): Promise<ApiResult<{ id: string; storedBytes: number }>> {
-  if (!canSync()) return notSent();
+  if (!maySend()) return notSent();
   return api('/api/sessions', { method: 'POST', body: toWire(r) });
 }
 
 export async function listCloudRecords(): Promise<ApiResult<{ sessions: CloudRecordRow[] }>> {
-  if (!canSync()) return notSent();
+  if (!maySend()) return notSent();
   return api('/api/sessions');
 }
 
 /** One account copy, decoded, or null with the result when it could not be fetched or read. */
 export async function fetchCloudRecord(id: string): Promise<{ record: DeviceRecord | null; result: ApiResult<unknown> }> {
-  if (!canSync()) return { record: null, result: notSent() };
+  if (!maySend()) return { record: null, result: notSent() };
   const r = await api<Record<string, unknown>>(`/api/sessions/${encodeURIComponent(id)}`);
   if (!r.ok || !r.data) return { record: null, result: r };
   return { record: fromCloud(r.data), result: r };
 }
 
 export async function deleteCloudRecord(id: string): Promise<ApiResult<unknown>> {
-  if (!canSync()) return notSent();
+  if (!maySend()) return notSent();
   return api(`/api/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 export async function listDiagnostics(): Promise<ApiResult<{ diagnostics: CloudDiagnosticRow[] }>> {
-  if (!canSync()) return notSent();
+  if (!maySend()) return notSent();
   return api('/api/diagnostics');
 }
 
 export async function deleteDiagnostic(id: string): Promise<ApiResult<unknown>> {
-  if (!canSync()) return notSent();
+  if (!maySend()) return notSent();
   return api(`/api/diagnostics/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }

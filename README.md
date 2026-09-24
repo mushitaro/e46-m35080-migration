@@ -304,14 +304,21 @@ PREVIEW row of the M menu.
   image after each write — in the owner's own account, where another device can use them as
   a REWRITE SOURCE. When an operation fails, the app sends an
   error record by itself. Both are stored per owner; nobody else can list, read
-  or delete them. What is sent and for how long is in the privacy policy:
+  or delete them. TEST reports are downloaded, never sent.
+- **Nothing is sent before the owner says yes.** The first time the preview opens in a
+  browser, a dialog says what it sends, when, what for, who can see it and how to delete it —
+  m3's words, verbatim — and covers the app until the owner presses 確認して続ける / Confirm
+  and continue (`components/PreviewNotice.tsx`, remembered as `preview-notice:v1` in
+  localStorage). Until then SYNC, the account lists and the error records' outbox make no
+  request, and an error record waits on the device (`lib/sync/cloud.ts` `maySend()`,
+  pinned by `test/previewNotice.test.ts`). The full text is the privacy policy:
   <https://m3.tsunagi.app/privacy-policy#preview>
   (English: <https://m3.tsunagi.app/en/privacy-policy#preview>), linked from the
-  shield in the preview's header. TEST reports are downloaded, never sent.
+  dialog and from the shield in the preview's header.
 - **Reference data.** CODING's definitions and TEST's names are served from `/api/ref/<name>`
   to the signed-in owner only, from a private R2 bucket, and held in memory (below).
 - **Production sends nothing.** A build without `app-variant=preview` has no
-  SYNC panel, no PRIVACY link and makes no `/api` or `/_gate` request
+  SYNC panel, no PRIVACY link, no first-run dialog and makes no `/api` or `/_gate` request
   (`lib/sync/cloud.ts` `canSync()`, pinned by `test/sync.test.ts`; `lib/refdata/load.ts`).
 
 The source carries production's identity (`E46 M35080 /// MIGRATION`,

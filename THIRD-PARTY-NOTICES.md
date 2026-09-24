@@ -44,9 +44,10 @@ its own origin: `/_gate/status` (is the owner still signed in), `/api/sessions` 
 records the owner chooses to SYNC: the 1 KB image, the short VIN, the odometer reading, the
 kind of record, its parent, its note and whether it was PRACTICE) and `/api/diagnostics`
 (error records the app sends by itself when an operation fails). They are stored per owner
-in Cloudflare D1. What is sent, and for how long, is disclosed on m3's `/preview-notice`
-before first use and in its privacy policy
-(<https://m3.tsunagi.app/privacy-policy#preview>), which the preview links from its header.
+in Cloudflare D1. What is sent, and for how long, is disclosed before first use by the
+preview's own first-run dialog, together with a link to the privacy policy
+(<https://m3.tsunagi.app/privacy-policy#preview>), which the preview also links from its
+header. Nothing is sent until the owner has confirmed that dialog.
 
 The preview also READS `/api/ref/kombi-coding` and `/api/ref/kombi-names` — the reference
 data CODING and TEST use (3.3). Nothing is sent to get them but the request itself.
