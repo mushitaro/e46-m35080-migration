@@ -43,8 +43,8 @@ import { CODED_VIN_AT, encodeCodedVin, recomputeChecksums } from '@/lib/domain/l
 export type MockChipPreset = 'used' | 'late' | 'blank';
 
 /**
- * What PRACTICE reads: one of the presets, a file the reader chose in INSPECT (USE AS PRACTICE
- * CHIP), or - `coded` - the late preset made to fit a coding definition (lib/ncs/practice.ts, the
+ * What PRACTICE reads: one of the presets, a file the reader chose on READ (PRACTICE CHIP), or -
+ * `coded` - the late preset made to fit a coding definition (lib/ncs/practice.ts, the
  * name is the definition's), so coding is rehearsed with nothing opened. In memory only, and a
  * copy: the simulated chip never writes back to what it was made from.
  */

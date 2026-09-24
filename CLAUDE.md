@@ -31,7 +31,7 @@ DS2 越しに机上で確かめる（TEST）。
 - **モードは CHIP と TEST**（`web/lib/domain/modes.ts`、ハブ枠の左下の MODE コーナー。TUNER の VE / IDLE と同じ形）。モードがタブ・ケーブル・ハブ・PRACTICE を決める。チップへの書き込み中とメータの診断中は切り替えない。
 - **UNO はチップだけ、K+DCAN はメータだけ。**同じ物に二つの機器をつながない。TEST は UNO のポート（USB VID 0x2341 / 0x2a03）を拒む。ファーム（`firmware/`）は TEST のために変えない。
 - **チップへの書き込みは一本だけ**：`web/lib/hooks/useM35080Link.ts` の `runWrite`（BACKUP が無ければ拒否 → 書く → 読み返す → 全体を読み直して意図と照合 → 記録）。
-- **書く計画も一つだけ**：REWRITE のジョブ（`web/lib/domain/job.ts` の `planJob`）。SOURCE（チップ / ダンプ）→ VIN → コーディング → 走行距離（WRINC、チップのみ）の順に 1 つの計画にし、確認 1 回・書き込み 1 回。書き込む処理を増やすときは、別のタブや別の計画を作らずジョブの一部にする。
+- **書く計画も一つだけ**：REWRITE のジョブ（`web/lib/domain/job.ts` の `planJob`）。SOURCE（チップ / ファイル）→ BYTES（HEX で手で変えたバイト。変えてよいバイトは `byteEdits.ts` の `byteLock`）→ VIN → コーディング → 走行距離（WRINC、チップのみ）の順に 1 つの計画にし、確認 1 回・書き込み 1 回。チップ無しでは SAVE EDITED（`savedImage`）でファイルにして後で書く。書き込む処理を増やすときは、別のタブや別の計画を作らずジョブの一部にする（INSPECT もこうして REWRITE に入った）。
 - **メータへ送ってよいかを決めるのは `web/lib/kombi/runGate.ts` の `mayRun` だけ**。許可リスト・長さの完全一致・バリアントとベンチ確認の門・針の範囲と 1 歩の上限はここにある。送らない要求（05 / 07 / 0F / 12 など）は builder そのものを作らない。
 - **番地の意味は `web/lib/domain/layout.ts`**（数値とアドレスだけ）。late layout はチェックサムで判定し、そうでないイメージには番地の意味を当てはめない。範囲を広げるときは、実チップでの測定（`layoutEvidence` / `ncsEvidence`）を先に。コーディングの門と測定値は `docs/CODING.md`。
 - TEST モードと REWRITE の CODING 欄は experimental（`web/lib/domain/features.ts` に理由）。昇格は運営者の判断。

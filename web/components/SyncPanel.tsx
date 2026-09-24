@@ -17,7 +17,8 @@
  * "Sign in again" is offered only when it can cost nothing but a page load: the session has
  * actually expired (not merely "unknown" - m3 unreachable), the device is online, the bridge is
  * disconnected and nothing here is running. It is a same-tab navigation through m3, so an open
- * serial link would be dropped by it; unsaved INSPECT edits are confirmed first.
+ * serial link would be dropped by it; changes to a file on REWRITE that SAVE EDITED has not saved
+ * are confirmed first.
  */
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
@@ -93,7 +94,7 @@ export function SyncPanel({
   onRecordsChanged: () => void;
   linkPhase: Phase;
   linkBusy: boolean;
-  /** Something a page load would lose (unsaved INSPECT edits). */
+  /** Something a page load would lose: a file's changes on REWRITE that SAVE EDITED has not saved. */
   unsavedWork: boolean;
 }) {
   const c = syncCopy();

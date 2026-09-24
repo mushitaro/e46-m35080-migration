@@ -38,6 +38,10 @@ const CODE_TABLE: Record<RefusalCode, true> = {
   'backup-size': true,
   'current-size': true,
   'restore-lower': true,
+  'bytes-outside': true,
+  'bytes-protected': true,
+  'bytes-stale': true,
+  'bytes-checksum-broken': true,
 };
 
 const ALL_CODES = Object.keys(CODE_TABLE) as RefusalCode[];

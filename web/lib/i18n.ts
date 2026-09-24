@@ -28,7 +28,11 @@ export type RefusalInfo = {
   maxKm?: number;
   /** How many bytes a refused file actually had. */
   fileSize?: number;
+  /** The byte a refused hand edit was on. */
+  address?: number;
 };
+
+const at = (a: number | undefined) => (a === undefined ? '' : ` (0x${a.toString(16).toUpperCase().padStart(3, '0')})`);
 
 /** Whatever layout.tsx puts in <html lang>. The server snapshot. */
 export const STATIC_LANG: Lang = 'ja';
@@ -149,7 +153,7 @@ const JA = {
     'セキュア領域は元に戻せないため、このまま次の操作へ進まないでください。',
 
   practiceMode: 'PRACTICE モード — 実機には書き込みません',
-  /* INSPECT's USE AS PRACTICE CHIP: the simulated chip is a file, and the notice says which. */
+  /* READ's PRACTICE CHIP from a file: the simulated chip is that file, and the notice says which. */
   practiceModeFile: (name: string) => `PRACTICE モード — 模擬チップ: ${name}（実機には書き込みません）`,
   /* A practice chip made to fit a coding definition (lib/ncs/practice.ts): made up, but codable. */
   practiceModeCoded: (file: string) => `PRACTICE モード — 模擬チップは ${file} に合わせて作った架空のチップです（実機には書き込みません）`,
@@ -166,7 +170,9 @@ const JA = {
      whose job is to state the true consequence assert a reading the screen had refused to give. */
   confirmJob: (j: JobSummary) =>
     [
-      j.source && `標準領域 0x020–0x3FF を、ダンプ ${j.source.name} の内容にします（チップと違う ${j.source.bytes} バイト）。`,
+      j.source && `標準領域 0x020–0x3FF を、ファイル ${j.source.name} の内容にします（チップと違う ${j.source.bytes} バイト）。`,
+      j.fixed && 'ファイルのチェックサムを計算し直してから使います（FIX CHECKSUMS）。',
+      j.edits > 0 && `HEX で手で変えたバイト ${j.edits} 個を書きます。`,
       j.vin?.kind === 'write' && `VIN を ${j.vin.vin} にします（チップにある VIN の欄すべて）。`,
       j.vin?.kind === 'blank' && 'VIN（ASCII の欄）を空にします。',
       j.coding > 0 && `コーディングを ${j.coding} 項目変更します（変わる項目の mask のビットだけ）。`,
@@ -181,7 +187,7 @@ const JA = {
           `セキュア領域 0x00–0x1F の ${j.odometer.ops} 個のレジスタに WRINC を実行します。\n` +
           'この操作は取り消せません。一度書き込んだ値は二度と引き下げられません。\n' +
           '書き込む値は車両の実際の走行距離と一致していなければなりません。'
-        : '\n走行距離（0x000–0x01F）には触れません。標準領域は、書く前の BACKUP を SOURCE にすれば書き戻せます。',
+        : '\n走行距離（0x000–0x01F）には触れません。標準領域は、書く前の BACKUP を SOURCE の FILE にすれば書き戻せます。',
     ]
       .filter(Boolean)
       .join('\n'),
@@ -241,15 +247,34 @@ const JA = {
           reason: 'このチップはチェックサムが合っていないため、コーディング側の VIN 欄を書き換えません。',
           detail:
             '0x07A の VIN を書くには 0x16E のチェックサムを計算し直します。書く前から合っていない' +
-            'イメージで計算し直すと、何が壊したのかを隠してしまいます。読み直すか、バックアップを ' +
-            'INSPECT で確認してください。',
+            'イメージで計算し直すと、何が壊したのかを隠してしまいます。まず READ し直してください。' +
+            '直らなければ、良い BACKUP かドナーのファイルを SOURCE の FILE にして書きます。',
         };
       case 'backup-checksum-broken':
         return {
-          reason: 'このバックアップはチェックサムが合っていません。',
+          reason: 'このファイルはチェックサムが合っていません。',
           detail:
             'このまま書くと、メータが受け付けないチェックサムのままチップに戻ります。' +
-            'INSPECT でファイルを開き、FIX CHECKSUMS で直してから、そのファイルを使ってください。',
+            'SOURCE の FIX CHECKSUMS で計算し直すと使えます（取り消せます）。',
+        };
+      case 'bytes-outside':
+        return { reason: `チップのアドレスではありません${at(r.address)}。` };
+      case 'bytes-protected':
+        return {
+          reason: `このバイトは手で変えません${at(r.address)}。`,
+          detail: '走行距離は ODOMETER、VIN は VIN が書き、チェックサムはジョブが計算します。0x07A–0x087 の走行距離のオフセットと K 値も手では変えません。',
+        };
+      case 'bytes-stale':
+        return {
+          reason: `手で変えたバイトが、今の SOURCE と合いません${at(r.address)}。`,
+          detail: '別の内容に対して作った編集です。REVERT して、変え直してください。',
+        };
+      case 'bytes-checksum-broken':
+        return {
+          reason: `チップのチェックサムが合っていないため、その範囲のバイトは手で変えません${at(r.address)}。`,
+          detail:
+            '計算し直すと、何が壊したのかを隠してしまいます。まず READ し直してください。' +
+            '直らなければ、良い BACKUP かドナーのファイルを SOURCE の FILE にして書きます。',
         };
       case 'km-invalid':
         return { reason: '走行距離は 0 以上の整数で入力してください' };
@@ -270,9 +295,9 @@ const JA = {
         };
       case 'backup-no-data':
         return {
-          reason: 'このバックアップにはクラスターのデータが入っていません。',
+          reason: 'このファイルにはクラスターのデータが入っていません。',
           detail:
-            '標準領域 0x20–0x3FF が全て同じ値です（全FF・全00など）。正しく読み出せた元チップのバックアップを選んでください。',
+            '標準領域 0x20–0x3FF が全て同じ値です（全FF・全00など）。正しく読み出せたチップのファイル（BACKUP やドナーのダンプ）を選んでください。',
         };
       case 'image-size':
       case 'current-size':
@@ -332,7 +357,9 @@ const EN: typeof JA = {
   confirmWriteTitle: 'Write to the chip',
   confirmJob: (j: JobSummary) =>
     [
-      j.source && `The standard array 0x020-0x3FF becomes the dump ${j.source.name} (${j.source.bytes} byte(s) differ from the chip).`,
+      j.source && `The standard array 0x020-0x3FF becomes the file ${j.source.name} (${j.source.bytes} byte(s) differ from the chip).`,
+      j.fixed && "The file's checksums are recomputed before it is used (FIX CHECKSUMS).",
+      j.edits > 0 && `${j.edits} byte(s) changed by hand in HEX are written.`,
       j.vin?.kind === 'write' && `The VIN becomes ${j.vin.vin}, in every VIN field the chip has.`,
       j.vin?.kind === 'blank' && 'The VIN (the ASCII field) is blanked.',
       j.coding > 0 && `${j.coding} coding parameter(s) change (only the bits under each one's mask).`,
@@ -347,7 +374,7 @@ const EN: typeof JA = {
           `This performs WRINC on ${j.odometer.ops} register(s) in the secure area 0x00–0x1F.\n` +
           'This cannot be undone. A value once written can never be lowered.\n' +
           "The value written must match the vehicle's true mileage."
-        : '\nThe odometer (0x000-0x01F) is not touched. The standard array can be put back by writing the BACKUP taken before this, as the SOURCE.',
+        : '\nThe odometer (0x000-0x01F) is not touched. The standard array can be put back by writing the BACKUP taken before this, as the SOURCE FILE.',
     ]
       .filter(Boolean)
       .join('\n'),
@@ -407,15 +434,36 @@ const EN: typeof JA = {
           reason: "This chip's checksums do not hold, so its coded VIN field is not rewritten.",
           detail:
             'Writing the VIN at 0x07A means recomputing the checksum at 0x16E. Recomputing it over ' +
-            'an image that was already inconsistent would hide whatever broke it. Read the chip ' +
-            'again, or check the backup in INSPECT.',
+            'an image that was already inconsistent would hide whatever broke it. READ the chip ' +
+            'again; if they still fail, write a good BACKUP or a donor file as the SOURCE FILE.',
         };
       case 'backup-checksum-broken':
         return {
-          reason: "This backup's checksums do not hold.",
+          reason: "This file's checksums do not hold.",
           detail:
-            'Writing it would put the chip back with a checksum the cluster will not accept. Open ' +
-            'the file in INSPECT, press FIX CHECKSUMS, save it, and use that file.',
+            'Writing it would put the chip back with a checksum the cluster will not accept. ' +
+            'FIX CHECKSUMS on the SOURCE recomputes them, and can be taken back.',
+        };
+      case 'bytes-outside':
+        return { reason: `Not an address of the chip${at(r.address)}.` };
+      case 'bytes-protected':
+        return {
+          reason: `This byte is not changed by hand${at(r.address)}.`,
+          detail:
+            'ODOMETER writes the odometer, VIN writes the VIN, and the job computes the checksums. ' +
+            'The odometer offset and the K-numbers at 0x07A-0x087 are not changed by hand either.',
+        };
+      case 'bytes-stale':
+        return {
+          reason: `A byte changed by hand no longer matches the SOURCE${at(r.address)}.`,
+          detail: 'The edit was made on other bytes. REVERT and make it again.',
+        };
+      case 'bytes-checksum-broken':
+        return {
+          reason: `The chip's checksums do not hold, so no byte they cover is changed by hand${at(r.address)}.`,
+          detail:
+            'Recomputing them would hide whatever broke them. READ the chip again; if they still ' +
+            'fail, write a good BACKUP or a donor file as the SOURCE FILE.',
         };
       case 'km-invalid':
         return { reason: 'Mileage must be a whole number of kilometres, 0 or more' };
@@ -436,9 +484,9 @@ const EN: typeof JA = {
         };
       case 'backup-no-data':
         return {
-          reason: 'This backup holds no cluster data.',
+          reason: 'This file holds no cluster data.',
           detail:
-            'Its standard array 0x20-0x3FF is one value repeated (all FF, all 00, ...). Pick a backup of the original chip that read correctly.',
+            'Its standard array 0x20-0x3FF is one value repeated (all FF, all 00, ...). Pick a file of a chip that read correctly (a BACKUP, or a donor dump).',
         };
       case 'image-size':
       case 'current-size':

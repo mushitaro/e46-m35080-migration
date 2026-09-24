@@ -5,7 +5,7 @@ import { detectLayout } from '@/lib/domain/layout';
 import { readVins } from '@/lib/domain/vin';
 import { secureOf } from '@/lib/domain/image';
 import { presetImage } from '@/lib/link/mockLink';
-import { planJob } from '@/lib/domain/job';
+import { NO_BYTES, planJob } from '@/lib/domain/job';
 import { codingFixture, P } from './support/codingDoc';
 
 /**
@@ -43,6 +43,7 @@ describe("PRACTICE's coded chip", () => {
     const plan = planJob({
       chip: made.image,
       source: { kind: 'chip' },
+      bytes: NO_BYTES,
       odometer: { kind: 'keep' },
       vin: { kind: 'keep' },
       coding: { doc, changes: [{ param: P.mode, option: other }] },

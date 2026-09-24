@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Unplug, FileCode } from 'lucide-react';
+import { Unplug, FileCode, ChevronRight } from 'lucide-react';
 
 import { useM35080Link, type WriteJob } from '@/lib/hooks/useM35080Link';
 import { useKombiLink } from '@/lib/hooks/useKombiLink';
@@ -15,12 +15,13 @@ import { WiringDiagram } from '@/components/WiringDiagram';
 import { DropZone } from '@/components/DropZone';
 import { ModeCorner } from '@/components/ModeCorner';
 import { CodingTable } from '@/components/CodingTable';
+import { ByteEditBar, type LaterPart } from '@/components/ByteEditBar';
+import { PracticeChipPanel } from '@/components/PracticeChipPanel';
 import { SetupPanel } from '@/components/panels/SetupPanel';
 import { RecordsTable } from '@/components/panels/RecordsPanel';
 import { StructurePanel } from '@/components/panels/StructurePanel';
 import { AddressPanel } from '@/components/panels/AddressPanel';
-import { InspectPanel } from '@/components/panels/InspectPanel';
-import { RewritePanel, type SourceKind } from '@/components/panels/RewritePanel';
+import { RewritePanel, jobRefusalText, type SourceKind } from '@/components/panels/RewritePanel';
 import { CodingPanel, type DonorState } from '@/components/panels/CodingPanel';
 import { BenchPanel, ChecksPanel } from '@/components/panels/TestPanel';
 import { GUIDE_STEPS, type GuideStepId } from '@/components/AssemblyGuide';
@@ -30,7 +31,7 @@ import { ClusterDiagram } from '@/components/ClusterDiagram';
 import type { BenchWireId } from '@/lib/domain/clusterBench';
 import { pickReference } from '@/lib/kombi/checks';
 import type { VinAction, RefusalCode } from '@/lib/domain/operations';
-import { planJob, jobNote, type JobInput, type JobSource, type OdometerIntent } from '@/lib/domain/job';
+import { planJob, jobNote, savedImage, NO_BYTES, type JobBytes, type JobInput, type JobSource, type OdometerIntent } from '@/lib/domain/job';
 import { deriveSteps, recommend, type StepId } from '@/lib/domain/workflow';
 import { MODE_STEPS, modeLock, modeOf, selectableModes, type AppMode } from '@/lib/domain/modes';
 import { enabledSurfaces } from '@/lib/domain/features';
@@ -38,11 +39,23 @@ import { usePreviewSurfaces } from '@/lib/domain/variant';
 import { VariantBadge } from '@/components/VariantBadge';
 import { PrivacyLink } from '@/components/PrivacyLink';
 import { SyncPanel } from '@/components/SyncPanel';
-import { parseImageFile } from '@/lib/domain/image';
-import { isDirty, openWorkspace, type Workspace } from '@/lib/domain/inspect';
+import { diff, parseImageFile, secureOf, verdictFor } from '@/lib/domain/image';
+import {
+  applyBytes,
+  byteLock,
+  changedAddresses,
+  editByte,
+  revertAll,
+  sameImage,
+  startEdits,
+  undoLast,
+  type ByteEdits,
+} from '@/lib/domain/byteEdits';
 import { vinRanges } from '@/lib/domain/addressMap';
 import { detectLayout } from '@/lib/domain/layout';
-import { listRecords, deleteRecord, type DeviceRecord } from '@/lib/domain/records';
+import { decodeOdometer } from '@/lib/domain/odometer';
+import { recordVin } from '@/lib/domain/vin';
+import { listRecords, deleteRecord, downloadImage, editedFilename, type DeviceRecord } from '@/lib/domain/records';
 import { useRefData } from '@/lib/refdata/useRefData';
 import { chooseDefinition, optionValue, rowsFor } from '@/lib/ncs/decode';
 import { differingFrom, effectiveChanges, type Staged } from '@/lib/ncs/view';
@@ -59,7 +72,8 @@ import {
 import { isWebSerialSupported } from '@/lib/transport/webSerialTransport';
 import { CHROME } from '@/lib/copy/chrome';
 import { cc } from '@/lib/copy/coding';
-import { EmptyState, LABEL, WORDMARK, pillClass } from '@/components/ui';
+import { jc } from '@/lib/copy/job';
+import { EmptyState, LABEL, TextButton, WORDMARK, pillClass } from '@/components/ui';
 import { bridgeHubFor } from '@/lib/hub/bridgeHub';
 import { kombiHubFor } from '@/lib/hub/kombiHub';
 import { linkOwnerOfMode } from '@/lib/hub/owner';
@@ -85,6 +99,12 @@ function useLang(): Lang {
 
 /** No picks: one shared empty map, so "nothing staged" is the same value every render. */
 const NO_PICKS: Staged = new Map();
+
+/** Coding picks, made on one source and against one definition. */
+type Picks = { source: Uint8Array; file: string; picks: Map<number, number> };
+
+/** Per source kind, so switching CHIP and FILE and back keeps what was done on each. */
+type PerSource<T> = Record<SourceKind, T | null>;
 
 /** REWRITE's work surface: the image as it will be, or the coding list. */
 type JobView = 'hex' | 'coding';
@@ -123,25 +143,25 @@ export default function Page() {
   const [targetKm, setTargetKm] = useState('');
   const [vinAction, setVinAction] = useState<VinAction>({ kind: 'keep' });
   const [vinInput, setVinInput] = useState('');
-  /* The coding picks, tied to the SOURCE image and the definition they were made against - a new
-     read, another dump or other data makes them someone else's picks, so they are simply not used
-     then (derived below, never cleared by an effect). And the row picked. */
-  const [codingPicks, setCodingPicks] = useState<{ source: Uint8Array; file: string; picks: Map<number, number> } | null>(null);
+  /* What was done on each source - the coding picks and the bytes changed by hand - kept per source
+     kind and tied to the source's CONTENT: reading the same chip again keeps them; a chip that now
+     holds something else (the job was written), or another file, makes them someone else's, so they
+     are simply not used then (derived below, never cleared by an effect). And the row picked. */
+  const [codingPicks, setCodingPicks] = useState<PerSource<Picks>>({ chip: null, dump: null });
+  const [byteEdits, setByteEdits] = useState<PerSource<ByteEdits>>({ chip: null, dump: null });
   const [codingSelected, setCodingSelected] = useState<number | null>(null);
   const [jobView, setJobView] = useState<JobView>('hex');
-
-  /* The file workbench. Deliberately NOT `image`: that one means the bytes
-     read off the chip, and every write plans and verifies against it. */
-  const [workspace, setWorkspace] = useState<Workspace | null>(null);
-  const [inspectError, setInspectError] = useState<string | null>(null);
+  /* What SAVE EDITED last saved, so leaving the page asks only about changes not in a file yet. */
+  const [lastSaved, setLastSaved] = useState<Uint8Array | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [records, setRecords] = useState<DeviceRecord[]>([]);
   const [pending, setPending] = useState<{ job: WriteJob; body: string; details: string[] } | null>(
     null,
   );
-  /* INSPECT's USE AS PRACTICE CHIP: the image the next PRACTICE connect reads, if the reader chose
-     one. A copy - editing the file afterwards does not change it. */
+  /* READ's PRACTICE CHIP: the file the next PRACTICE connect reads, if the reader chose one - a
+     copy, never written back. Null is the made-up chip. */
   const [practiceChip, setPracticeChip] = useState<{ name: string; image: Uint8Array } | null>(null);
+  const [practiceError, setPracticeError] = useState<string | null>(null);
 
   /* SETUP-local: which procedure step is open, and which wire is singled out. */
   const [guideStep, setGuideStep] = useState<GuideStepId>('parts');
@@ -185,11 +205,32 @@ export default function Page() {
      invites them to type one - the last field on this screen anyone should be guessing at. */
   const odometerIntent: OdometerIntent = targetKmNum === null ? { kind: 'keep' } : { kind: 'set', km: targetKmNum };
 
-  /* Without a chip the only source there can be is a dump. */
+  /* Without a chip the only source there can be is a file. */
   const effectiveSource: SourceKind = image ? sourceKind : 'dump';
-  const jobSource: JobSource | null =
-    effectiveSource === 'dump' ? (dump ? { kind: 'dump', name: dump.name, image: dump.image } : null) : { kind: 'chip' };
   const sourceImage = effectiveSource === 'dump' ? (dump?.image ?? null) : image;
+
+  /* BYTES: the hand edits made on this source - if they were made on these bytes. */
+  const editsSlot = byteEdits[effectiveSource];
+  const edits = sourceImage && editsSlot && sameImage(editsSlot.source, sourceImage) ? editsSlot : null;
+  const jobBytes: JobBytes = useMemo(
+    () => (edits ? { edits: edits.edits, reseal: effectiveSource === 'dump' && edits.reseal } : NO_BYTES),
+    [edits, effectiveSource],
+  );
+  /** Change the hand edits on the current source, starting them there if there are none yet. */
+  const updateEdits = useCallback(
+    (f: (e: ByteEdits) => ByteEdits) => {
+      if (!sourceImage) return;
+      const kind = effectiveSource;
+      setByteEdits((prev) => {
+        const cur = prev[kind];
+        return { ...prev, [kind]: f(cur && sameImage(cur.source, sourceImage) ? cur : startEdits(sourceImage)) };
+      });
+    },
+    [sourceImage, effectiveSource],
+  );
+
+  /* What this mode's files are marked as: PRACTICE_ while the chip link practises, or is about to. */
+  const chipPractice = practiceBoxFor({ phase, practice: link.practice, busy, intent: practiceIntent }).checked;
 
   /* The definitions: asked for the first time REWRITE's coding is looked at, or PRACTICE is ticked
      - PRACTICE builds its chip to fit them (lib/ncs/practice.ts) - then kept in memory. The preview
@@ -199,15 +240,19 @@ export default function Page() {
   const namesRef = useRefData('kombi-names', step === 'checks');
   const codingDoc = codingRef.state?.ok ? codingRef.state.doc : null;
 
-  /* The content the coding is read from: the source with the VIN applied - what the coding step of
-     the job starts from (lib/domain/job.ts). */
-  const preCoding = useMemo(() => {
-    if (!jobSource) return null;
-    const p = planJob({ chip: image, source: jobSource, odometer: { kind: 'keep' }, vin: effectiveVinAction, coding: null });
-    return p.ok ? p.target : null;
-    // jobSource is rebuilt every render; its identity is the dump's and the chip's.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [image, effectiveSource, dump, effectiveVinAction]);
+  /* The job without its odometer and its coding - the source, the bytes and the VIN - shared by the
+     plan, by the content the coding is read from, and by what SAVE EDITED saves, so the three
+     cannot disagree about any of them. */
+  const baseInput = useMemo(() => {
+    const source: JobSource | null =
+      effectiveSource === 'dump' ? (dump ? { kind: 'dump', name: dump.name, image: dump.image } : null) : { kind: 'chip' };
+    return source ? { chip: image, source, bytes: jobBytes, vin: effectiveVinAction } : null;
+  }, [image, effectiveSource, dump, jobBytes, effectiveVinAction]);
+
+  /* The content the coding is read from: the source with the bytes and the VIN applied - what the
+     coding step of the job starts from (lib/domain/job.ts). Refused, the refusal is what CODING says. */
+  const prePlan = useMemo(() => (baseInput ? planJob({ ...baseInput, odometer: { kind: 'keep' }, coding: null }) : null), [baseInput]);
+  const preCoding = prePlan?.ok ? prePlan.target : null;
 
   const codingChoice = useMemo(
     () => (codingVisible && preCoding && codingDoc ? chooseDefinition(preCoding, codingDoc) : null),
@@ -215,26 +260,47 @@ export default function Page() {
   );
   const codingDef = codingChoice?.kind === 'chosen' ? codingChoice : null;
   const codingRows = useMemo(() => (preCoding && codingDef ? rowsFor(preCoding, codingDef.def) : null), [preCoding, codingDef]);
+  const picksSlot = codingPicks[effectiveSource];
   const staged: Staged =
-    codingPicks && codingDef && codingPicks.source === sourceImage && codingPicks.file === codingDef.file ? codingPicks.picks : NO_PICKS;
+    picksSlot && codingDef && picksSlot.file === codingDef.file && sameImage(picksSlot.source, sourceImage) ? picksSlot.picks : NO_PICKS;
   const codingChanges = useMemo(() => (codingRows ? effectiveChanges(codingRows, staged) : []), [codingRows, staged]);
   const codingChanged = useMemo(() => new Set(codingChanges.map((c) => c.param)), [codingChanges]);
 
   const jobInput: JobInput | null = useMemo(
     () =>
-      jobSource
+      baseInput
         ? {
-            chip: image,
-            source: jobSource,
+            ...baseInput,
             odometer: odometerIntent,
-            vin: effectiveVinAction,
             coding: codingDoc && codingChanges.length > 0 ? { doc: codingDoc, changes: codingChanges } : null,
           }
         : null,
+    // odometerIntent is rebuilt every render; its identity is targetKmNum's.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [image, effectiveSource, dump, targetKmNum, effectiveVinAction, codingDoc, codingChanges],
+    [baseInput, targetKmNum, codingDoc, codingChanges],
   );
   const jobPlan = useMemo(() => (jobInput ? planJob(jobInput) : null), [jobInput]);
+
+  /* SAVE EDITED: the job's result as a file (lib/domain/job.ts savedImage). */
+  const saveImage = useMemo(() => (jobInput ? savedImage(jobInput) : null), [jobInput]);
+  const saveEdited = useCallback(() => {
+    if (!saveImage) return;
+    const km = decodeOdometer(secureOf(saveImage));
+    downloadImage(saveImage, editedFilename(recordVin(saveImage), km.ok ? km.km : null, new Date(), chipPractice));
+    setLastSaved(Uint8Array.from(saveImage));
+  }, [saveImage, chipPractice]);
+  /* A file's changes not in a file of their own yet - what a page load (SIGN IN AGAIN) would lose. A
+     chip's cannot be: signing in again needs the chip disconnected, and without it there is no CHIP. */
+  const fileUnsaved = effectiveSource === 'dump' && saveImage !== null && !sameImage(saveImage, lastSaved);
+
+  /** Which later part of the job writes a byte whatever is typed for it, if one does. */
+  const laterPart = (address: number): LaterPart | null => {
+    if (!jobPlan?.ok || jobPlan.edited[address] === jobPlan.target[address]) return null;
+    const covers = (w: { address: number; data: Uint8Array }) => address >= w.address && address < w.address + w.data.length;
+    if (jobPlan.vinWrites.some(covers)) return 'vin';
+    if (jobPlan.coding?.byteWrites.some(covers)) return 'coding';
+    return null;
+  };
 
   /* DIFF: with a dump as the source, the parameters the dump and the chip hold differently - read
      with the same definition, so only when the chip is the same layout. */
@@ -253,16 +319,45 @@ export default function Page() {
       const row = codingRows?.[param];
       const to = row?.param.kind === 'fsw' ? row.param.options.find((o) => o.id === option) : undefined;
       const same = to && row?.option && optionValue(to) === optionValue(row.option);
+      const kind = effectiveSource;
       setCodingPicks((prev) => {
-        const base = prev && prev.source === sourceImage && prev.file === codingDef.file ? prev.picks : new Map<number, number>();
-        const next = new Map(base);
+        const cur = prev[kind];
+        const mine = cur && cur.file === codingDef.file && sameImage(cur.source, sourceImage) ? cur : null;
+        const next = new Map(mine?.picks ?? []);
         if (option === null || same) next.delete(param);
         else next.set(param, option);
-        return { source: sourceImage, file: codingDef.file, picks: next };
+        return { ...prev, [kind]: { source: mine?.source ?? Uint8Array.from(sourceImage), file: codingDef.file, picks: next } };
       });
       setCodingSelected(param);
     },
-    [sourceImage, codingDef, codingRows],
+    [sourceImage, codingDef, codingRows, effectiveSource],
+  );
+
+  /* READ's PRACTICE CHIP from a file: one image, and a chip read - never a floating wire's. */
+  const onPracticeFile = useCallback(
+    (file: File) => {
+      setPracticeError(null);
+      const refuse = (size?: number) => {
+        const why = copy.refusal({ code: 'backup-size', fileSize: size });
+        setPracticeError(`${why.reason} ${why.detail ?? ''}`.trim());
+      };
+      file
+        .arrayBuffer()
+        .then((buf) => {
+          const r = parseImageFile(buf);
+          if (!r.ok) return refuse(r.size);
+          const v = verdictFor(r.image);
+          if (v.uniform) return setPracticeError(jc().file.notAChip(v.uniformValue ?? 0));
+          setPracticeChip({ name: file.name, image: r.image });
+        })
+        .catch(() => refuse());
+    },
+    [copy],
+  );
+  /* The made-up chip, named by the definition it is built to fit once the definitions are here. */
+  const practiceMadeUp = useMemo(
+    () => (practiceIntent && !practiceChip && codingDoc ? (codedPracticeChip(presetImage('late'), codingDoc)?.file ?? null) : null),
+    [practiceIntent, practiceChip, codingDoc],
   );
 
   const onDumpFile = useCallback((file: File) => {
@@ -305,7 +400,6 @@ export default function Page() {
     setup: CHROME.tab.setup,
     read: CHROME.tab.read,
     rewrite: CHROME.tab.rewrite,
-    inspect: CHROME.tab.inspect,
     records: CHROME.tab.records,
     bench: CHROME.tab.bench,
     checks: CHROME.tab.checks,
@@ -344,18 +438,21 @@ export default function Page() {
         copy,
         act: {
           /* PRACTICE rehearses on a late-layout chip: both VIN fields, both checksums - the
-             shape of the bench's own chip, with made-up values. Or on the file INSPECT made
-             the practice chip. */
+             shape of the bench's own chip, with made-up values. Or on the file READ's PRACTICE
+             CHIP chose. */
           connect: () => {
             if (!practiceIntent) return void link.connect('serial');
-            /* PRACTICE reads the file INSPECT chose, or a chip made to fit the definitions - so
+            /* PRACTICE reads the file READ chose, or a chip made to fit the definitions - so
                coding is rehearsed as on a real chip, with nothing opened - or, before any
                definitions are here, the made-up preset. */
             const coded = !practiceChip && codingDoc ? codedPracticeChip(presetImage('late'), codingDoc) : null;
             const seat: PracticeChip = practiceChip ?? (coded ? { name: coded.file, image: coded.image, coded: true } : 'late');
             void link.connect('practice', seat);
           },
-          read: () => void link.read().then((ok) => ok && setStep('read')),
+          /* A read lands on READ, to show what was read - except on REWRITE, where a file may be
+             open and waiting for exactly this chip: cases b and c read, back up and write without
+             leaving it. */
+          read: () => void link.read().then((ok) => ok && step !== 'rewrite' && setStep('read')),
           backup: () => void link.backup(),
           ask,
         },
@@ -487,20 +584,40 @@ export default function Page() {
     </div>
   );
 
-  /** REWRITE's HEX view: the image as the job leaves it, every byte it changes marked. */
+  /** REWRITE's HEX view: the image as the job leaves it, every byte it changes marked - and the bar
+      that changes one byte by hand. */
   function jobHex(): React.ReactNode {
-    const base = image ?? dump?.image ?? null;
-    if (!base) {
-      return <EmptyState Icon={FileCode} label={phase === 'disconnected' ? CHROME.awaiting.connection : CHROME.awaiting.read} />;
+    if (!sourceImage) {
+      return image ? (
+        <EmptyState Icon={FileCode} label={CHROME.awaiting.file} />
+      ) : (
+        <EmptyState Icon={FileCode} label={phase === 'disconnected' ? CHROME.awaiting.connection : CHROME.awaiting.read} hint={jc().empty} />
+      );
     }
-    const after = jobPlan?.ok ? jobPlan.target : base;
-    let changed = 0;
-    for (let i = 0; i < base.length; i++) if (base[i] !== after[i]) changed++;
+    /* Marked against the chip when there is one - what the write changes on it - else the source. */
+    const reference = image ?? sourceImage;
+    /* A refused plan has no result: the source as the hand edits leave it, so the bar never edits a
+       byte other than the one on screen. */
+    const shown = jobPlan?.ok ? jobPlan.target : applyBytes(sourceImage, jobBytes.edits);
     return (
       <div className="flex h-full flex-col gap-2">
-        <HexLegend changedCount={changed} vins={vinRanges(after)} />
+        <HexLegend changedCount={diff(reference, shown).length} vins={vinRanges(shown)} />
+        <ByteEditBar
+          key={selected ?? -1}
+          address={selected}
+          image={shown}
+          lock={selected === null ? null : byteLock(sourceImage, selected)}
+          later={selected === null ? null : laterPart(selected)}
+          onSet={(value) => {
+            if (selected === null) return;
+            updateEdits((e) => {
+              const r = editByte(e, selected, value);
+              return r.ok ? r.edits : e;
+            });
+          }}
+        />
         <div className="min-h-0 flex-1">
-          <HexView vins={vinRanges(after)} image={after} reference={base} changeMode="pending" selected={selected} onSelect={setSelected} />
+          <HexView vins={vinRanges(shown)} image={shown} reference={reference} changeMode="pending" selected={selected} onSelect={setSelected} />
         </div>
       </div>
     );
@@ -509,7 +626,12 @@ export default function Page() {
   /** REWRITE's CODING view: every parameter of the source's own definition, or why there is none. */
   function jobCoding(): React.ReactNode {
     if (!preCoding) {
-      return <EmptyState Icon={FileCode} label={CHROME.awaiting.definition} hint={cc().needImage} />;
+      /* Refused before the coding: the reason - there IS an image, the job cannot use it yet. */
+      return prePlan && !prePlan.ok && prePlan.refusal.code !== 'no-chip' ? (
+        <EmptyState Icon={FileCode} label={CHROME.hub.checkPlan} hint={jobRefusalText(prePlan)} />
+      ) : (
+        <EmptyState Icon={FileCode} label={CHROME.awaiting.definition} hint={cc().needImage} />
+      );
     }
     /* Why there is nothing to list, said where the list would be - and the definitions are opened
        right here, the one place to open them. */
@@ -574,7 +696,21 @@ export default function Page() {
       case 'setup':
         return <WiringDiagram highlight={diagramHighlight} onSelectPin={setWire} />;
       case 'read':
-        return chipView;
+        /* Before a PRACTICE connect, READ is where the simulated chip is chosen. */
+        return phase === 'disconnected' && practiceIntent ? (
+          <PracticeChipPanel
+            chip={practiceChip}
+            madeUp={practiceMadeUp}
+            error={practiceError}
+            onFile={onPracticeFile}
+            onClear={() => {
+              setPracticeChip(null);
+              setPracticeError(null);
+            }}
+          />
+        ) : (
+          chipView
+        );
       case 'rewrite':
         return (
           <div className="flex h-full flex-col gap-2">
@@ -597,26 +733,6 @@ export default function Page() {
             )}
             <div className="min-h-0 flex-1">{codingVisible && jobView === 'coding' ? jobCoding() : jobHex()}</div>
           </div>
-        );
-      case 'inspect':
-        return workspace ? (
-          <div className="flex h-full flex-col gap-2">
-            <HexLegend changedCount={null} vins={vinRanges(workspace.current)} />
-            <div className="min-h-0 flex-1">
-              {/* reference is the file as opened, so every edit is marked against what was
-                  actually on disk. */}
-              <HexView
-                image={workspace.current}
-                reference={workspace.original}
-                changeMode="pending"
-                vins={vinRanges(workspace.current)}
-                selected={selected}
-                onSelect={setSelected}
-              />
-            </div>
-          </div>
-        ) : (
-          <EmptyState Icon={FileCode} label={CHROME.awaiting.file} />
         );
       case 'records':
         return (
@@ -664,7 +780,24 @@ export default function Page() {
           />
         );
       case 'read':
-        return vehiclePanel;
+        return (
+          <div className="flex flex-col">
+            {/* Reserved: once the chip is read and backed up, the step after READ - said where the
+                reader is looking at what was read. */}
+            <div className="flex min-h-[36px] items-center gap-2 px-5 pt-3">
+              {image && backedUp && (
+                <>
+                  <span className={`${LABEL} shrink-0 text-slate-600`}>{CHROME.next}</span>
+                  <TextButton Icon={ChevronRight} onClick={() => setStep('rewrite')}>
+                    {CHROME.tab.rewrite}
+                  </TextButton>
+                  <span className="min-w-0 truncate text-[10px] text-slate-500">{jc().next}</span>
+                </>
+              )}
+            </div>
+            {vehiclePanel}
+          </div>
+        );
       case 'rewrite':
         return (
           <RewritePanel
@@ -674,21 +807,31 @@ export default function Page() {
             odometer={odometer}
             sourceKind={effectiveSource}
             onSourceKind={setSourceKind}
-            dump={dump}
-            onDumpFile={onDumpFile}
-            onClearDump={() => {
+            file={dump}
+            onFile={onDumpFile}
+            onClearFile={() => {
               setDump(null);
               setDumpError(null);
             }}
-            dumpError={dumpError}
+            fileError={dumpError}
+            sourceImage={sourceImage}
+            reseal={jobBytes.reseal}
+            onReseal={(on) => updateEdits((e) => ({ ...e, reseal: on }))}
             targetKm={targetKm}
             onTargetKm={setTargetKm}
             vinAction={vinAction}
             onVinAction={setVinAction}
             vinInput={vinInput}
             onVinInput={setVinInput}
+            bytes={{
+              count: edits ? changedAddresses(edits).length : 0,
+              canUndo: (edits?.edits.length ?? 0) > 0,
+              onUndo: () => updateEdits(undoLast),
+              onRevert: () => updateEdits(revertAll),
+            }}
             input={jobInput}
             plan={jobPlan}
+            save={{ enabled: saveImage !== null, onSave: saveEdited }}
             coding={
               codingVisible ? (
                 <CodingPanel
@@ -701,49 +844,11 @@ export default function Page() {
                   selected={codingSelected}
                   staged={staged}
                   onPick={pickCoding}
-                  onDiscard={() => setCodingPicks(null)}
+                  onDiscard={() => setCodingPicks((prev) => ({ ...prev, [effectiveSource]: null }))}
                   donor={donor}
                 />
               ) : null
             }
-          />
-        );
-      case 'inspect':
-        return (
-          <InspectPanel
-            workspace={workspace}
-            fileError={inspectError}
-            selected={selected}
-            onSelect={setSelected}
-            onOpen={(file) => {
-              setInspectError(null);
-              void file
-                .arrayBuffer()
-                .then((buf) => {
-                  const r = parseImageFile(buf);
-                  if (!r.ok) {
-                    const why = copy.refusal({ code: 'backup-size', fileSize: r.size });
-                    setInspectError(`${why.reason} ${why.detail ?? ''}`.trim());
-                    return;
-                  }
-                  setWorkspace(openWorkspace(file.name, r.image));
-                  setSelected(null);
-                })
-                .catch(() => {
-                  const why = copy.refusal({ code: 'backup-size' });
-                  setInspectError(`${why.reason} ${why.detail ?? ''}`.trim());
-                });
-            }}
-            onChange={setWorkspace}
-            onClose={() => {
-              setWorkspace(null);
-              setInspectError(null);
-            }}
-            practiceChip={practiceChip}
-            onUseAsPractice={() => {
-              if (workspace) setPracticeChip({ name: workspace.name, image: Uint8Array.from(workspace.current) });
-            }}
-            onClearPractice={() => setPracticeChip(null)}
           />
         );
       case 'records':
@@ -759,7 +864,7 @@ export default function Page() {
             }}
             linkPhase={phase}
             linkBusy={busy}
-            unsavedWork={workspace ? isDirty(workspace) : false}
+            unsavedWork={fileUnsaved}
           />
         ) : (
           vehiclePanel

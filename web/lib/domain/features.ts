@@ -72,20 +72,14 @@ export const FEATURES: Feature[] = [
     surfaces: ['read'],
   },
   {
-    /* REWRITE: the job - the source (the chip, or a dump: what RESTORE was), the odometer and
-       the VIN, planned and written as one (lib/domain/job.ts). One feature because it is one
-       plan; RESTORE and REWRITE were two stable features and are one stable feature now. */
+    /* REWRITE: the job - the source (the chip, or a file: what RESTORE was), the bytes changed by
+       hand (what INSPECT's editor was), the VIN, the coding and the odometer, planned and written as
+       one, or saved to a file to write later (lib/domain/job.ts). One feature because it is one
+       plan. RESTORE, REWRITE and INSPECT were three stable features; INSPECT was folded in at the
+       operator's request (2026-09-24) - its edits reach a chip only through this job's gates. */
     id: 'rewrite-job',
     stage: 'stable',
     surfaces: ['rewrite'],
-  },
-  {
-    /* Opening a file and opening a chip share every reader, but they are not
-       one feature: this one works with no hardware and cannot reach the write
-       path at all. */
-    id: 'inspect-file',
-    stage: 'stable',
-    surfaces: ['inspect'],
   },
   {
     /* CODING: the chip read with its own NCS coding definition, and changed through the one

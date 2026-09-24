@@ -76,7 +76,7 @@ export type LinkState = {
   notice: string | null;
   progress: Progress;
   practice: boolean;
-  /** The file INSPECT made the practice chip, or null: a preset, or a real chip. */
+  /** The file READ's PRACTICE CHIP chose (or the definition a coded chip fits), or null: a preset, or a real chip. */
   practiceFile: string | null;
   /** Hash of the image that has been backed up, if any. */
   backedUpHash: string | null;

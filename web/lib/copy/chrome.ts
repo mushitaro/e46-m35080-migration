@@ -26,7 +26,6 @@ export const CHROME = {
     setup: 'SETUP',
     read: 'READ',
     rewrite: 'REWRITE',
-    inspect: 'INSPECT',
     records: 'RECORDS',
     /* TEST mode */
     bench: 'BENCH',
@@ -109,7 +108,6 @@ export const CHROME = {
   },
 
   drop: {
-    dump: 'DROP DUMP .BIN · 1024 BYTES',
     file: 'DROP .BIN · 1024 BYTES',
     coding: 'DROP .JSON · KOMBI-CODING',
     names: 'DROP .JSON · KOMBI-NAMES',
@@ -122,27 +120,25 @@ export const CHROME = {
     broken: 'BROKEN',
     unknown: 'UNKNOWN LAYOUT',
     fix: 'FIX CHECKSUMS',
+    /* FIX CHECKSUMS applied to a file, and not yet taken back */
+    fixed: 'FIXED',
   },
 
-  /* ---- the file workbench ---- */
-  inspect: {
-    open: 'OPEN FILE',
-    edit: 'EDIT',
-    set: 'SET',
-    undo: 'UNDO',
-    revert: 'REVERT',
-    saveAs: 'SAVE AS',
-    /* the file becomes the chip PRACTICE reads (lib/link/mockLink.ts) */
-    practiceChip: 'PRACTICE CHIP',
-    useAsPractice: 'USE AS PRACTICE CHIP',
+  /* ---- READ, before a PRACTICE connect: what the simulated chip holds (lib/link/mockLink.ts) ---- */
+  practiceChip: {
+    title: 'PRACTICE CHIP',
     clear: 'CLEAR',
   },
+
+  /* ---- READ's pointer to the step after it ---- */
+  next: 'NEXT',
 
   /* ---- REWRITE: the job's parts (lib/domain/job.ts) ---- */
   job: {
     source: 'SOURCE',
     chip: 'CHIP',
-    dump: 'DUMP',
+    /* a donor's dump, a backup, or a file SAVE EDITED made - one word for all three */
+    file: 'FILE',
     odometer: 'ODOMETER',
     vin: 'VIN',
     coding: 'CODING',
@@ -150,7 +146,19 @@ export const CHROME = {
     hex: 'HEX',
     clear: 'CLEAR',
     wrinc: 'WRINC',
+    /* BYTES: changed by hand in the HEX view (lib/domain/byteEdits.ts) */
     bytes: 'BYTES',
+    /* the edit bar, before a byte is picked in the hex view */
+    pickByte: 'PICK A BYTE',
+    set: 'SET',
+    undo: 'UNDO',
+    revert: 'REVERT',
+    /* the job's result as a file, to write later - named Edited_... (lib/domain/records.ts) */
+    saveEdited: 'SAVE EDITED',
+    /* what the byte picked is, where that is known (lib/domain/addressMap.ts explainAddress) */
+    odometerSlot: 'ODO',
+    vinField: 'VIN',
+    checksumByte: 'CHECKSUM',
   },
 
   /* ---- CODING: the chip read with its own coding definition (lib/ncs) ---- */

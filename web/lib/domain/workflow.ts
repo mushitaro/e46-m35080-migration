@@ -13,7 +13,7 @@
  * I on" is stored, so the strip cannot disagree with the device.
  */
 
-export type StepId = 'setup' | 'read' | 'rewrite' | 'inspect' | 'records' | 'bench' | 'checks';
+export type StepId = 'setup' | 'read' | 'rewrite' | 'records' | 'bench' | 'checks';
 
 /** Why a step cannot be entered yet. Rendered from i18n, never as prose here. */
 export type BlockedReason = 'need-connection';
@@ -35,7 +35,7 @@ export type Step = {
 };
 
 /* Every tab, CHIP's then TEST's. Which of them a screen shows is the mode's (lib/domain/modes.ts). */
-const ORDER: StepId[] = ['setup', 'read', 'rewrite', 'inspect', 'records', 'bench', 'checks'];
+const ORDER: StepId[] = ['setup', 'read', 'rewrite', 'records', 'bench', 'checks'];
 
 /**
  * Derive the whole strip from state.
@@ -54,9 +54,10 @@ export function deriveSteps(s: WorkflowState): Step[] {
       case 'read':
         return { id, enabled: true, blockedBy: s.connected ? null : 'need-connection' };
 
-      /* REWRITE is the job - the source, the odometer, the VIN and the coding, written together.
-         Never gated: a dump can be opened as the source before any chip is read, and the job is
-         planned against it (what it would write needs a chip; lib/domain/job.ts). */
+      /* REWRITE is the job - the source, the bytes, the VIN, the coding and the odometer, written
+         together. Never gated: a file can be opened as the source before any chip is read, changed,
+         and saved to be written later (SAVE EDITED) - the third of its three uses. Writing it needs
+         a chip, read and backed up, and the hub asks for each in turn (lib/hub/bridgeHub.ts). */
       case 'rewrite':
         return { id, enabled: true, blockedBy: null };
 
@@ -65,14 +66,6 @@ export function deriveSteps(s: WorkflowState): Step[] {
          image only gives the checks something to compare with. */
       case 'bench':
       case 'checks':
-        return { id, enabled: true, blockedBy: null };
-
-      /* A file on disk, not the chip. Never gated on a connection or an
-         image, because needing neither is the whole point: it is how a pile of
-         .bin files gets sorted into the ones that are chip reads and the ones
-         that are a floating wire. It sits after the bench steps with RECORDS,
-         the other surface that touches no hardware. */
-      case 'inspect':
         return { id, enabled: true, blockedBy: null };
 
       case 'records':

@@ -64,7 +64,8 @@ Every gate must hold, or nothing is written:
 
 - The image is the late layout, and **both checksums hold before** the change
   (`0x16E = XOR(0x070..0x16D)`, `0x3CD = XOR(0x310..0x3CC)` mirrored at `0x3DF`). A broken
-  checksum is never repaired on the way past; INSPECT's FIX CHECKSUMS is the explicit way.
+  checksum is never repaired on the way past; FIX CHECKSUMS on REWRITE's SOURCE is the explicit
+  way, for a file.
 - The definition is the chip's own (above), organised `WORDMSB`, with the late coding-block
   layout: `0x020+0x10, 0x056+0x02, 0x070+0x0A, 0x07A+0x06, 0x07E+0x0A, 0x088+0xE6, 0x16E+0x02,
   0x170+0x14`.

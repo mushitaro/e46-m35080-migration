@@ -1,8 +1,8 @@
 /**
  * MODE - what the tool is working on, and so which tabs, which cable and which hub.
  *
- *   CHIP  the M35080 off its board, on the UNO: SETUP, READ, REWRITE (the job - source, odometer,
- *         VIN, coding - in one write), INSPECT, RECORDS
+ *   CHIP  the M35080 off its board, on the UNO: SETUP, READ, REWRITE (the job - source, bytes,
+ *         VIN, coding, odometer - in one write, or saved to a file to write later), RECORDS
  *   TEST  the cluster with its chip back in, on the bench over the K+DCAN cable: BENCH, CHECKS
  *
  * The same shape as TUNER's VE / IDLE: the mode chooses the tabs AND their order, and a corner in
@@ -23,7 +23,7 @@ export const MODES: readonly AppMode[] = ['chip', 'test'];
 
 /** Each mode's tabs, in the order the job is done. */
 export const MODE_STEPS: Record<AppMode, readonly StepId[]> = {
-  chip: ['setup', 'read', 'rewrite', 'inspect', 'records'],
+  chip: ['setup', 'read', 'rewrite', 'records'],
   test: ['bench', 'checks'],
 };
 

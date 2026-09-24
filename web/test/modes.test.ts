@@ -15,7 +15,7 @@ describe('the modes', () => {
     expect([...listed].sort()).toEqual([...all].sort());
     expect(new Set(listed).size).toBe(listed.length);
     for (const m of MODES) for (const s of MODE_STEPS[m]) expect(modeOf(s)).toBe(m);
-    expect(MODE_STEPS.chip).toEqual(['setup', 'read', 'rewrite', 'inspect', 'records']);
+    expect(MODE_STEPS.chip).toEqual(['setup', 'read', 'rewrite', 'records']);
     expect(MODE_STEPS.test).toEqual(['bench', 'checks']);
   });
 

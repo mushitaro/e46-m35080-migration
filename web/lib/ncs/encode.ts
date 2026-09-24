@@ -7,7 +7,8 @@
  * whole plan (docs/CODING.md):
  *
  *   - the image is the late layout and both its checksums hold BEFORE the change (a broken one is
- *     never "repaired" on the way past - INSPECT's FIX CHECKSUMS is the explicit way)
+ *     never "repaired" on the way past - FIX CHECKSUMS on REWRITE's SOURCE is the explicit way,
+ *     for a file)
  *   - the definition is the one the chip was coded with (chooseDefinition: complete fit, and its
  *     index is the chip's), organised MSB-first, with the known block layout
  *   - every changed parameter is CODABLE: a scalar with two or more options, its current value

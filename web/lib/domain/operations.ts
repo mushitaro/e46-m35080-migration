@@ -56,7 +56,12 @@ export type RefusalCode =
   | 'backup-no-data'
   | 'backup-size'
   | 'current-size'
-  | 'restore-lower';
+  | 'restore-lower'
+  /* REWRITE's BYTES - a hand edit (lib/domain/byteEdits.ts, job.ts) */
+  | 'bytes-outside'
+  | 'bytes-protected'
+  | 'bytes-stale'
+  | 'bytes-checksum-broken';
 
 export type Refusal = {
   ok: false;
@@ -68,6 +73,8 @@ export type Refusal = {
   maxKm?: number;
   /** How many bytes a refused file actually had. */
   fileSize?: number;
+  /** The byte a refused hand edit was on. */
+  address?: number;
 };
 
 const refuse = (code: RefusalCode, extra: Omit<Refusal, 'ok' | 'code'> = {}): Refusal => ({
@@ -228,8 +235,9 @@ export type ChecksumCheck = 'ok' | 'unchecked';
 
 /**
  * A late-layout backup whose checksums do not hold is refused: copying it would put a cluster
- * back together with a checksum it will not accept. The fix is explicit and happens on the
- * file, in INSPECT (FIX CHECKSUMS), where the reader sees which byte changes - never silently here.
+ * back together with a checksum it will not accept. The fix is explicit - FIX CHECKSUMS on
+ * REWRITE's SOURCE, where the reader sees which byte changes and can take it back (job.ts) -
+ * never silently here.
  */
 export function backupChecksums(backup: Uint8Array): ChecksumCheck | Refusal {
   const layout: Layout = detectLayout(backup);

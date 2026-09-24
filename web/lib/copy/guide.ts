@@ -148,9 +148,6 @@ const JA = {
   checksumUnknown:
     'チェックサムで確認できるレイアウトではないため、検査していません（旧世代のクラスターや、由来の分からないファイル）。',
   checksumBrokenAt: (list: string) => `合っていないチェックサム: ${list}`,
-  inspectSaveBroken: (list: string) =>
-    `チェックサムが合っていません（${list}）。このファイルをチップに書くと、メータが受け付けない可能性があります。` +
-    'FIX CHECKSUMS で直さずに、このまま保存しますか？',
   mapVinCoded:
     '0x07A〜0x07E: 英数字 2 文字のあとに数字 5 桁（BCD）。0x07E の下位 4 ビットは VIN ではありません。' +
     'この欄は 0x16E のチェックサムの範囲に入っているため、書き換えるとチェックサムも計算し直します。',
@@ -168,37 +165,6 @@ const JA = {
     'ここでは命名しません。実チップ 4 個を 1 バイトずつ比較したところ、' +
     '0xFF を除いて全個体で一致するアドレスは 1 つもありませんでした。' +
     '固定マップは作れません。バイトの「形」については構造パネルを参照してください。',
-  /* ------------------------------ file inspect ---------------------------- */
-
-
-  inspectIntro:
-    '手元の .BIN を読み込み、中身を確認して編集できます。実機は不要です。',
-  inspectNoDevice:
-    'ここで開いたファイルはチップとは切り離されています。書き込み経路には入りません。' +
-    'ファイルをチップへ書くのは「復旧」タブで、そちらはバックアップと読み戻しで守られています。',
-  inspectClose: '閉じる',
-
-  inspectNotAChip: (v: number) =>
-    `1024 バイトすべてが 0x${v.toString(16).toUpperCase().padStart(2, '0')} です。` +
-    'これはチップの読み取りではありません（配線が浮いている、D11とD12が直結、' +
-    'などのバス側の結果）。ここから読める走行距離も VIN も意味を持ちません。',
-  inspectDistinct: (n: number) => `異なるバイト値 ${n} 種`,
-  inspectErased: '標準領域は全 FF（消去済み）',
-  chipBlankShort: 'セキュア領域は 0（新品）',
-  inspectNoReadout:
-    'このファイルからは走行距離も VIN も構造も表示しません。'
-    + '解読はできてしまいますが、その値は配線の状態であってチップの内容ではないためです。'
-    + 'HEX ビューと編集は使えます。',
-
-  inspectPickByte: 'HEX ビューでバイトを選んでください。',
-  inspectChanged: (n: number) => `元ファイルとの差分 ${n} バイト`,
-  inspectUnchanged: '元ファイルと同一',
-  inspectSaveNote:
-    '保存は必ず別名です。元ファイルには上書きしません — そのダンプが、' +
-    '既に書き換えたチップの唯一の記録であることがあるためです。',
-  inspectPracticeChip:
-    'このファイル（今の編集を含む）を PRACTICE の模擬チップにします。次の PRACTICE の CONNECT から、このイメージを読みます。実機には何も書きません。',
-  inspectPracticeArmed: '次の PRACTICE の CONNECT で読みます。接続中のチップは変わりません。',
 };
 
 const EN: typeof JA = {
@@ -316,9 +282,6 @@ const EN: typeof JA = {
   checksumUnknown:
     'Not a layout its checksums can confirm, so nothing was checked (an older-generation cluster, or a file of unknown origin).',
   checksumBrokenAt: (list: string) => `Checksums that do not hold: ${list}`,
-  inspectSaveBroken: (list: string) =>
-    `The checksums do not hold (${list}). A chip written from this file may be rejected by the cluster. ` +
-    'Save it as it is, without FIX CHECKSUMS?',
   mapVinCoded:
     '0x07A-0x07E: two letters or digits, then five digits as BCD. The low nibble of 0x07E is not ' +
     'part of the VIN. The field is inside the 0x16E checksum region, so rewriting it recomputes that byte.',
@@ -336,38 +299,6 @@ const EN: typeof JA = {
     'Not named here. Four real chips were compared byte for byte and, outside ' +
     '0xFF, not one address held the same value on all four - so there is no ' +
     'fixed map to write down. The structure panel reports their shape instead.',
-  /* ------------------------------ file inspect ---------------------------- */
-
-
-  inspectIntro:
-    'Load a .BIN from disk, see what is in it, and edit it. No hardware needed.',
-  inspectNoDevice:
-    'A file opened here is kept apart from the chip and cannot reach the write ' +
-    'path. Writing a file TO a chip is the RESTORE tab, which is guarded by a ' +
-    'backup and a read-back.',
-  inspectClose: 'Close',
-
-  inspectNotAChip: (v: number) =>
-    `All 1024 bytes are 0x${v.toString(16).toUpperCase().padStart(2, '0')}. ` +
-    'This is not a chip read - it is the bus (a floating wire, or D11 shorted ' +
-    'to D12). Any odometer or VIN read out of it means nothing.',
-  inspectDistinct: (n: number) => `${n} distinct byte values`,
-  inspectErased: 'standard array all FF (erased)',
-  chipBlankShort: 'secure area is zero (new)',
-  inspectNoReadout:
-    'No odometer, VIN or structure is shown for this file. It would decode - '
-    + 'that is the problem - but the value would describe the wiring, not a chip. '
-    + 'The hex view and the editor still work.',
-
-  inspectPickByte: 'Pick a byte in the hex view.',
-  inspectChanged: (n: number) => `${n} byte(s) differ from the file`,
-  inspectUnchanged: 'identical to the file',
-  inspectSaveNote:
-    'A save always writes a new name, never the source. These dumps are often ' +
-    'the only record of a chip that has since been written over.',
-  inspectPracticeChip:
-    'Make this file, with its edits, the PRACTICE chip. The next PRACTICE CONNECT reads this image. Nothing touches hardware.',
-  inspectPracticeArmed: 'The next PRACTICE CONNECT reads it. A chip already connected is not replaced.',
 };
 
 /** Read the bench copy for the currently resolved language. */

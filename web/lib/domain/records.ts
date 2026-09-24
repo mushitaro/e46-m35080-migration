@@ -153,6 +153,16 @@ export function recordFilename(
   return backupFilename(vin, km, when, practice).replace(/^(PRACTICE_)?Backup/, `$1${word[kind]}`);
 }
 
+/**
+ * The file REWRITE's SAVE EDITED downloads: what the job makes of its source, kept to be written
+ * later. Named like every other file this tool saves - by the VIN and the odometer it holds, so a
+ * folder of them stays readable - and never after the file it came from, which it is never saved
+ * over: that dump may be the only record left of a chip that has since been written.
+ */
+export function editedFilename(vin: string | null, km: number | null, when = new Date(), practice = false): string {
+  return backupFilename(vin, km, when, practice).replace(/^(PRACTICE_)?Backup/, '$1Edited');
+}
+
 /** Trigger a download of an image as a .bin file. */
 export function downloadImage(image: Uint8Array, filename: string): void {
   const buf = new ArrayBuffer(image.byteLength);

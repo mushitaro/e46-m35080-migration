@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { bridgeHubFor, type BridgeHubState } from '@/lib/hub/bridgeHub';
-import { planJob, jobDetails, type JobInput } from '@/lib/domain/job';
+import { NO_BYTES, planJob, jobDetails, type JobInput } from '@/lib/domain/job';
 import { CHROME } from '@/lib/copy/chrome';
 import { codingFixture, P } from './support/codingDoc';
 
@@ -9,7 +9,7 @@ import { codingFixture, P } from './support/codingDoc';
  * backup - "backup before write" is a tier - and then the job REWRITE is about.
  */
 
-const keep = { odometer: { kind: 'keep' as const }, vin: { kind: 'keep' as const }, coding: null };
+const keep = { bytes: NO_BYTES, odometer: { kind: 'keep' as const }, vin: { kind: 'keep' as const }, coding: null };
 
 function state(over: Partial<BridgeHubState> = {}): BridgeHubState {
   return {
@@ -85,6 +85,7 @@ describe('bridgeHubFor', () => {
     const input: JobInput = {
       chip: image,
       source: { kind: 'chip' },
+      bytes: NO_BYTES,
       odometer: { kind: 'set', km: 170_000 },
       vin: { kind: 'write', vin: 'ZX54321' },
       coding: { doc, changes: [{ param: P.mode, option: 103 }] },
@@ -126,7 +127,7 @@ describe('bridgeHubFor', () => {
   });
 
   it('falls back to READ on a tab with no job', () => {
-    for (const step of ['read', 'setup', 'inspect', 'records'] as const) {
+    for (const step of ['read', 'setup', 'records'] as const) {
       expect(bridgeHubFor(state({ step })).label).toBe(CHROME.hub.read);
     }
   });

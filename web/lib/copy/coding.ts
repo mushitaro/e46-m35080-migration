@@ -61,7 +61,8 @@ const JA = {
 
   refused: {
     'not-late-layout': 'late layout ではないため書きません。',
-    'checksum-broken': 'チップのチェックサムが既に合っていません。その上に書き足すことはしません。',
+    'checksum-broken':
+      'チップのチェックサムが既に合っていません。その上に書き足すことはしません。READ し直すか、良い BACKUP かドナーのファイルを FILE にしてください。',
     'no-definition': 'このチップの定義がありません。',
     'memory-organisation': '定義のメモリ構成が WORDMSB ではありません。',
     'block-layout': '定義のブロック配置が、測った配置と違います。',
@@ -125,7 +126,8 @@ const EN: typeof JA = {
 
   refused: {
     'not-late-layout': 'Not the late layout: not written.',
-    'checksum-broken': "The chip's checksums already fail. CODING does not write on top of that.",
+    'checksum-broken':
+      "The chip's checksums already fail. CODING does not write on top of that. READ again, or use a good BACKUP or a donor file as the FILE.",
     'no-definition': 'No definition for this chip.',
     'memory-organisation': "The definition's memory is not organised WORDMSB.",
     'block-layout': "The definition's block layout is not the measured one.",

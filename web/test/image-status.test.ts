@@ -14,6 +14,7 @@ import {
   formatByte,
   formatAddress,
   asciiOf,
+  verdictFor,
 } from '@/lib/domain/image';
 import {
   decodeStatus,
@@ -23,7 +24,7 @@ import {
   STATUS_UV,
   STATUS_WIP,
 } from '@/lib/domain/status';
-import { slotsToBytes } from '@/lib/domain/odometer';
+import { encodeOdometer, slotsToBytes } from '@/lib/domain/odometer';
 
 describe('regionOf', () => {
   it('maps the three regions at their exact boundaries', () => {
@@ -273,5 +274,47 @@ describe('backupFilename - the mode is in the name', () => {
     expect(recordFilename('rewrite', 'AB12345', 200_000, at)).toBe('Rewrite_AB12345_200000km_20260917-1653.bin');
     expect(recordFilename('restore', null, 0, at, true)).toBe('PRACTICE_Restore_noVIN_0km_20260917-1653.bin');
     expect(recordFilename('backup', 'AB12345', null, at)).toBe('Backup_AB12345_noKM_20260917-1653.bin');
+  });
+});
+
+describe('verdictFor - is a file a chip read at all?', () => {
+  /** A used chip's shape: an odometer, an ASCII VIN, varied bytes. */
+  function realish(): Uint8Array {
+    const img = new Uint8Array(IMAGE_SIZE).fill(0xff);
+    img.set(slotsToBytes(encodeOdometer(155_940)), 0);
+    img[0x183] = 0x4c;
+    img.set(Uint8Array.from('AB12345', (c) => c.charCodeAt(0)), 0x184);
+    for (let i = 0x40; i < 0x80; i++) img[i] = (i * 7 + 13) & 0xff;
+    return img;
+  }
+
+  it('names a loopback dump for what it is', () => {
+    /* 1024 bytes of 0xA5 is D11 shorted to D12 - the dummy byte coming back. An odometer decoded
+       from it would be a confident number about nothing. */
+    expect(verdictFor(new Uint8Array(IMAGE_SIZE).fill(SPI_DUMMY))).toMatchObject({ uniform: true, uniformValue: SPI_DUMMY, distinct: 1 });
+  });
+
+  it('names a floating line, at either rail', () => {
+    for (const fill of [0x00, 0xff]) {
+      expect(verdictFor(new Uint8Array(IMAGE_SIZE).fill(fill))).toMatchObject({ uniform: true, uniformValue: fill });
+    }
+  });
+
+  it('does not call a real image uniform', () => {
+    const v = verdictFor(realish());
+    expect(v.uniform).toBe(false);
+    expect(v.uniformValue).toBeNull();
+    expect(v.distinct).toBeGreaterThan(50);
+  });
+
+  it('separates a blank chip from a dead bus', () => {
+    /* A virgin M35080 is 0x00 in the counters and 0xFF in the array - two values, not one. */
+    const blank = new Uint8Array(IMAGE_SIZE).fill(0xff);
+    blank.fill(0x00, 0, 0x20);
+    expect(verdictFor(blank)).toMatchObject({ uniform: false, distinct: 2, secureBlank: true, standardErased: true });
+  });
+
+  it('reports a used chip as neither blank nor erased', () => {
+    expect(verdictFor(realish())).toMatchObject({ secureBlank: false, standardErased: false });
   });
 });

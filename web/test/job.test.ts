@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NOTE_LIMIT, jobNote, planJob, summarize, writesSomething, type JobInput, type JobPlan } from '@/lib/domain/job';
+import { NOTE_LIMIT, NO_BYTES, jobDetails, jobNote, planJob, savedImage, summarize, writesSomething, type JobBytes, type JobInput, type JobPlan } from '@/lib/domain/job';
 import { applyPlanPreview } from '@/lib/domain/operations';
 import { decodeOdometer, encodeOdometer, slotsToBytes } from '@/lib/domain/odometer';
 import { detectLayout, recomputeChecksums } from '@/lib/domain/layout';
@@ -9,13 +9,14 @@ import { chooseDefinition, rowsFor } from '@/lib/ncs/decode';
 import { WebSerialM35080Link } from '@/lib/link/m35080Link';
 import { M35080Simulator, ScriptedTransport, TEST_TIMING } from './support/m35080Simulator';
 import { codingFixture, P } from './support/codingDoc';
+import { lateImage } from './support/lateImage';
 
 /**
  * One job, one plan: the source (the chip, or a dump), the VIN, the coding and the odometer
  * together - on synthetic images and the synthetic definition only.
  */
 
-const keep = { odometer: { kind: 'keep' as const }, vin: { kind: 'keep' as const }, coding: null };
+const keep = { bytes: NO_BYTES, odometer: { kind: 'keep' as const }, vin: { kind: 'keep' as const }, coding: null };
 
 function blankChip(): Uint8Array {
   const img = new Uint8Array(IMAGE_SIZE).fill(0xff);
@@ -64,6 +65,7 @@ describe('a job on the chip as it is', () => {
     const input: JobInput = {
       chip: image,
       source: { kind: 'chip' },
+      bytes: NO_BYTES,
       odometer: { kind: 'set', km: 170_000 },
       vin: { kind: 'write', vin: 'ZX54321' },
       coding: { doc, changes: [{ param: P.mode, option: 103 }, { param: P.upper, option: 172 }] },
@@ -156,6 +158,7 @@ describe('a job from a dump', () => {
       planJob({
         chip: null,
         source: { kind: 'dump', name: 'donor.bin', image: dump },
+        bytes: NO_BYTES,
         odometer: { kind: 'set', km: 999_999 },
         vin: { kind: 'write', vin: 'ZX54321' },
         coding: { doc, changes: [{ param: P.mode, option: 103 }] },
@@ -188,6 +191,7 @@ describe('what a job tells', () => {
     const input: JobInput = {
       chip,
       source: { kind: 'dump', name: 'donor.bin', image: dump },
+      bytes: NO_BYTES,
       odometer: { kind: 'set', km: 42_000 },
       vin: { kind: 'write', vin: 'ZX54321' },
       coding: { doc, changes: [{ param: P.mode, option: 103 }] },
@@ -217,5 +221,126 @@ describe('what a job tells', () => {
     const plan = ok(planJob(input));
     expect(summarize(plan, input)).toMatchObject({ odometer: null, source: null, vin: null, coding: 1 });
     expect(jobNote(plan, input, null).split('\n')).toEqual(['CODING DEMO.C01', 'DEMO_UPPER: u_a -> u_b']);
+  });
+});
+
+/** Hand edits on `image`, each made once on the byte the image holds. */
+const bytesOf = (image: Uint8Array, changes: [number, number][], reseal = false): JobBytes => ({
+  edits: changes.map(([address, after]) => ({ address, before: image[address]!, after })),
+  reseal,
+});
+
+describe('BYTES - hand edits on the source', () => {
+  it('seals the checksums again after an edit - with a chip, and on a file with none', () => {
+    const img = lateImage();
+    const b = bytesOf(img, [[0x100, img[0x100]! ^ 0x5a], [0x200, 0x42]]);
+    const onChip = ok(planJob({ chip: img, source: { kind: 'chip' }, ...keep, bytes: b }));
+    expect(onChip.handEdits).toEqual([0x100, 0x200]);
+    expect(onChip.target[0x100]).toBe(img[0x100]! ^ 0x5a);
+    expect(detectLayout(onChip.target)).toMatchObject({ kind: 'late', consistent: true });
+    expect(onChip.checksums.map((c) => c.address)).toEqual([0x16e]);
+    // Without a chip the reseal is still said - against the file - and nothing is to be written.
+    const noChip = ok(planJob({ chip: null, source: { kind: 'dump', name: 'f.bin', image: img }, ...keep, bytes: b }));
+    expect(noChip.target).toEqual(onChip.target);
+    expect(noChip.checksums.map((c) => c.address)).toEqual([0x16e]);
+    expect(noChip.byteWrites).toEqual([]);
+  });
+
+  it("leaves a chip's broken checksums as read: outside them an edit passes, inside it is refused, the odometer still rises", () => {
+    const img = lateImage();
+    img[0x3cd] ^= 0xff;
+    expect(detectLayout(img)).toMatchObject({ kind: 'late', consistent: false });
+    const chip = { chip: img, source: { kind: 'chip' as const }, ...keep };
+    const outside = ok(planJob({ ...chip, bytes: bytesOf(img, [[0x200, img[0x200]! ^ 1]]) }));
+    expect(outside.target[0x3cd]).toBe(img[0x3cd]); // not recomputed over whatever broke it
+    const inside = bytesOf(img, [[0x100, img[0x100]! ^ 1]]);
+    expect(planJob({ ...chip, bytes: inside })).toMatchObject({ ok: false, part: 'bytes', refusal: { code: 'bytes-checksum-broken', address: 0x100 } });
+    // FIX CHECKSUMS is a file's: on a chip it changes nothing.
+    expect(planJob({ ...chip, bytes: { ...inside, reseal: true } })).toMatchObject({ ok: false, part: 'bytes' });
+    expect(ok(planJob({ ...chip, odometer: { kind: 'set', km: 160_000 } })).secureOps.length).toBeGreaterThan(0);
+  });
+
+  it('refuses a file whose checksums fail until FIX CHECKSUMS - then writes it, resealed, and says so', () => {
+    const file = lateImage();
+    file[0x100] ^= 0x01;
+    const input = { chip: blankChip(), source: { kind: 'dump' as const, name: 'broken.bin', image: file }, ...keep };
+    expect(planJob(input)).toMatchObject({ ok: false, part: 'source', refusal: { code: 'backup-checksum-broken' } });
+    const fixedInput = { ...input, bytes: { edits: [], reseal: true } };
+    const fixed = ok(planJob(fixedInput));
+    expect(fixed.fixed).toBe(true);
+    expect(fixed.sourceChecksums).toBe('ok');
+    expect(detectLayout(fixed.target)).toMatchObject({ consistent: true });
+    expect(fixed.byteWrites.length).toBeGreaterThan(0);
+    expect(summarize(fixed, fixedInput).fixed).toBe(true);
+    expect(jobDetails(fixed, fixedInput)).toContain("FIX CHECKSUMS: the file's checksums recomputed");
+  });
+
+  it('refuses a hand edit on a byte another part owns, outside the chip, or made on other bytes', () => {
+    const img = lateImage({ asciiVin: 'ZX54321' });
+    const chip = { chip: img, source: { kind: 'chip' as const }, ...keep };
+    for (const address of [0x010, 0x07a, 0x080, 0x16e, 0x184]) {
+      expect(planJob({ ...chip, bytes: bytesOf(img, [[address, img[address]! ^ 1]]) })).toMatchObject({
+        ok: false,
+        part: 'bytes',
+        refusal: { code: 'bytes-protected', address },
+      });
+    }
+    expect(planJob({ ...chip, bytes: { edits: [{ address: 0x400, before: 0, after: 1 }], reseal: false } })).toMatchObject({
+      refusal: { code: 'bytes-outside' },
+    });
+    expect(planJob({ ...chip, bytes: { edits: [{ address: 0x200, before: img[0x200]! ^ 1, after: 0x42 }], reseal: false } })).toMatchObject({
+      refusal: { code: 'bytes-stale', address: 0x200 },
+    });
+  });
+
+  it('is what the coding is read from - and the coding still sets the bits under its mask', () => {
+    const { image, doc } = codingFixture();
+    const def = doc.definitions['DEMO.C01']!;
+    // DEMO_LEVEL is the low nibble of 0x0A3: changed by hand, the coding reads the new value.
+    const level = (image[0x0a3]! & 0xf0) | ((image[0x0a3]! + 1) & 0x0f);
+    const pre = ok(planJob({ chip: image, source: { kind: 'chip' }, ...keep, bytes: bytesOf(image, [[0x0a3, level]]) }));
+    expect(rowsFor(pre.target, def)[P.level]!.option?.id).toBe(162);
+    // DEMO_MODE is bits 0x30 of 0x0A0: a hand edit of the byte's other bits and a coding change compose.
+    const low = (image[0x0a0]! & 0xf0) | ((image[0x0a0]! + 1) & 0x0f);
+    const plan = ok(
+      planJob({ chip: image, source: { kind: 'chip' }, ...keep, bytes: bytesOf(image, [[0x0a0, low]]), coding: { doc, changes: [{ param: P.mode, option: 103 }] } }),
+    );
+    const a0 = (image[0x0a0]! & 0x30) >> 4;
+    expect(plan.target[0x0a0]! & 0x0f).toBe(low & 0x0f);
+    expect((plan.target[0x0a0]! & 0x30) >> 4).toBe((((a0 + 1) % 4) + 1) % 4);
+  });
+
+  it('writes the hand edits through the one write path, with the reseal, and keeps them in the note', async () => {
+    const img = lateImage();
+    const input = { chip: img, source: { kind: 'chip' as const }, ...keep, bytes: bytesOf(img, [[0x100, img[0x100]! ^ 0x5a]]) };
+    const plan = ok(planJob(input));
+    const after = await writeThrough(img, plan);
+    expect(after).toEqual(plan.target);
+    expect(detectLayout(after)).toMatchObject({ consistent: true });
+    expect(summarize(plan, input)).toMatchObject({ edits: 1, checksums: 1 });
+    expect(jobNote(plan, input, null)).toContain('BYTE 0x100');
+  });
+});
+
+describe("SAVE EDITED's image", () => {
+  it("is the same for a file whether a chip is read or not, with the file's own odometer and no WRINC", () => {
+    const file = lateImage({ seed: 3 });
+    const chip = lateImage({ seed: 9, km: 200_000 });
+    const source = { kind: 'dump' as const, name: 'f.bin', image: file };
+    const bytes = bytesOf(file, [[0x200, 0x42]]);
+    const withChip = savedImage({ chip, source, ...keep, bytes, odometer: { kind: 'set', km: 250_000 } });
+    const without = savedImage({ chip: null, source, ...keep, bytes });
+    expect(withChip).not.toBeNull();
+    expect(withChip).toEqual(without);
+    expect(secureOf(withChip!)).toEqual(secureOf(file));
+  });
+
+  it("keeps a chip's own odometer, and is nothing when nothing changed", () => {
+    const chip = lateImage();
+    const saved = savedImage({ chip, source: { kind: 'chip' }, ...keep, bytes: bytesOf(chip, [[0x200, 0x42]]), odometer: { kind: 'set', km: 200_000 } });
+    expect(saved).not.toBeNull();
+    expect(secureOf(saved!)).toEqual(secureOf(chip));
+    expect(savedImage({ chip, source: { kind: 'chip' }, ...keep })).toBeNull();
+    expect(savedImage({ chip: null, source: { kind: 'chip' }, ...keep })).toBeNull();
   });
 });

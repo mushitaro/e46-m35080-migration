@@ -150,6 +150,51 @@ export function diagnoseImage(image: Uint8Array, statusRaw?: number): ImageDiagn
 }
 
 /**
+ * Whether a FILE in hand is a chip read at all - REWRITE's SOURCE shows it in one line, and READ
+ * refuses a PRACTICE chip that is not one.
+ *
+ * This is the question a pile of .bin files actually poses. Of the dumps on this bench, several
+ * are not chips: a loopback read that is 1024 bytes of 0xA5, floating-line reads that are all 0x00
+ * or all 0xFF, and an export this app once made in PRACTICE mode from its own assumptions. Opening
+ * any of them and reading an odometer off it produces a confident number about nothing.
+ *
+ * `distinct` is the cheap, honest summary: a real E46 image has well over a hundred distinct byte
+ * values, and everything listed above has one, two, or ten. It is reported rather than
+ * thresholded, because "how much variety" is evidence the reader can weigh and a pass/fail line is
+ * a guess. (A file has no status register to ask, so unlike diagnoseImage this cannot tell a
+ * uniform chip from a dead bus - and does not try.)
+ */
+export type FileVerdict = {
+  /** How many different byte values appear. One means a dead bus. */
+  distinct: number;
+  /** True when every byte is the same value - never a real M35080. */
+  uniform: boolean;
+  /** The repeated value, when uniform. */
+  uniformValue: number | null;
+  /** Secure area all zero: a new chip, or one that never counted. */
+  secureBlank: boolean;
+  /** Standard array untouched since erase. */
+  standardErased: boolean;
+};
+
+export function verdictFor(image: Uint8Array): FileVerdict {
+  const seen = new Set<number>();
+  for (const b of image) seen.add(b);
+  const uniform = seen.size === 1;
+  let secureBlank = true;
+  for (let a = SECURE_START; a <= SECURE_END; a++) if (image[a] !== 0x00) secureBlank = false;
+  let standardErased = true;
+  for (let a = STANDARD_START; a < image.length; a++) if (image[a] !== 0xff) standardErased = false;
+  return {
+    distinct: seen.size,
+    uniform,
+    uniformValue: uniform ? (image[0] ?? null) : null,
+    secureBlank,
+    standardErased,
+  };
+}
+
+/**
  * Parse a backup file. Refuses anything that is not exactly one image.
  *
  * The refusal carries the SIZE, not a sentence. The sentence is prose and

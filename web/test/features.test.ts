@@ -11,7 +11,7 @@ import { selectableModes } from '@/lib/domain/modes';
  * here means a promotion cannot land without editing this line - in a place
  * where it reads as a deliberate act.
  */
-const RELEASE: Surface[] = ['setup', 'read', 'rewrite', 'inspect', 'records'];
+const RELEASE: Surface[] = ['setup', 'read', 'rewrite', 'records'];
 
 describe('the feature registry', () => {
   it('ships exactly these surfaces in a release', () => {

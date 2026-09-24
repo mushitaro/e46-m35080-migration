@@ -23,7 +23,6 @@ describe('deriveSteps - the strip is a sequence', () => {
       'setup',
       'read',
       'rewrite',
-      'inspect',
       'records',
       'bench',
       'checks',
@@ -38,11 +37,10 @@ describe('deriveSteps - the strip is a sequence', () => {
     expect(stepById(deriveSteps(EMPTY), 'rewrite')).toMatchObject({ enabled: true, blockedBy: null });
   });
 
-  it('never gates INSPECT on a chip or a connection', () => {
-    /* Sorting a pile of .bin files into "chip read" and "floating wire" is
-       exactly what you do BEFORE getting hardware out. */
+  it('never gates REWRITE on a chip: a file is opened, changed and saved there before any chip is out', () => {
+    /* Case c - prepare a file now, write it later - happens on REWRITE with nothing connected. */
     const steps = deriveSteps(EMPTY);
-    expect(stepById(steps, 'inspect')).toMatchObject({ enabled: true, blockedBy: null });
+    expect(stepById(steps, 'rewrite')).toMatchObject({ enabled: true, blockedBy: null });
   });
 
   it('lets a cold start reach the bench guide and the records', () => {

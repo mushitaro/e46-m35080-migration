@@ -40,9 +40,20 @@ being written, and while the cluster is in a session (STOP first).
 |---|---|---|
 | 1 | **SETUP** | The UNO bench: wiring diagram, a seven-step assembly guide, the parts list |
 | 2 | **READ** | Read the 1 KB image (twice, compared), decode the odometer and both VIN fields. **BACKUP** before any write |
-| 3 | **REWRITE** | The job, in one plan and one write: the **SOURCE** (the chip as it is, or a dump), the **ODOMETER**, the **VIN** and the **CODING** *(experimental)* |
-| — | **INSPECT** | Open a `.bin`: what it is, edit a byte, fix the checksums, save a copy, or make it the PRACTICE chip |
-| — | **RECORDS** | Every backup, and the image after every write |
+| 3 | **REWRITE** | The job, in one plan and one write: the **SOURCE** (the chip as it is, or a **FILE**), bytes changed by hand in **HEX**, the **VIN**, the **CODING** *(experimental)* and the **ODOMETER** — or **SAVE EDITED** to keep the result as a file and write it later |
+| 4 | **RECORDS** | Every backup, and the image after every write |
+
+Three ways through the same steps, so there is one path to learn:
+
+| To | Do |
+|---|---|
+| fix the chip that was read | READ → REWRITE, SOURCE **CHIP** → change → WRITE CHIP |
+| move a donor's data over | READ → REWRITE, SOURCE **FILE** (the donor's dump) → change → WRITE CHIP |
+| prepare a file now, write it later | REWRITE, SOURCE **FILE** → change → **SAVE EDITED**; later READ → REWRITE, SOURCE **FILE** (that file) → WRITE CHIP |
+
+REWRITE opens without a chip, because the third starts there; what it can do without one is
+SAVE EDITED. WRITE CHIP appears only after the hub has taken you through CONNECT, READ and
+BACKUP — from REWRITE itself, so a file opened there stays open while the chip is read.
 
 **TEST** *(experimental)* — the chip back in its cluster, the cluster on the desk, over the
 K+DCAN cable: **BENCH** (the wiring, the parts, the procedure) and **CHECKS** (ask it, compare,
@@ -77,9 +88,10 @@ is understood well enough to write into (`web/lib/domain/layout.ts`, numbers and
 
 - **Two checksums.** `0x16E = XOR(0x070..0x16D)` and `0x3CD = XOR(0x310..0x3CC)`, with `0x3DF`
   holding the same value as `0x3CD`. An image is recognised as late **by its checksums**, never
-  by an address that happens to hold something plausible. INSPECT shows their state on every
-  edit and offers FIX CHECKSUMS; any write that lands inside a checksummed region recomputes it
-  in the same plan, and the confirmation shows the checksum bytes.
+  by an address that happens to hold something plausible. REWRITE's SOURCE shows their state,
+  and offers FIX CHECKSUMS for a file whose checksums fail; any write that lands inside a
+  checksummed region recomputes it in the same plan, and the confirmation shows the checksum
+  bytes.
 - **Two VIN fields, which are different fields.** `CODED 07A` (late layout only): two letters
   and five BCD digits — the short VIN the cluster's own DS2 reply has the shape of — inside the
   `0x16E` region. `ASCII`: found by a scan (at `0x184` on the V6 chip), matching the
@@ -94,30 +106,40 @@ not support, and its coding is not read.
 
 ## REWRITE — the job, in one write
 
-Moving a cluster to another car used to be three tabs, three plans and three writes. It is one
-job now (`web/lib/domain/job.ts`), planned in a fixed order and written through the one write
-path — each byte written and read back, the whole chip read again and compared with the plan,
-the result recorded:
+Moving a cluster to another car used to be four tabs — RESTORE, REWRITE, CODING, and INSPECT
+to edit a file before taking it to RESTORE — with their own plans and writes. It is one job now
+(`web/lib/domain/job.ts`), planned in a fixed order and written through the one write path —
+each byte written and read back, the whole chip read again and compared with the plan, the
+result recorded:
 
-1. **SOURCE** — the standard array (`0x020–0x3FF`) starts as the chip's own, or as a **dump**'s
-   (what RESTORE used to do). A dump can be opened before anything is connected, so its coding
-   and the VIN can be planned first; writing needs the chip READ. On a blank chip the whole dump
-   is written; on a used one only the bytes that differ, and writing it again never raises the
-   odometer. A dump whose standard array is one value repeated (all `FF`, `00`, `A5` — failed
-   reads, not clusters) is refused, and a late-layout dump whose checksums do not hold is refused
-   too (fix the file in INSPECT first, where you see which byte changes).
-2. **VIN** — written to every VIN field the source has, as above.
-3. **CODING** *(experimental)* — the source's own definition, so a dump's coding can be changed
+1. **SOURCE** — the standard array (`0x020–0x3FF`) starts as the chip's own, or as a **FILE**'s:
+   a donor's dump, a backup, or a file SAVE EDITED made earlier. A file can be opened before
+   anything is connected; writing it needs the chip READ. On a blank chip the whole file is
+   written; on a used one only the bytes that differ, and writing it again never raises the
+   odometer. A file whose standard array is one value repeated (all `FF`, `00`, `A5` — failed
+   reads, not clusters) is refused, and so is a late-layout file whose checksums do not hold,
+   until **FIX CHECKSUMS** on the SOURCE recomputes them — explicitly, and it can be taken back.
+   A chip whose checksums fail is not recomputed over: read it again, or write a good file.
+2. **BYTES** — bytes changed by hand in the HEX view's edit bar, on the ones no other part owns:
+   not the odometer (ODOMETER), not a VIN field (VIN), and on the late layout not the odometer
+   offset, the K-numbers or the checksums. The checksums are sealed again after them.
+3. **VIN** — written to every VIN field the source has, as above.
+4. **CODING** *(experimental)* — the source's own definition, so a file's coding can be changed
    whatever the chip on the UNO holds — a blank one, or PRACTICE's made-up one.
-4. **ODOMETER** — WRINC on the chip, upward only. Never copied from a dump: left blank, the
+5. **ODOMETER** — WRINC on the chip, upward only. Never copied from a file: left blank, the
    odometer is kept, and a new chip stays at 0 km, below the car, which syncs it up (the
    reference project's own rule: *"Mileage on new cluser MUST be lower then mileage on your
    car"*).
 
 The checksums are sealed once, after every edit, and one confirmation lists everything that
-will be sent: the WRINCs, what the dump changes, the VIN fields, each coding change, each
-checksum, and the runs of bytes themselves. The record is `Restore_…` for a dump, `Rewrite_…`
-otherwise, and its note keeps the source, the odometer, the VIN and each coding change.
+will be sent: the WRINCs, what the file changes, the bytes changed by hand, the VIN fields, each
+coding change, each checksum, and the runs of bytes themselves. The record is `Restore_…` for a
+file, `Rewrite_…` otherwise, and its note keeps the source, the bytes, the odometer, the VIN and
+each coding change.
+
+**SAVE EDITED** keeps the result as a file instead — `Edited_<VIN>_<km>_<stamp>.bin`, never over
+the file it came from, with the SOURCE's own odometer and no WRINC, so it is the same file with
+a chip read or without one. Open it later as the SOURCE FILE and write it.
 
 The reference project blanks `0x2E8–0x2EF` as "the VIN". On these chips that address is not the
 VIN, so nothing is blanked. The sync to the car's higher mileage — held by the LCM from 09/2001,
@@ -235,7 +257,8 @@ increment-only rule, and the TEST mode against a simulated cluster. Where the co
 are available, PRACTICE builds its chip to fit one of them (`web/lib/ncs/practice.ts`: made-up
 values, the definition's options), so coding is rehearsed exactly as on a real chip —
 CONNECT, READ, REWRITE, pick, WRITE CHIP — with nothing opened. A real chip's dump can also be
-REWRITE's SOURCE, and INSPECT's USE AS PRACTICE CHIP makes a file the chip PRACTICE reads.
+REWRITE's SOURCE, and READ's PRACTICE CHIP (shown while PRACTICE is ticked and nothing is
+connected) makes a file the chip PRACTICE reads.
 
 `next dev` draws what a release draws. REWRITE's CODING section and the TEST mode are
 experimental and appear in a preview build:

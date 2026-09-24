@@ -56,7 +56,7 @@ const JA = {
   errorsLead: 'エラー記録は、操作が失敗したときにアプリが自動で送ります。問題の調査にだけ使います。',
   errorsEmpty: 'エラー記録はありません。',
   waiting: (n: number) => `送信待ち ${n} 件（次にサインインしているときに送ります）`,
-  reauthConfirm: 'INSPECT の未保存の編集は失われます。サインインし直しますか？',
+  reauthConfirm: 'REWRITE でファイルに加えた変更のうち、SAVE EDITED で保存していないものは失われます。サインインし直しますか？',
   privacyTitle: 'プライバシーポリシー（プレビュー版）',
 };
 
@@ -87,7 +87,7 @@ const EN: SyncCopy = {
   errorsLead: 'Error records are sent by the app itself when an operation fails, and are used only to investigate the problem.',
   errorsEmpty: 'No error records.',
   waiting: (n: number) => `${n} waiting to send (sent the next time you are signed in)`,
-  reauthConfirm: 'Unsaved edits in INSPECT will be lost. Sign in again?',
+  reauthConfirm: 'Changes made to the file on REWRITE and not saved with SAVE EDITED will be lost. Sign in again?',
   privacyTitle: 'Privacy policy (preview)',
 };
 
