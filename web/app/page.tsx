@@ -63,7 +63,7 @@ import { differingFrom, effectiveChanges, type Staged } from '@/lib/ncs/view';
 import { presetImage, type PracticeChip } from '@/lib/link/mockLink';
 import { codedPracticeChip } from '@/lib/ncs/practice';
 import {
-  applyLangToDocument,
+  adoptReaderLang,
   getLang,
   subscribeLang,
   t,
@@ -81,19 +81,21 @@ import { linkOwnerOfMode } from '@/lib/hub/owner';
 import { practiceBoxFor } from '@/lib/hub/practiceBox';
 
 /**
- * Re-render chrome when the resolved language changes.
+ * The reader's language, taken up after hydration.
  *
- * The initial state is the language the SERVER rendered, not the resolved one.
- * i18n.ts resolves the browser's language at IMPORT time - before React
- * hydrates - so seeding from getLang() would hydrate against markup the server
- * never produced.
+ * The first render - the one React hydrates against the prerendered HTML - is in STATIC_LANG,
+ * because every copy function answers in it until the page has mounted (lib/i18n.ts). The mount
+ * effect then adopts the browser's language, and the state change renders the page again in it.
+ * Subscribing first means that switch is heard; reading getLang() after it covers a remount that
+ * finds the language already adopted.
  */
 function useLang(): Lang {
   const [lang, setL] = useState<Lang>(STATIC_LANG);
   useEffect(() => {
-    applyLangToDocument();
+    const off = subscribeLang(setL);
+    adoptReaderLang();
     setL(getLang());
-    return subscribeLang(setL);
+    return off;
   }, []);
   return lang;
 }

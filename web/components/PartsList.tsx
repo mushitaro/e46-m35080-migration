@@ -188,7 +188,9 @@ function PartRow({
         {part.price && (
           <span className="font-mono text-[10px] text-slate-400">
             {part.currency === 'JPY' ? '¥' : ''}
-            {Number(part.price).toLocaleString()}
+            {/* A fixed locale: the prerendered HTML and the first client render must agree, and
+                the browser's own grouping (1.234 in German) would not. */}
+            {Number(part.price).toLocaleString('ja-JP')}
           </span>
         )}
         <a

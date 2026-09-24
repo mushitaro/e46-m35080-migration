@@ -1,17 +1,24 @@
 /**
  * Language resolution and the copy record.
  *
- * The app opens in the READER's language: resolved once at boot from
- * `navigator.language`, overridden by an explicit stored choice, and written
- * to `document.documentElement.lang`.
+ * The app opens in the READER's language: `navigator.language`, adopted once the page has
+ * hydrated, and written to `document.documentElement.lang`.
  *
- * The Next.js static-export trap: this module is imported during prerender,
- * where `navigator`, `localStorage` and `document` all throw. The `typeof`
- * guards below are where this rule usually dies - the boot write ends up
- * living only inside `setLang()`, and the app ships the static `lang="ja"` to
- * every reader who never touches the toggle. `applyLangToDocument()` exists to
- * be called from a mount effect in the root client component, which is the
- * missing half.
+ * Two Next.js static-export traps meet here.
+ *
+ * This module is imported during prerender, where `navigator`, `localStorage` and `document` all
+ * throw, so the page is prerendered in STATIC_LANG - and the `typeof` guards are where the reader's
+ * language usually dies, leaving every reader on the static `lang="ja"`.
+ *
+ * The opposite mistake is resolving it too EARLY. React hydrates by comparing its first client
+ * render with the prerendered HTML. When this module took the browser's language at import, every
+ * t() / g() / jc() call in that first render answered in it, so on any browser that was not
+ * Japanese the text differed from the HTML: hydration failed (#418), React rendered the page again
+ * from the root, and the metas the build writes into the HTML after `next build` - app-variant,
+ * build-id - went with the prerendered <head>. The preview then ran as production: no PREVIEW
+ * badge, no privacy link, no SYNC, no first-run notice. So the first client render stays in
+ * STATIC_LANG, matching the HTML, and `adoptReaderLang()` - called from the root client
+ * component's mount effect - switches to the reader's language and re-renders.
  */
 
 import type { RefusalCode } from './domain/operations';
@@ -53,9 +60,9 @@ function fromNavigator(): Lang {
   return navigator.language?.toLowerCase().startsWith('ja') ? 'ja' : 'en';
 }
 
+/* STATIC_LANG until the page has hydrated - in the browser too (see the top of this file). */
 let current: Lang = STATIC_LANG;
 if (typeof window !== 'undefined') {
-  current = fromNavigator();
   try {
     localStorage.removeItem(RETIRED_KEY);
   } catch {
@@ -86,9 +93,18 @@ export function setLangForTest(lang: Lang): void {
   listeners.forEach((l) => l(lang));
 }
 
-/** The boot write the `typeof` guards would otherwise delete. */
-export function applyLangToDocument(): void {
-  if (typeof document !== 'undefined') document.documentElement.lang = current;
+/**
+ * Take up the reader's language: once, from the root client component's mount effect - after
+ * hydration, never before it. Writes <html lang> and tells every subscriber, so the page renders
+ * again in that language.
+ */
+export function adoptReaderLang(): void {
+  if (typeof window === 'undefined') return;
+  const lang = fromNavigator();
+  document.documentElement.lang = lang;
+  if (lang === current) return;
+  current = lang;
+  listeners.forEach((l) => l(lang));
 }
 
 type Listener = (lang: Lang) => void;
