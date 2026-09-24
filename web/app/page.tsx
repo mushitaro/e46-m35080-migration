@@ -747,7 +747,17 @@ export default function Page() {
       case 'bench':
         return <ClusterBenchDiagram highlight={benchHighlight} onSelectWire={setBenchWire} />;
       case 'checks':
-        return <ClusterDiagram variant={kombi.session?.variant ?? null} commanded={kombi.commanded} stepping={kombi.stepping} />;
+        /* The checks are what the reader works through - and where each lamp waits for its answer -
+           so they take the work surface; what was commanded is the instrument beside them. */
+        return (
+          <ChecksPanel
+            kombi={kombi}
+            reference={reference}
+            lang={lang}
+            namesLoad={namesRef.state}
+            onOpenNames={(file) => void namesRef.openFile(file)}
+          />
+        );
       default: {
         const unreachable: never = step;
         return unreachable;
@@ -892,13 +902,9 @@ export default function Page() {
         );
       case 'checks':
         return (
-          <ChecksPanel
-            kombi={kombi}
-            reference={reference}
-            lang={lang}
-            namesLoad={namesRef.state}
-            onOpenNames={(file) => void namesRef.openFile(file)}
-          />
+          <div className="h-full px-5 py-4">
+            <ClusterDiagram variant={kombi.session?.variant ?? null} commanded={kombi.commanded} stepping={kombi.stepping} />
+          </div>
         );
       default: {
         const unreachable: never = step;

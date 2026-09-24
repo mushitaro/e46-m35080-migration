@@ -11,23 +11,73 @@ The wiring below is the one source the app draws from: `web/lib/domain/clusterBe
 
 ## ⚠ The cluster pin numbers are unverified
 
-The X11175 pin numbers come from one public pinout of the E46 cluster connector (bmwgm5). They
-have **not** been checked on a real cluster by this project. The app marks every cluster pin
-UNVERIFIED until they have been. Before powering anything, check each pin against your own
-cluster's connector and a wiring diagram you trust, with a meter.
+The X11175 pin numbers, where they sit in the connector and the colours of their wires come from
+one public source for the E46 cluster connector:
+[bmwgm5](https://www.bmwgm5.com/E46_IKE_Connections.htm) — its pinout table and its photo of the
+board. They have **not** been checked on a real cluster by this project. The app marks every
+cluster pin UNVERIFIED until they have been. Before powering anything, check each pin against
+your own cluster's connector and a wiring diagram you trust, with a meter.
 
 The OBD-II side is the J1962 standard and is not in question.
+
+## The cluster connector
+
+X11175 is 26 pins in two columns of 13. Seen from the back of the cluster, as in bmwgm5's photo
+of the board, 1–13 run up the right-hand column from the bottom and 14–26 up the left-hand one,
+so pin *n* sits beside pin *n* + 13. The bench uses five of them. Each wire's colour, in BMW's
+letters with the base colour first, is how it is found in a pigtail cut from a used harness
+(SW black, BR brown, RT red, GE yellow, GN green, BL blue, VI violet, WS white).
+
+| Pin | Signal | Wire |
+|---|---|---|
+| 1 | GND | BR/SW |
+| 4 | KL30 | RT/GE/WS |
+| 5 | KL15 | GN/BL |
+| 6 | KL R | VI/GE |
+| 25 | TXD1 | WS/VI |
+
+```
+ X11175 from the back of the cluster
+   26   13
+  [25]  12
+   24   11
+   23   10
+   22    9
+   21    8
+   20    7
+   19   [6]   KL R
+   18   [5]   KL15
+   17   [4]   KL30
+   16    3
+   15    2
+   14   [1]   GND
+```
+
+## Built like a breadboard
+
+Every joint on this bench is a **lever connector** (WAGO 221 or similar): lift the lever, push the
+stripped end in, close it. A lever connector is one node, the way a breadboard's rail is — a wire
+in any of its ports is on that node — and its test slot takes a meter probe. Three do the whole
+bench: fused +12 V (5 ports), ground (5 ports), and a 2-port one that joins the cable's K-line to
+the cluster's. The fuse holder's leads and the loose ends of the two pigtails go straight in:
+nothing is soldered, crimped or screwed down.
+
+**No ignition switch.** KL15 and KL R go on the fused +12 V with KL30, so the supply's output is
+the key: switched on, the cluster sees battery and ignition together, as with the key turned.
+Nothing TEST does needs the ignition off with the battery on. To switch off, STOP the session
+first, then the supply's output.
 
 ## Bill of materials
 
 | Item | Note |
 |---|---|
 | 12 V bench supply, **1 A or more** | Current-limited is best: set the limit near 1 A |
-| Inline fuse holder + **1 A fuse** | In the feed, before everything else |
-| Toggle switch | KL15 (ignition) |
-| OBD-II 16-pin **female** socket (breakout) | The K+DCAN cable plugs into it, as into the car |
+| Inline fuse holder with leads + **1 A fuse** | In the feed, before everything else |
+| Lever connector, 5 ports (WAGO 221-415 or similar), two | One for fused +12 V, one for ground |
+| Lever connector, 2 ports (WAGO 221-412 or similar) | Joins OBD 7 to cluster pin 25 |
+| OBD-II 16-pin **female** socket with leads | The K+DCAN cable plugs into it, as into the car |
 | Mating plug for the cluster connector X11175 (black, 26 pins) | A pigtail cut from a used harness. **Do not solder to the cluster's board.** |
-| Hookup wire, terminal blocks | One block for fused +12 V, one for switched, one for ground |
+| Hookup wire | PSU − to the ground connector |
 | K+DCAN cable | The one you use on the car |
 | Multimeter | To check pins, polarity and the fuse before power |
 
@@ -37,26 +87,26 @@ The OBD-II side is the J1962 standard and is not in question.
 |---|---|---|---|
 | feed | PSU + | +12 V FUSED | the supply, through the 1 A fuse |
 | ground-lead | PSU - | GND | ground |
-| switch | +12 V FUSED | KL15 SWITCHED | through the toggle switch |
 | kl30 | +12 V FUSED | X11175 4 | KL30, permanent + |
-| kl15 | KL15 SWITCHED | X11175 5 | KL15, ignition |
-| klr | KL15 SWITCHED | X11175 6 | KL R, accessory |
+| kl15 | +12 V FUSED | X11175 5 | KL15, ignition — on with the supply |
+| klr | +12 V FUSED | X11175 6 | KL R, accessory — on with the supply |
 | cluster-gnd | GND | X11175 1 | cluster ground |
 | obd-16 | +12 V FUSED | OBD 16 | the cable's supply |
 | obd-4 | GND | OBD 4 | the cable's ground |
 | obd-5 | GND | OBD 5 | the cable's signal ground |
-| k-line | OBD 7 | X11175 25 | DS2 (K-line) |
+| obd-7 | K-LINE | OBD 7 | the cable's K-line |
+| k-line | K-LINE | X11175 25 | DS2 (TXD1) |
 | usb | K+DCAN | PC | Web Serial, 9600 8E1 |
 
 ```
- PSU + ──[1 A]──► +12 V FUSED ──┬──────────────► X11175 4   (KL30)
-                                ├──────────────► OBD 16
-                                └──[switch]────► KL15 SWITCHED ──┬──► X11175 5  (KL15)
-                                                                 └──► X11175 6  (KL R)
- PSU − ─────────► GND ──────────┬──────────────► X11175 1   (GND)
-                                ├──────────────► OBD 4
-                                └──────────────► OBD 5
- OBD 7 (K-line) ───────────────────────────────► X11175 25  (TXD)
+ PSU + ──[1 A]──► [ +12 V FUSED · 5 ports ] ──┬──► X11175 4   (KL30)
+                                              ├──► X11175 5   (KL15)
+                                              ├──► X11175 6   (KL R)
+                                              └──► OBD 16
+ PSU − ─────────► [ GND · 5 ports ] ──────────┬──► X11175 1   (GND)
+                                              ├──► OBD 4
+                                              └──► OBD 5      (one port spare)
+ OBD 7 ─────────► [ K-LINE · 2 ports ] ───────────► X11175 25  (TXD1)
  K+DCAN, plugged into the OBD socket ──USB──► PC
 
  OBD-II socket, mating face (as the car's, under the dash)
@@ -67,8 +117,17 @@ The OBD-II side is the J1962 standard and is not in question.
 ```
 
 The OBD socket is drawn as its mating face — the way you see the car's socket under the dash:
-pins 1–8 across the top, 9–16 across the bottom. The cluster connector is drawn as a list,
-because its physical layout has not been checked either.
+pins 1–8 across the top, 9–16 across the bottom. The cluster connector is drawn as above, from
+the back of the cluster, beside a list of the five wires it uses; the wires land on the list.
+Which port of a lever connector a wire takes does not matter; the app's drawing picks one so the
+wires do not cross more than they must.
+
+**OBD 7, not 8.** The E46 has two diagnostic lines: OBD 7 is D_TXD2, for the engine and gearbox,
+and OBD 8 is D_TXD1, for everything else — the cluster among them (X11175 pin 25 is D_TXD1). A
+K+DCAN cable talks on 7, the J1962 K-line, and its switch in the K-line position bridges 7 and 8:
+that "7–8 bridge" is how it reaches the cluster in the car. On the bench the cluster is the only
+thing on the line, so its pin 25 goes straight to OBD 7, and OBD 8 is not wired. Leaving the switch
+where it sits on the car does no harm: the bridge then only joins 7 to a pin that goes nowhere.
 
 ## Procedure
 
@@ -76,31 +135,35 @@ Each step says what to do and how you know it is done.
 
 1. **Parts.** Everything above on the desk, the fuse in its holder, the supply off.
    *Done when* every required part is at hand.
-2. **Supply.** PSU + through the fuse holder to the +12 V block; PSU − to the ground block.
-   *Done when* with the supply on and nothing else connected, the +12 V block reads 12 V to
-   ground — and 0 V with the fuse out.
-3. **Switch.** From the +12 V block through the toggle switch to the switched block.
-   *Done when* the switched block reads 12 V with the switch on and 0 V with it off.
-4. **Cluster plug.** Pin 4 to +12 V, pins 5 and 6 to the switched block, pin 1 to ground, on the
-   mating plug — never on the cluster's board. Check each pin number on your own cluster first.
-   *Done when* with the supply off, a meter shows each plug pin connected to its block and no
+2. **Supply.** One lead of the fuse holder to PSU +, the other into the +12 V connector; one wire
+   from PSU − into the ground connector.
+   *Done when* with the supply on and nothing else connected, the +12 V connector reads 12 V to
+   the ground connector — and 0 V with the fuse out.
+3. **Cluster plug.** On the pigtail — never on the cluster's board: pins 4 (KL30), 5 (KL15) and
+   6 (KL R) into the +12 V connector, pin 1 into the ground connector. Insulate the ends you do
+   not use. Check each pin number on your own cluster first.
+   *Done when* with the supply off, a meter shows each plug pin connected to its connector and no
    path between +12 V and ground.
-5. **OBD socket.** 16 to +12 V, 4 and 5 to ground, 7 to cluster pin 25.
+4. **OBD socket.** 16 into +12 V, 4 and 5 into ground; 7 and cluster pin 25 meet in the 2-port
+   connector. Insulate the ends you do not use.
    *Done when* OBD 16 reads 12 V to OBD 4 and 5 with the supply on, and OBD 7 has continuity to
    cluster pin 25.
-6. **K+DCAN.** Plug the cable into the socket, its switch where it sits on your E46 (K-line),
+5. **K+DCAN.** Plug the cable into the socket, its switch where it sits on your E46 (K-line),
    USB to the PC.
    *Done when* the PC lists the cable's USB serial port.
-7. **Power on.** Supply on (KL30), then the switch (KL15).
+6. **Power on.** Supply output on: KL30, KL15 and KL R come on together, as with the key turned.
+   To switch off, STOP the session first, then the output.
    *Done when* the cluster lights up, runs its bulb check, and the fuse holds.
-8. **CONNECT.** In the TEST tab, choose the cable's port.
+7. **CONNECT.** In the TEST tab, choose the cable's port.
    *Done when* TEST shows the cluster's part number and its variant (KOMBI46 or KOMBI46R).
 
 ## Cautions
 
 - **Check the pin numbers on your own cluster.** See the warning at the top.
-- **Check the polarity** at both blocks before connecting the cluster plug.
+- **Check the polarity** at both connectors before connecting the cluster plug.
 - **Always fit the fuse.** It is the only thing between a miswire and the cluster.
+- **Insulate the pigtail ends you do not use.** A loose end that touches +12 V feeds a cluster
+  input that was never meant to see it, and no fuse stops that.
 - **Never connect the UNO to the cluster.** TEST refuses the UNO's port (USB vendor 0x2341).
 - With no CAN partners on the bench, some warning lamps may stay lit. That is the bench, not a
   fault; TEST's lamp check lights each lamp on command and asks whether you saw it.

@@ -13,7 +13,7 @@
  */
 
 import { Eye, EyeOff, FileDown, Pause, Play, Radio } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { DropZone } from '@/components/DropZone';
 import { MicroLabel, Pill, TextButton, type Tone } from '@/components/ui';
 import { CHROME } from '@/lib/copy/chrome';
@@ -367,7 +367,7 @@ function CheckResult({
       return (
         <div className="flex flex-col gap-1">
           {st && (
-            <span className="flex min-w-0 items-center gap-2">
+            <AskedRow asked={st.keys[st.index]!}>
               <span className="min-w-0 text-[11px] text-indigo-300">
                 <BitLabel names={names} group={id} id={st.keys[st.index]!} lang={lang} />
               </span>
@@ -375,7 +375,7 @@ function CheckResult({
               <span className="ml-auto">
                 <Answer result={item(st.keys[st.index]!)} onAnswer={(o) => kombi.observe(st.keys[st.index]!, o)} />
               </span>
-            </span>
+            </AskedRow>
           )}
           {keys.length > 0 && (
             <span className="font-mono text-[10px] text-slate-500">{`${CHROME.test.seen} ${seen} · ${CHROME.test.notSeen} ${notSeen}`}</span>
@@ -419,6 +419,24 @@ function CheckResult({
       return unreachable;
     }
   }
+}
+
+/**
+ * The lamp or output bit lit now, with its answer. The check does nothing until it is answered,
+ * so the row brings itself into view each time a new item is lit - START sits at the section's
+ * top, and the row opening below it could otherwise open off screen and leave a lit lamp that
+ * looks like a stopped check.
+ */
+function AskedRow({ asked, children }: { asked: string; children: ReactNode }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    ref.current?.scrollIntoView({ block: 'nearest' });
+  }, [asked]);
+  return (
+    <span ref={ref} className="flex min-w-0 items-center gap-2">
+      {children}
+    </span>
+  );
 }
 
 /** The reader's answer for one item: two buttons until answered, then what they said. */

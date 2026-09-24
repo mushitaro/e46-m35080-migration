@@ -250,8 +250,9 @@ export const CHROME = {
     procedure: 'PROCEDURE',
     unverified: 'UNVERIFIED',
     psu: '12 V PSU',
+    /* the supply's output button: with no ignition switch on the bench, it is the key */
+    output: 'OUTPUT',
     fuse: '1 A',
-    toggle: 'KL15',
     cluster: 'CLUSTER X11175',
     obd: 'OBD-II',
     kdcan: 'K+DCAN',

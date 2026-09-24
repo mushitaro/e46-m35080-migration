@@ -1,5 +1,5 @@
 {
-  "_comment": "Bill of materials for the TEST bench (docs/BENCH.md): a cluster out of the car on a 12 V supply, reached through the K+DCAN cable. Same schema as parts.json; productId stays null until a product is chosen, and the list then shows the search term.",
+  "_comment": "Bill of materials for the TEST bench (docs/BENCH.md): a cluster out of the car on a 12 V supply, reached through the K+DCAN cable. Every joint is a lever connector, one lever-connector-<ports> per BENCH_CONNECTORS entry (bench.test.ts holds the two together). Same schema as parts.json; productId stays null until a product is chosen, and the list then shows the search term.",
   "parts": [
     {
       "id": "bench-psu-12v",
@@ -15,21 +15,14 @@
       "qty": 1,
       "note": "fuse-in-feed",
       "productId": null,
-      "searchQuery": "inline fuse holder 5x20mm with 1A fuse"
-    },
-    {
-      "id": "toggle-switch",
-      "required": true,
-      "qty": 1,
-      "productId": null,
-      "searchQuery": "SPST toggle switch 12V"
+      "searchQuery": "inline fuse holder 5x20mm with wire leads 1A fuse"
     },
     {
       "id": "obd2-female-socket",
       "required": true,
       "qty": 1,
       "productId": null,
-      "searchQuery": "OBD2 16 pin female connector breakout"
+      "searchQuery": "OBD2 16 pin female connector pigtail cable"
     },
     {
       "id": "cluster-plug-x11175",
@@ -40,11 +33,20 @@
       "searchQuery": "BMW E46 instrument cluster connector plug 26 pin"
     },
     {
-      "id": "terminal-blocks",
+      "id": "lever-connector-5",
       "required": true,
-      "qty": 3,
+      "qty": 2,
+      "note": "lever-rails",
       "productId": null,
-      "searchQuery": "lever terminal block connector 5 way"
+      "searchQuery": "WAGO 221-415 lever connector 5 conductor"
+    },
+    {
+      "id": "lever-connector-2",
+      "required": true,
+      "qty": 1,
+      "note": "lever-kline",
+      "productId": null,
+      "searchQuery": "WAGO 221-412 lever connector 2 conductor"
     },
     {
       "id": "hookup-wire",

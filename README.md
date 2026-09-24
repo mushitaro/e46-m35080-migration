@@ -183,15 +183,19 @@ document to it):
 
 | From | To | Carries |
 |---|---|---|
-| 12 V supply + → **1 A fuse** | cluster X11175 pin 4 | KL30, permanent |
-| fused + → KL15 toggle | X11175 pins 5 and 6 | KL15 ignition, KL R |
-| supply − | X11175 pin 1 | ground |
-| fused + / supply − | OBD-II socket pin 16 / pins 4, 5 | the cable's power |
-| OBD-II pin 7 | X11175 pin 25 | K-line (DS2) |
+| 12 V supply + → **1 A fuse** | +12 V lever connector | everything positive |
+| +12 V lever connector | cluster X11175 pins 4, 5 and 6 | KL30, KL15, KL R — on together |
+| supply − → ground lever connector | X11175 pin 1 | ground |
+| +12 V / ground lever connectors | OBD-II socket pin 16 / pins 4, 5 | the cable's power |
+| OBD-II pin 7 → 2-port lever connector | X11175 pin 25 | K-line (DS2) |
 
-**The X11175 pin numbers come from one public pinout and are unverified** — the app marks them
-so until they have been checked on a real cluster. Check every pin with a meter first, keep the
-fuse in, and never connect the UNO to the cluster.
+Every joint is a lever connector, one node each like a breadboard's rail, so nothing is soldered.
+There is no ignition switch: the supply's output is the key.
+
+**The X11175 pin numbers, where they sit and their wire colours come from one public source
+(bmwgm5) and are unverified** — the app marks them so until they have been checked on a real
+cluster. Check every pin with a meter first, keep the fuse in, and never connect the UNO to the
+cluster.
 
 Every telegram TEST sends is decided by one function, `mayRun` (`web/lib/kombi/runGate.ts`):
 only the listed telegrams, at their exact length for the variant; anything that moves a needle,

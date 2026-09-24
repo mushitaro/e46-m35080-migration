@@ -69,7 +69,8 @@ const JA = {
   names: {
     'not-preview': 'このビルドはランプ・入力の名前を配信しません。kombi-names.json を開くと表示します。',
     unauthorized: 'サインインしていないため、名前を受け取れません。サインインするか、ファイルを開いてください。',
-    absent: '名前のデータがまだアップロードされていません。ファイルを開くと表示します。',
+    absent:
+      'この配信元には名前のデータがありません（プレビューならまだアップロードされていない、手元のサーバなら REFDATA_OUT のフォルダに無い）。kombi-names.json を開くと表示します。',
     unreachable: '名前のデータを取得できませんでした。',
     invalid: 'この JSON は kombi-names の形式ではありません。',
   } satisfies Record<RefFailure, string>,
@@ -136,7 +137,8 @@ const EN: typeof JA = {
   names: {
     'not-preview': 'This build does not serve the lamp and input names. Open kombi-names.json to show them.',
     unauthorized: 'Not signed in, so the names are not served. Sign in, or open the file.',
-    absent: 'The names have not been uploaded yet. Open the file to show them.',
+    absent:
+      "This server has no names (not uploaded to the preview yet, or not in a local server's REFDATA_OUT folder). Open kombi-names.json to show them.",
     unreachable: 'Could not fetch the names.',
     invalid: 'This JSON is not kombi-names.',
   },

@@ -4,7 +4,7 @@
  * The bench procedure, one step at a time - AssemblyGuide's shape, for the cluster bench.
  *
  * Each step says what to do and what "done" looks like, and lights only its own wires in the
- * diagram beside it. The same eight steps, in the same order, are in docs/BENCH.md.
+ * diagram beside it. The same seven steps, in the same order, are in docs/BENCH.md.
  */
 
 import { Check, ChevronRight } from 'lucide-react';
@@ -14,15 +14,14 @@ import { CHROME } from '@/lib/copy/chrome';
 import { LABEL, MicroLabel } from '@/components/ui';
 import type { BenchWireId } from '@/lib/domain/clusterBench';
 
-export type BenchStepId = 'parts' | 'supply' | 'switch' | 'cluster-plug' | 'obd-socket' | 'cable' | 'power-on' | 'connect';
+export type BenchStepId = 'parts' | 'supply' | 'cluster-plug' | 'obd-socket' | 'cable' | 'power-on' | 'connect';
 
 /** Which wires each step lights. `null` shows the whole bench. */
 export const BENCH_STEPS: { id: BenchStepId; highlight: BenchWireId[] | null }[] = [
   { id: 'parts', highlight: null },
   { id: 'supply', highlight: ['feed', 'ground-lead'] },
-  { id: 'switch', highlight: ['switch'] },
   { id: 'cluster-plug', highlight: ['kl30', 'kl15', 'klr', 'cluster-gnd'] },
-  { id: 'obd-socket', highlight: ['obd-16', 'obd-4', 'obd-5', 'k-line'] },
+  { id: 'obd-socket', highlight: ['obd-16', 'obd-4', 'obd-5', 'obd-7', 'k-line'] },
   { id: 'cable', highlight: ['usb'] },
   { id: 'power-on', highlight: null },
   { id: 'connect', highlight: null },
@@ -35,18 +34,16 @@ export function benchStepCopy(id: BenchStepId): { title: string; body: string; d
       return { title: c.b1Title, body: c.b1Body, done: c.b1Done };
     case 'supply':
       return { title: c.b2Title, body: c.b2Body, done: c.b2Done };
-    case 'switch':
-      return { title: c.b3Title, body: c.b3Body, done: c.b3Done };
     case 'cluster-plug':
-      return { title: c.b4Title, body: c.b4Body, done: c.b4Done };
+      return { title: c.b3Title, body: c.b3Body, done: c.b3Done };
     case 'obd-socket':
-      return { title: c.b5Title, body: c.b5Body, done: c.b5Done };
+      return { title: c.b4Title, body: c.b4Body, done: c.b4Done };
     case 'cable':
-      return { title: c.b6Title, body: c.b6Body, done: c.b6Done };
+      return { title: c.b5Title, body: c.b5Body, done: c.b5Done };
     case 'power-on':
-      return { title: c.b7Title, body: c.b7Body, done: c.b7Done };
+      return { title: c.b6Title, body: c.b6Body, done: c.b6Done };
     case 'connect':
-      return { title: c.b8Title, body: c.b8Body, done: c.b8Done };
+      return { title: c.b7Title, body: c.b7Body, done: c.b7Done };
   }
 }
 
