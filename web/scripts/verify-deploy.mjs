@@ -176,10 +176,11 @@ check('every manifest icon is from the dev set', icons.length > 0 && icons.every
 const anySrc = new Set(icons.filter((i) => (i.purpose ?? 'any').split(/\s+/).includes('any')).map((i) => i.src));
 const maskable = icons.filter((i) => (i.purpose ?? '').split(/\s+/).includes('maskable'));
 check('maskable icons are their own files', maskable.length > 0 && maskable.every((i) => /-maskable-/.test(i.src) && !anySrc.has(i.src)), maskable.map((i) => i.src).join(', ') || '(none)');
-// The refusal page is the gate's, titled with the name in functions/_middleware.ts.
-const denied = await get('/_gate/denied', { cookie: null });
-const deniedTitle = (denied.text.match(/<title>([^<]*)<\/title>/) || [])[1];
-check(`no session: /_gate/denied is titled ${EXPECT_NAME}`, deniedTitle === EXPECT_NAME, `${denied.status} ${deniedTitle ?? '(no title)'}`);
+// The refusal page is the gate's, titled with the name in functions/_middleware.ts. Fetched directly
+// rather than with get(), which keeps no body for a status of 400 or more - and this page is a 403.
+const denied = await fetch(`${base}/_gate/denied?cb=${process.hrtime.bigint()}`, { headers: { 'accept-language': 'ja', 'cache-control': 'no-cache' } });
+const deniedTitle = ((await denied.text()).match(/<title>([^<]*)<\/title>/) || [])[1];
+check(`no session: /_gate/denied is titled ${EXPECT_NAME}`, denied.status === 403 && deniedTitle === EXPECT_NAME, `${denied.status} ${deniedTitle ?? '(no title)'}`);
 
 function finish() {
   const w = Math.max(...rows.map((r) => r.name.length));
