@@ -285,13 +285,14 @@ npm run build       # static export to web/out (production identity)
 python -m unittest discover -s ../tools/refdata   # the generator
 ```
 
-## The preview
+## The WORKS build
 
-There is one environment: the **owner preview** at
-<https://e46-m35080-migration-preview.pages.dev>, for people who hold
+There is one environment: the owners' build, called **WORKS** (ワークス版) since
+2026-09-25, at <https://e46-m35080-migration-preview.pages.dev>, for people who hold
 `owner_preview` on [m3.tsunagi.app](https://m3.tsunagi.app) — MILE purchasers
-and the owners whose cars TSUNAGI has worked on. They open it from the APPS
-PREVIEW row of the M menu.
+and the owners whose cars TSUNAGI has worked on. They open it from the WORKS
+row of the M menu. Its variant, host and scripts are still named `preview`; only what the
+owner sees is WORKS (`web/scripts/brand-label.mjs`).
 
 - **The whole origin is gated.** `web/functions/_middleware.ts` is the owner
   gate (a copy of tsunagi-m3's `tools/owner-gate`): without an m3 session that
@@ -305,7 +306,7 @@ PREVIEW row of the M menu.
   a REWRITE SOURCE. When an operation fails, the app sends an
   error record by itself. Both are stored per owner; nobody else can list, read
   or delete them. TEST reports are downloaded, never sent.
-- **Nothing is sent before the owner says yes.** The first time the preview opens in a
+- **Nothing is sent before the owner says yes.** The first time the WORKS build opens in a
   browser, a dialog says what it sends, when, what for, who can see it and how to delete it —
   m3's words, with the lines about error records made exact for this app — and covers the
   app until the owner presses 確認して続ける / Confirm and continue
@@ -315,7 +316,7 @@ PREVIEW row of the M menu.
   pinned by `test/previewNotice.test.ts`). The full text is the privacy policy:
   <https://m3.tsunagi.app/privacy-policy#preview>
   (English: <https://m3.tsunagi.app/en/privacy-policy#preview>), linked from the
-  dialog and from the shield in the preview's header.
+  dialog and from the shield in the WORKS build's header.
 - **Reference data.** CODING's definitions and TEST's names are served from `/api/ref/<name>`
   to the signed-in owner only, from a private R2 bucket, and held in memory (below).
 - **Production sends nothing.** A build without `app-variant=preview` has no
@@ -323,12 +324,13 @@ PREVIEW row of the M menu.
   (`lib/sync/cloud.ts` `canSync()`, pinned by `test/sync.test.ts`; `lib/refdata/load.ts`).
 
 The source carries production's identity (`E46 M35080 /// MIGRATION`,
-`M35080`, the M ICON `migration` set). The preview is branded after the
-compile:
+`M35080`, the M ICON `migration` set). The WORKS build is branded after the
+compile — `— WORKS`, `W M35080`, the dev icon set, and `app-variant=preview` with
+`app-label=WORKS`:
 
 ```bash
 npm run build          # next build → build-id → gen-sw → verify-export
-npm run build:preview  # next build → build-id → brand-preview out PREVIEW → gen-sw → verify-export
+npm run build:preview  # next build → build-id → brand-preview out preview → gen-sw → verify-export
 ```
 
 ### Reference data (operator)

@@ -15,7 +15,7 @@
     "check:public": "cd .. && node scripts/check-public-tree.mjs",
     "hooks:install": "git config core.hooksPath .githooks",
     "gate:verify": "node scripts/gate-verify.mjs --functions functions --client lib/sync/owner-sync.ts",
-    "build:preview": "next build && node scripts/build-id.mjs && node scripts/brand-preview.mjs out PREVIEW && node scripts/gen-sw.mjs && node scripts/verify-export.mjs",
+    "build:preview": "next build && node scripts/build-id.mjs && node scripts/brand-preview.mjs out preview && node scripts/gen-sw.mjs && node scripts/verify-export.mjs",
     "verify:deploy": "node scripts/verify-deploy.mjs"
   },
   "dependencies": {

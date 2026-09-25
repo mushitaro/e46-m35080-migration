@@ -50,8 +50,10 @@ const expects = process.argv
 
 /** The project this repository deploys to (wrangler.jsonc `name`, which deploy.mjs pins). */
 const PROJECT = 'e46-m35080-migration-preview';
-const EXPECT_NAME = 'E46 M35080 /// MIGRATION — PREVIEW';
-const EXPECT_SHORT_NAME = 'P M35080';
+// What the build is called (operator, 2026-09-25: WORKS). The variant it carries stays `preview`.
+const EXPECT_NAME = 'E46 M35080 /// MIGRATION — WORKS';
+const EXPECT_SHORT_NAME = 'W M35080';
+const EXPECT_LABEL = 'WORKS';
 
 const vpath = path.join(WEB, 'out', 'version.json');
 const local = existsSync(vpath) ? JSON.parse(readFileSync(vpath, 'utf-8')) : null;
@@ -174,6 +176,10 @@ check('every manifest icon is from the dev set', icons.length > 0 && icons.every
 const anySrc = new Set(icons.filter((i) => (i.purpose ?? 'any').split(/\s+/).includes('any')).map((i) => i.src));
 const maskable = icons.filter((i) => (i.purpose ?? '').split(/\s+/).includes('maskable'));
 check('maskable icons are their own files', maskable.length > 0 && maskable.every((i) => /-maskable-/.test(i.src) && !anySrc.has(i.src)), maskable.map((i) => i.src).join(', ') || '(none)');
+// The refusal page is the gate's, titled with the name in functions/_middleware.ts.
+const denied = await get('/_gate/denied', { cookie: null });
+const deniedTitle = (denied.text.match(/<title>([^<]*)<\/title>/) || [])[1];
+check(`no session: /_gate/denied is titled ${EXPECT_NAME}`, deniedTitle === EXPECT_NAME, `${denied.status} ${deniedTitle ?? '(no title)'}`);
 
 function finish() {
   const w = Math.max(...rows.map((r) => r.name.length));
@@ -206,6 +212,8 @@ if (local) check('build-id matches the local build', bid === local.buildId, `ser
 else check('local out/version.json exists', false, 'run npm run build:preview first - nothing to compare against');
 const variant = (home.text.match(/<meta name="app-variant" content="([^"]*)"/) || [])[1];
 check('app-variant is preview', variant === 'preview', variant ?? '(absent: the build was not branded)');
+const label = (home.text.match(/<meta name="app-label" content="([^"]*)"/) || [])[1];
+check(`app-label is ${EXPECT_LABEL}`, label === EXPECT_LABEL, label ?? '(absent: the build was branded without a label)');
 check('no sync-token meta', !/<meta[^>]+name="sync-token"/.test(home.text), '');
 check('/ is private', /private/.test(home.headers.get('cache-control') || ''), home.headers.get('cache-control') || '(none)');
 const pp = home.headers.get('permissions-policy') || '';

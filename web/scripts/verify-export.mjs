@@ -11,6 +11,7 @@
  */
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import { BUILD_LABEL } from './brand-label.mjs';
 
 const OUT = 'out';
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
@@ -143,11 +144,15 @@ check('favicon is the 32', /<link rel="icon" href="[^"]*-32\.png" sizes="32x32"/
 
 // ---- 6. production is unbranded; a branded build is branded all the way through ------------
 const variants = new Set();
+const labels = new Set();
 for (const doc of documents) {
   const html = readFileSync(join(OUT, doc.slice(1)), 'utf8');
   const tags = [...html.matchAll(/<meta name="app-variant" content="([^"]*)"/g)].map((m) => m[1]);
   if (tags.length > 1) check(`at most one app-variant in ${doc}`, false, `${tags.length} found`);
   tags.forEach((v) => variants.add(v));
+  const labelTags = [...html.matchAll(/<meta name="app-label" content="([^"]*)"/g)].map((m) => m[1]);
+  if (labelTags.length > 1) check(`at most one app-label in ${doc}`, false, `${labelTags.length} found`);
+  labelTags.forEach((l) => labels.add(l));
   // There is no shared upload token in this app, and there must never be: it would publish a
   // write key in the page it guards.
   check(`no sync-token meta in ${doc}`, !/<meta name="sync-token"/.test(html), '');
@@ -161,16 +166,25 @@ const rel = (p) => '/' + relative(OUT, p).split(sep).join('/');
 if (variants.size === 0) {
   // Production: the build nobody branded. It must not wear, or name, the preview's icons.
   check('production: manifest name has no environment suffix', !/ — [A-Z0-9]+$/.test(manifest.name ?? ''), manifest.name);
+  check('production: no document carries an app-label', labels.size === 0, [...labels].join(', ') || 'none');
   check('production: every manifest icon is from the production set', icons.every((i) => !/-dev-/.test(i.src)), icons.map((i) => i.src).join(', '));
   const devNamed = texts.filter(({ text }) => /icons\/[a-z0-9-]+?-dev-(?:maskable-)?\d+\.png/.test(text)).map(({ p }) => rel(p));
   check('production: no document or payload names a -dev- icon', devNamed.length === 0, devNamed.join(', ') || 'none');
 } else {
   const [variant] = variants;
-  const label = variant.toUpperCase();
+  // What the build is called comes from the table, never from the variant's spelling (brand-label.mjs).
+  const known = Object.hasOwn(BUILD_LABEL, variant);
+  check(`app-variant "${variant}" has a label in brand-label.mjs`, known, Object.keys(BUILD_LABEL).join(' | '));
+  const label = known ? BUILD_LABEL[variant] : '?';
   check(
     'one app-variant across every document',
     variants.size === 1 && documents.every((d) => readFileSync(join(OUT, d.slice(1)), 'utf8').includes(`<meta name="app-variant" content="${variant}">`)),
     [...variants].join(', '),
+  );
+  check(
+    `one app-label "${label}" across every document`,
+    labels.size === 1 && documents.every((d) => readFileSync(join(OUT, d.slice(1)), 'utf8').includes(`<meta name="app-label" content="${label}">`)),
+    [...labels].join(', ') || 'none',
   );
   check(`manifest name ends " — ${label}"`, (manifest.name ?? '').endsWith(` — ${label}`), manifest.name);
   check(`manifest short_name starts "${label[0]} "`, (manifest.short_name ?? '').startsWith(`${label[0]} `), manifest.short_name);

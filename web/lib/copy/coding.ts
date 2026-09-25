@@ -21,7 +21,7 @@ const JA = {
     'not-preview': 'このビルドは参照データを配信しません。kombi-coding.json をここに開いてください。',
     unauthorized: 'サインインしていないため、参照データを受け取れません。サインインするか、kombi-coding.json をここに開いてください。',
     absent:
-      'この配信元には参照データがありません（プレビューにはまだアップロードされていないか、API の無いローカル配信です）。kombi-coding.json をここに開いてください。',
+      'この配信元には参照データがありません（ワークス版にはまだアップロードされていないか、API の無いローカル配信です）。kombi-coding.json をここに開いてください。',
     unreachable: '参照データを取得できませんでした。kombi-coding.json をここに開いてください。',
     invalid: 'この JSON は kombi-coding の形式ではありません。',
   } satisfies Record<RefFailure, string>,
@@ -87,7 +87,7 @@ const EN: typeof JA = {
     'not-preview': 'This build does not serve the reference data. Open kombi-coding.json here.',
     unauthorized: 'Not signed in, so the reference data is not served. Sign in, or open kombi-coding.json here.',
     absent:
-      'This server has no reference data (not uploaded to the preview yet, or a local server with no API). Open kombi-coding.json here.',
+      'This server has no reference data (not uploaded to the WORKS build yet, or a local server with no API). Open kombi-coding.json here.',
     unreachable: 'Could not fetch the reference data. Open kombi-coding.json here.',
     invalid: 'This JSON is not kombi-coding.',
   },

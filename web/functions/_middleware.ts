@@ -20,7 +20,7 @@ import { createGate, type GateContext } from './_owner-gate/gate';
 const gate = createGate({
   clientId: 'm35080-preview',
   canonicalHost: 'e46-m35080-migration-preview.pages.dev',
-  name: 'E46 M35080 /// MIGRATION — PREVIEW',
+  name: 'E46 M35080 /// MIGRATION — WORKS',
   publicPaths: [
     '/manifest.webmanifest',
     '/icons/migration-dev-192.png',

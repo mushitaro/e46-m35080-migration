@@ -2,7 +2,7 @@
  * Brands an exported build as a non-production variant, so an install of it cannot be mistaken for
  * the release - on the home screen, in the install prompt, or in the app's own idea of itself.
  *
- *     node scripts/brand-preview.mjs <out-dir> <LABEL>        e.g.  out PREVIEW
+ *     node scripts/brand-preview.mjs <out-dir> <variant>      e.g.  out preview
  *
  * Runs AFTER `next build` and `build-id.mjs`, and BEFORE `gen-sw.mjs` (package.json
  * `build:preview`). gen-sw names the cache after a hash of the bytes; brand after it and two builds
@@ -18,8 +18,12 @@
  *   manifest.short_name    = "<LABEL[0]> <production short_name>"   (the home-screen label)
  *   manifest.description  += " — <LABEL> BUILD, not the production tool."
  *   every icon reference   → the M ICON dev set (white on black), maskable entries included
- *   every .html            : <meta name="app-variant" content="<label>">, removed then inserted;
+ *   every .html            : <meta name="app-variant" content="<variant>"> and
+ *                            <meta name="app-label" content="<LABEL>">, removed then inserted;
  *                            apple-mobile-web-app-title rewritten where one is present
+ *
+ * LABEL is what the build is CALLED - WORKS for `preview` (operator, 2026-09-25), STAGING for
+ * `staging` - looked up in brand-label.mjs.
  *
  * theme_color and background_color are the app's ground and stay as they are. <title> is not
  * rewritten, on purpose: section 4.2 leaves it as the production name.
@@ -33,12 +37,16 @@
  * ## Both arguments are required, and neither has a default
  *
  * A default is the value somebody forgot to pass, and the symptom would be two identically labelled
- * icons - the failure this script exists to prevent. LABEL is capped at 12 characters.
+ * icons - the failure this script exists to prevent.
  *
- * ## The label decides `app-variant`, and that is not cosmetic
+ * ## The variant is what code compares; the label is only what the build is called
  *
- * lib/domain/variant.ts reads the tag back, and the preview-only surfaces - SYNC, the error
+ * lib/domain/variant.ts reads `app-variant` back, and the preview-only surfaces - SYNC, the error
  * records, the PRIVACY link - open on the one value `preview`. Production carries no tag at all.
+ * The label used to be the variant upper-cased, so renaming what the build is called (PREVIEW became
+ * WORKS on 2026-09-25) would have switched all of that off. Now the variant comes in as the argument
+ * and the label is looked up; neither is computed from the other, and the old `PREVIEW` argument is
+ * refused rather than read as a variant.
  *
  * ## Why the .txt files too
  *
@@ -48,16 +56,21 @@
  */
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
+import { labelFor } from './brand-label.mjs';
 
-const [OUT, LABEL] = process.argv.slice(2);
+const [OUT, VARIANT] = process.argv.slice(2);
 const fail = (msg) => {
   console.error(`[brand-preview] ${msg}`);
   process.exit(1);
 };
-if (!OUT || !LABEL) fail('usage: node scripts/brand-preview.mjs <out-dir> <LABEL>   (both required)');
-if (LABEL.length > 12) fail(`LABEL "${LABEL}" is ${LABEL.length} characters; the limit is 12.`);
-if (!/^[A-Z][A-Z0-9]*$/.test(LABEL)) fail(`LABEL "${LABEL}" must be upper-case letters and digits.`);
-const VARIANT = LABEL.toLowerCase();
+if (!OUT || !VARIANT) fail('usage: node scripts/brand-preview.mjs <out-dir> <variant>   (preview | staging; both required)');
+let LABEL;
+try {
+  LABEL = labelFor(VARIANT);
+} catch (e) {
+  fail(e.message);
+}
+if (LABEL.length > 12 || !/^[A-Z][A-Z0-9]*$/.test(LABEL)) fail(`label "${LABEL}" must be upper-case letters and digits, at most 12.`);
 
 const manifestPath = join(OUT, 'manifest.webmanifest');
 if (!existsSync(manifestPath)) fail(`${manifestPath} is missing — run next build first.`);
@@ -126,9 +139,9 @@ for (const file of walk(OUT)) {
       .replace(/(<meta name="apple-mobile-web-app-title" content=")[^"]*(")/g, `$1${manifest.short_name}$2`)
       // Removed, then inserted: out/ is not guaranteed fresh (build-id.mjs records the case), and
       // an insert-only stamp leaves two tags with the stale one first.
-      .replace(/<meta name="app-variant" content="[^"]*"\s*\/?>/g, '');
+      .replace(/<meta name="app-(?:variant|label)" content="[^"]*"\s*\/?>/g, '');
     if (!after.includes('</head>')) fail(`${file} has no </head> to carry app-variant.`);
-    after = after.replace('</head>', `<meta name="app-variant" content="${VARIANT}"></head>`);
+    after = after.replace('</head>', `<meta name="app-variant" content="${VARIANT}"><meta name="app-label" content="${LABEL}"></head>`);
     documents++;
   } else if (after !== before) {
     payloads++;

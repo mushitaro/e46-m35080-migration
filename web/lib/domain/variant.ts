@@ -53,7 +53,18 @@ export function readVariant(): Variant {
   return v === 'preview' || v === 'staging' ? v : 'production';
 }
 
+/**
+ * What the build is CALLED - `WORKS` on the preview (operator, 2026-09-25), `STAGING` on staging,
+ * '' on a release. Display only: brand-preview.mjs stamps it from scripts/brand-label.mjs beside
+ * app-variant, and nothing compares it. The variant is still what decides.
+ */
+export function readLabel(): string {
+  if (typeof document === 'undefined') return '';
+  return document.querySelector('meta[name="app-label"]')?.getAttribute('content')?.trim() ?? '';
+}
+
 let variant: Variant = 'production';
+let label = '';
 let variantRead = false;
 const listeners = new Set<() => void>();
 
@@ -70,10 +81,12 @@ export function initVariant(): void {
     /* private mode: nothing was stored */
   }
   const v = readVariant();
-  if (!variantRead || v !== variant) {
+  const l = readLabel();
+  if (!variantRead || v !== variant || l !== label) {
     variant = v;
+    label = l;
     variantRead = true;
-    for (const l of listeners) l();
+    for (const fn of listeners) fn();
   }
 }
 
@@ -82,6 +95,15 @@ export function useVariant(): Variant {
     subscribe,
     () => variant,
     (): Variant => 'production',
+  );
+}
+
+/** The build's name for the badge; '' until mounted, and on a release. */
+export function useBuildLabel(): string {
+  return useSyncExternalStore(
+    subscribe,
+    () => label,
+    () => '',
   );
 }
 

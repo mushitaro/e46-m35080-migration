@@ -39,7 +39,7 @@ that they have not drifted.
 The Arduino UNO bridge, over Web Serial. Nothing else in the production build: no API, no
 analytics, no third party.
 
-The preview build — for owners who hold `owner_preview` on m3.tsunagi.app — also talks to
+The WORKS build (ワークス版; its variant is `preview`) — for owners who hold `owner_preview` on m3.tsunagi.app — also talks to
 its own origin: `/_gate/status` (is the owner still signed in), `/api/sessions` (the chip
 records the owner chooses to SYNC: the 1 KB image, the short VIN, the odometer reading, the
 kind of record, its parent, its note and whether it was PRACTICE) and `/api/diagnostics`

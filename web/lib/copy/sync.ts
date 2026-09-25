@@ -32,11 +32,12 @@ export function privacyUrl(): string {
 }
 
 /**
- * The first-run notice's heading: the app's name and PREVIEW, as m3's notice names it. A proper
+ * The first-run notice's heading: the app's name and what the build is called - WORKS since
+ * 2026-09-25 (brand-label.mjs; the variant stays `preview`), as the manifest names it. A proper
  * noun, the same for every reader, so it is not in the language records below (lib/i18n.ts keeps
  * the app's name out of its records for the same reason).
  */
-export const NOTICE_TITLE = 'E46 M35080 /// MIGRATION — PREVIEW';
+export const NOTICE_TITLE = 'E46 M35080 /// MIGRATION — WORKS';
 
 const JA = {
   lead: 'この端末の記録（バックアップと、書き換え・リセット・復元のあとのイメージ）を、あなたのアカウントに保存します。別の端末でも取り出せます。',
@@ -64,7 +65,7 @@ const JA = {
   errorsEmpty: 'エラー記録はありません。',
   waiting: (n: number) => `送信待ち ${n} 件（次にサインインしているときに送ります）`,
   reauthConfirm: 'REWRITE でファイルに加えた変更のうち、SAVE EDITED で保存していないものは失われます。サインインし直しますか？',
-  privacyTitle: 'プライバシーポリシー（プレビュー版）',
+  privacyTitle: 'プライバシーポリシー（ワークス版）',
   /* The first-run notice (components/PreviewNotice.tsx). m3's words - tsunagi-m3's NOTICE_COPY,
      with `sessions` from its NOTICE_APPS['m35080-preview'] - except `records`, `recordsWhen` and
      `alsoSent`, which say what THIS app sends (operator, 2026-09-24): an error record only when a
@@ -73,7 +74,7 @@ const JA = {
      The privacy policy says the same at length under #preview. Change the shared lines in m3 and
      here together, and keep these in step with what lib/sync/cloud.ts and errorRecords.ts send. */
   notice: {
-    lead: 'このプレビュー版は、保存した記録を別の端末でも開けるよう、また不具合を調べられるよう、次のものを運営者のサーバーへ送ります。',
+    lead: 'このワークス版は、保存した記録を別の端末でも開けるよう、また不具合を調べられるよう、次のものを運営者のサーバーへ送ります。',
     sessionsTitle: '保存したセッション',
     sessions: 'メーターの EEPROM イメージ（VIN の下 7 桁と走行距離を含む）と、バックアップ・書き換え・復元の記録',
     sessionsWhen: 'SYNC を押して保存したときに送ります。',
@@ -120,9 +121,9 @@ const EN: SyncCopy = {
   errorsEmpty: 'No error records.',
   waiting: (n: number) => `${n} waiting to send (sent the next time you are signed in)`,
   reauthConfirm: 'Changes made to the file on REWRITE and not saved with SAVE EDITED will be lost. Sign in again?',
-  privacyTitle: 'Privacy policy (preview)',
+  privacyTitle: 'Privacy policy (WORKS)',
   notice: {
-    lead: 'So that what you save opens on your other devices, and so that faults can be investigated, this preview sends the following to our server.',
+    lead: 'So that what you save opens on your other devices, and so that faults can be investigated, this WORKS build sends the following to our server.',
     sessionsTitle: 'Sessions you save',
     sessions: 'the cluster EEPROM image (including the last seven characters of the VIN and the mileage) and the backup, rewrite and restore history',
     sessionsWhen: 'Sent when you press SYNC to save one.',

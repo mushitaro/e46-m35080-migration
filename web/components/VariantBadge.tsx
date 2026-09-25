@@ -5,8 +5,11 @@
  *
  * tsunagi-m-release section 11.
  *
- *   caution    PREVIEW  this is NOT a release
+ *   caution    WORKS    this is NOT a release (the owners' build; app-variant=preview)
  *   secondary  STAGING  this IS the release, one step away
+ *
+ * The word is the build's app-label (brand-label.mjs), not the variant spelled in capitals: the
+ * preview has been called WORKS since 2026-09-25 while its variant stays `preview`.
  *
  * In production it renders nothing at all - a release carries no variant, so
  * there is no badge to draw.
@@ -21,11 +24,12 @@
  */
 
 import { useEffect } from 'react';
-import { initVariant, useVariant } from '@/lib/domain/variant';
+import { initVariant, useBuildLabel, useVariant } from '@/lib/domain/variant';
 import { pillClass } from '@/components/ui';
 
 export function VariantBadge() {
   const variant = useVariant();
+  const label = useBuildLabel();
 
   /* Read after mount, never at module scope: the prerender has no meta tag,
      and reading it early is a hydration mismatch in the one element whose job
@@ -34,11 +38,8 @@ export function VariantBadge() {
     initVariant();
   }, []);
 
-  if (variant === 'production') return null;
+  // A branded build always carries both tags (verify-export.mjs); without a label there is no word to show.
+  if (variant === 'production' || !label) return null;
 
-  return variant === 'staging' ? (
-    <span className={pillClass('secondary')}>STAGING</span>
-  ) : (
-    <span className={pillClass('caution')}>PREVIEW</span>
-  );
+  return <span className={pillClass(variant === 'staging' ? 'secondary' : 'caution')}>{label}</span>;
 }
