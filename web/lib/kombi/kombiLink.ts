@@ -154,6 +154,8 @@ export type SentRecord = {
 export type Identity = {
   ident: Decoded<Ident>;
   variant: KombiVariant | null;
+  /** IDENT's payload as it came, decoded or not: what to look at when the variant is not named. */
+  reply: Uint8Array;
 };
 
 export type KombiLinkOptions = {
@@ -246,7 +248,7 @@ export class KombiLink {
     const ident = decodeIdent(frame.payload);
     const variant = ident.ok ? variantOf(ident.value.diagIndex) : null;
     this.ctx = { ...this.ctx, variant };
-    this.identity = { ident, variant };
+    this.identity = { ident, variant, reply: Uint8Array.from(frame.payload) };
     return this.identity;
   }
 

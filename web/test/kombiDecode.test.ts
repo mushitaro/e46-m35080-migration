@@ -39,19 +39,20 @@ describe('IDENT', () => {
     });
   });
 
-  it('names a reply too short for the fields it decodes, instead of decoding dashes', () => {
-    expect(decodeIdent(reply.subarray(0, IDENT_MIN_PAYLOAD - 1))).toEqual({ ok: false, reason: 'short', got: 11 });
-    // The optional trailing fields may be missing.
-    const r = decodeIdent(reply.subarray(0, IDENT_MIN_PAYLOAD));
-    expect(r.ok && r.value.canIndex).toBeNull();
+  it('needs the reply only through the diagnosis index; what it stops short of is null', () => {
+    expect(IDENT_MIN_PAYLOAD).toBe(7);
+    expect(decodeIdent(reply.subarray(0, 6))).toEqual({ ok: false, reason: 'short', got: 6 });
+    const r = decodeIdent(reply.subarray(0, 7));
+    expect(r).toMatchObject({ ok: true, value: { diagIndex: 0x36, busIndex: null, week: null, software: null, canIndex: null } });
   });
 
-  it('refuses a part number that is not BCD, and keeps a non-BCD date as unknown', () => {
-    expect(decodeIdent(bytes(0x06, 0x9a, 0x23, 0x45, ...reply.subarray(4)))).toMatchObject({ ok: false, reason: 'not-bcd' });
+  it('still names the diagnosis index when the part number is not BCD, and keeps what is not BCD as unknown', () => {
+    const r = decodeIdent(bytes(0x06, 0x9a, 0x23, 0x45, ...reply.subarray(4)));
+    expect(r).toMatchObject({ ok: true, value: { partNumber: null, diagIndex: 0x36 } });
     const odd = Uint8Array.from(reply);
     odd[8] = 0x4f;
-    const r = decodeIdent(odd);
-    expect(r.ok && r.value.week).toBeNull();
+    const o = decodeIdent(odd);
+    expect(o.ok && o.value.week).toBeNull();
   });
 });
 

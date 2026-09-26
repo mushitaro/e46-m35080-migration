@@ -213,6 +213,7 @@ export function useKombiLink() {
           endedAt: null,
           end: { kind: 'in-progress' },
           ident: identity.ident,
+          identReply: toHex(identity.reply).toUpperCase(),
           variant: identity.variant,
           benchConfirmed: false,
           reference,

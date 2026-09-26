@@ -134,12 +134,21 @@ export function TestChecks({
       <div className="flex flex-col gap-1 rounded bg-slate-900 px-2.5 py-2 font-mono text-[10px]">
         {s?.ident?.ok ? (
           <>
-            <Row label={CHROME.test.part}>{s.ident.value.partNumber}</Row>
+            <Row label={CHROME.test.part}>{s.ident.value.partNumber ?? '—'}</Row>
             <Row label={CHROME.test.variant}>{variant ?? CHROME.test.unknown}</Row>
             <Row label={CHROME.test.diag}>{`0x${s.ident.value.diagIndex.toString(16).toUpperCase().padStart(2, '0')}`}</Row>
           </>
+        ) : s?.ident && !s.ident.ok ? (
+          <span className="text-red-400">{c.unreadable(s.ident.reason, s.ident.got)}</span>
         ) : (
           <span className="text-slate-600">{kombi.phase === 'disconnected' ? CHROME.awaiting.connection : CHROME.test.unknown}</span>
+        )}
+        {/* What the cluster actually said to IDENT: the first thing to look at when it names no variant. */}
+        {s?.identReply && <Row label="IDENT">{s.identReply}</Row>}
+        {s && !variant && (
+          <p className="whitespace-normal font-sans text-[10px] leading-snug text-amber-400">
+            {c.variantWhy(s.ident?.ok ? `0x${s.ident.value.diagIndex.toString(16).toUpperCase().padStart(2, '0')}` : null)}
+          </p>
         )}
       </div>
 

@@ -121,6 +121,11 @@ const JA = {
   benchWhy: 'チェックするまで、この下の針・ランプ・音を動かす要求は送りません。',
   variantUnknown:
     'IDENT の診断インデックスが KOMBI46 / 46R のどちらにも当たりません。どちらにも共通の読み出しだけを送ります。',
+  /** Under IDENT's bytes when no variant came of them: the ranges, so the reader can see why. */
+  variantWhy: (diag: string | null) =>
+    diag === null
+      ? 'IDENT の応答を読めないため、KOMBI46 / 46R が決まりません。針・ランプ・入力・EEPROM は送りません。上のバイト列を知らせてください。'
+      : `診断インデックス ${diag} は KOMBI46（0x30–0x35）にも KOMBI46R（0x36–0x40）にも入りません。針・ランプ・入力・EEPROM は送りません。上のバイト列を知らせてください。`,
 
   check: {
     vin: 'メータが持つ VIN を読みます。',
@@ -150,7 +155,7 @@ const JA = {
   refused: {
     'not-allowed': 'このツールが送らない要求です。',
     'wrong-length': '長さが違うため送りません。',
-    'variant-unknown': 'バリアントが分かるまで送りません。',
+    'variant-unknown': 'メータの種類（KOMBI46 / 46R）が IDENT から決まらないため送りません（上の IDENT を参照）。',
     'not-on-this-variant': 'このバリアントにはない要求です。',
     'bench-unconfirmed': 'ON THE BENCH にチェックすると送ります。',
     'out-of-range': '範囲外の値のため送りません。',
@@ -200,6 +205,10 @@ const EN: typeof JA = {
   benchWhy: 'Until this is ticked, nothing below that moves a needle, lights a lamp or makes a sound is sent.',
   variantUnknown:
     "IDENT's diagnosis index is in neither the KOMBI46 nor the 46R range. Only the reads both share are sent.",
+  variantWhy: (diag: string | null) =>
+    diag === null
+      ? "IDENT's reply could not be read, so neither KOMBI46 nor 46R is named: no needle, lamp, input or EEPROM telegram is sent. Send the bytes above."
+      : `Diagnosis index ${diag} is in neither KOMBI46 (0x30-0x35) nor KOMBI46R (0x36-0x40): no needle, lamp, input or EEPROM telegram is sent. Send the bytes above.`,
 
   check: {
     vin: "Read the cluster's VIN.",
@@ -227,7 +236,7 @@ const EN: typeof JA = {
   refused: {
     'not-allowed': 'This tool does not send that.',
     'wrong-length': 'Not sent: the wrong length.',
-    'variant-unknown': 'Not sent until the variant is known.',
+    'variant-unknown': 'Not sent: IDENT did not name the cluster (KOMBI46 / 46R) - see IDENT above.',
     'not-on-this-variant': 'This variant has no such telegram.',
     'bench-unconfirmed': 'Sent once ON THE BENCH is ticked.',
     'out-of-range': 'Not sent: a value out of range.',

@@ -29,6 +29,7 @@ describe('the report file', () => {
     endedAt: null,
     end: { kind: 'in-progress' },
     ident: null,
+    identReply: null,
     variant: 'KOMBI46',
     benchConfirmed: true,
     reference: null,

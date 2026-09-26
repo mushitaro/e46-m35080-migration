@@ -32,6 +32,8 @@ export type TestSession = {
   endedAt: number | null;
   end: SessionEnd;
   ident: Decoded<Ident> | null;
+  /** IDENT's payload in hex, as it came. */
+  identReply: string | null;
   variant: KombiVariant | null;
   benchConfirmed: boolean;
   /** The chip image the reads are held against, fixed at CONNECT - or null, and nothing is compared. */
@@ -75,6 +77,7 @@ export function buildReport(s: TestSession) {
     cluster: {
       variant: s.variant,
       ident: s.ident?.ok ? s.ident.value : s.ident ? { unreadable: s.ident.reason } : null,
+      identReply: s.identReply,
       vin: written(s.vin, (v) => v),
       km: written(s.odometer, (v) => v),
     },

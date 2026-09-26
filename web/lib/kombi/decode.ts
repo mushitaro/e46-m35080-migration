@@ -31,49 +31,55 @@ export function bcd(byte: number): string | null {
 /* ---------------------------------- IDENT --------------------------------- */
 
 export type Ident = {
-  /** The BMW part number: the first eight BCD digits with the leading one dropped, as the SGBD does. */
-  partNumber: string;
+  /**
+   * The BMW part number: the first eight BCD digits with the leading one dropped, as the SGBD does -
+   * or null when those bytes are not BCD. The screen then shows the reply's bytes, never a guess.
+   */
+  partNumber: string | null;
   hardware: number;
   codingIndex: number;
   /** The byte variant.ts decides the variant from. */
   diagIndex: number;
-  busIndex: number;
-  /** Production week and two-digit year, or null where the byte is not BCD. */
+  /** From here on, each is null when the reply stops before it (or, for the date, is not BCD). */
+  busIndex: number | null;
   week: number | null;
   year: number | null;
   /** The supplier's code. Its name is reference data, not committed. */
-  supplier: number;
-  software: number;
-  /** Present only when the reply carries them. */
+  supplier: number | null;
+  software: number | null;
   canIndex: number | null;
   changeIndex: number | null;
 };
 
-/** Through the software number: the last field this decoder cannot do without. */
-export const IDENT_MIN_PAYLOAD = 12;
+/**
+ * Through the diagnosis index: the one field the variant - and with it every drive the gate lets
+ * through - depends on. The first real cluster answered IDENT and got nothing done, because this
+ * decoder asked for all twelve bytes and a BCD part number before it would name the variant.
+ */
+export const IDENT_MIN_PAYLOAD = 7;
 
 export function decodeIdent(payload: Uint8Array): Decoded<Ident> {
   if (payload.length < IDENT_MIN_PAYLOAD) return fail('short', payload);
   const digits = [0, 1, 2, 3].map((i) => bcd(payload[i] ?? 0));
-  if (digits.some((d) => d === null)) return fail('not-bcd', payload);
+  const at = (i: number) => (payload.length > i ? (payload[i] ?? null) : null);
   const num = (i: number) => {
-    const d = bcd(payload[i] ?? 0);
+    const d = payload.length > i ? bcd(payload[i] ?? 0) : null;
     return d === null ? null : Number(d);
   };
   return {
     ok: true,
     value: {
-      partNumber: digits.join('').slice(1),
+      partNumber: digits.some((d) => d === null) ? null : digits.join('').slice(1),
       hardware: payload[4] ?? 0,
       codingIndex: payload[5] ?? 0,
       diagIndex: payload[6] ?? 0,
-      busIndex: payload[7] ?? 0,
+      busIndex: at(7),
       week: num(8),
       year: num(9),
-      supplier: payload[10] ?? 0,
-      software: payload[11] ?? 0,
-      canIndex: payload.length > 12 ? (payload[12] ?? null) : null,
-      changeIndex: payload.length > 13 ? (payload[13] ?? null) : null,
+      supplier: at(10),
+      software: at(11),
+      canIndex: at(12),
+      changeIndex: at(13),
     },
   };
 }
