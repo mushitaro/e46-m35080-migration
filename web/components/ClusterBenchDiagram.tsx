@@ -266,6 +266,11 @@ export function ClusterBenchDiagram({ highlight = null, onSelectWire }: ClusterB
             </g>
           );
         })}
+        {/* Said on the face itself, where no lead crosses it: counted from the back, where a
+            pigtail's wires leave, 16 and 9 swap and 7 and 2 - and the cable has no supply and no K-line. */}
+        <text x={175} y={OBD_BOTTOM - 8} textAnchor="middle" fill="#70707E" fontSize={10} fontFamily="monospace">
+          {c.obdView}
+        </text>
       </Dim>
 
       {/* The cable plugs into the face; its USB lead goes to the PC. */}

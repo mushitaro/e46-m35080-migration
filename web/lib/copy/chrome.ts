@@ -314,11 +314,22 @@ export const CHROME = {
       coolant: 'COOLANT',
       consumption: 'CONSUMPTION',
     },
+    /* the chip image's fields a read is held against, when there is one (lib/kombi/checks.ts) */
     field: {
-      'vin-coded': 'VIN · CODED',
-      'vin-ascii': 'VIN · ASCII',
-      odometer: 'ODOMETER',
+      'vin-coded': 'CHIP · CODED',
+      'vin-ascii': 'CHIP · ASCII',
+      odometer: 'CHIP',
     },
+    /* the EEPROM read's words, folded away until asked for */
+    show: 'SHOW',
+    hide: 'HIDE',
+    /* where the image the reads are held against came from (lib/kombi/checks.ts Reference) */
+    source: {
+      file: 'FILE',
+      'chip-read': 'CHIP READ',
+      record: 'RECORD',
+    },
+    clear: 'CLEAR',
   },
 
   parts: {

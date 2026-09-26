@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { lampBits } from '@/lib/kombi/protocol';
+import { buildReport } from '@/lib/kombi/report';
+import { referenceFromFile } from '@/lib/kombi/checks';
+import { presetImage } from '@/lib/link/mockLink';
+import { readVins } from '@/lib/domain/vin';
 
 /**
  * TEST's stepped checks through the REAL hook: useKombiLink, the real KombiLink and
@@ -156,6 +160,79 @@ describe('a stepped check, answered one item at a time (PRACTICE, KOMBI46)', () 
       expect(h.current.stepping).toBeNull();
       expect(h.current.commanded.outputs).toBeNull();
     }
+
+    await h.current.disconnect();
+  }, 30_000);
+});
+
+describe('the reads, with no chip image to compare them with (PRACTICE, KOMBI46)', () => {
+  it("keeps what the cluster answered and the EEPROM's words, and compares nothing", async () => {
+    const h = mount();
+    await h.current.connect('practice', null);
+    await whenIdle(h);
+    for (const id of ['vin', 'odometer', 'eeprom'] as const) {
+      await h.current.run(id);
+      await whenIdle(h);
+      expect(h.current.runs[id], id).toEqual({ status: 'done' });
+    }
+
+    const s = h.current.session!;
+    const chip = presetImage('late');
+    expect(s.reference).toBeNull();
+    expect(s.vin).toEqual({ ok: true, value: readVins(chip).coded!.text });
+    expect(s.odometer).toMatchObject({ ok: true });
+    expect(s.eeprom).toMatchObject({ fromWord: 0, words: 0x100 });
+    // The cluster's own copy: the practice chip, but for the one word it holds differently.
+    const bytes = s.eeprom!.bytes.ok ? s.eeprom!.bytes.value : new Uint8Array();
+    expect(bytes).toHaveLength(0x200);
+    expect([...bytes.keys()].filter((i) => bytes[i] !== chip[i])).toEqual([0x30, 0x31]);
+
+    const report = buildReport(s);
+    expect(report.compared).toBeNull();
+    expect(report.read.eeprom?.bytes).toHaveLength(0x200 * 3 - 1);
+
+    await h.current.disconnect();
+  }, 30_000);
+
+  it('moves a needle and sounds the gong with no chip image anywhere: a drive waits for ON THE BENCH, nothing else', async () => {
+    const h = mount();
+    await h.current.connect('practice', null);
+    await whenIdle(h);
+    expect(h.current.session!.reference).toBeNull();
+
+    await h.current.run('gong');
+    await whenIdle(h);
+    expect(h.current.runs.gong).toEqual({ status: 'refused', reason: 'bench-unconfirmed' });
+
+    h.current.setBench(true);
+    await settle();
+    await h.current.run('gong');
+    await whenIdle(h);
+    await h.current.runNeedle('speed');
+    await whenIdle(h);
+    const items = h.current.session!.items;
+    expect(items.find((x) => x.item === 'gong')).toMatchObject({ sent: 'acknowledged' });
+    expect(items.find((x) => x.item === 'speed')).toMatchObject({ sent: 'acknowledged' });
+
+    await h.current.disconnect();
+  }, 30_000);
+
+  it('holds the reads against a dump opened after CONNECT, from then on', async () => {
+    const h = mount();
+    await h.current.connect('practice', null);
+    await whenIdle(h);
+    await h.current.run('odometer');
+    await whenIdle(h);
+    expect(buildReport(h.current.session!).compared).toBeNull();
+
+    const chip = presetImage('late');
+    const opened = referenceFromFile('Backup_practice.bin', chip.slice().buffer);
+    if (!opened.ok) throw new Error('the practice chip should open as a reference');
+    h.current.setReference(opened.reference);
+    await settle();
+    const report = buildReport(h.current.session!);
+    expect(report.reference).toEqual({ source: 'file', label: 'Backup_practice.bin', at: null });
+    expect(report.compared?.odometer).toMatchObject({ result: 'equal' });
 
     await h.current.disconnect();
   }, 30_000);

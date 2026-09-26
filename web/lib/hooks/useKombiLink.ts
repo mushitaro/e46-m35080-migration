@@ -20,14 +20,11 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { WebSerialTransport, getSerial, isDs2Error, toHex, type SerialPortLike } from '@tsunagi/ds2-core';
-import { KombiGateError, KombiLink } from '@/lib/kombi/kombiLink';
+import { KombiGateError, KombiLink, type LineSilence } from '@/lib/kombi/kombiLink';
 import { lampBits, OUTPUT_PORT_MASK, type GaugeId, type KombiVariant } from '@/lib/kombi/protocol';
 import { practiceKombiOptions, simulatedKombiPort } from '@/lib/kombi/simulatedKombi';
 import { isArduinoPort } from '@/lib/kombi/ports';
 import {
-  compareEeprom,
-  compareOdometer,
-  compareVin,
   eepromReadRange,
   lampKey,
   outputKey,
@@ -37,7 +34,7 @@ import {
   type Observation,
   type Reference,
 } from '@/lib/kombi/checks';
-import { buildReport, downloadReport, reportFilename, type SessionEnd, type TestSession } from '@/lib/kombi/report';
+import { buildReport, downloadReport, reportFilename, valueOf, type SessionEnd, type TestSession } from '@/lib/kombi/report';
 import type { GateRefusal } from '@/lib/kombi/runGate';
 import { presetImage } from '@/lib/link/mockLink';
 import { setLinkBusy } from '@/lib/pwa/linkBusy';
@@ -60,6 +57,9 @@ export type Commanded = {
   outputs: number | null;
 };
 
+/** A CONNECT the cluster did not answer: the error's code and, for a timeout, where the line went quiet. */
+export type ConnectFailure = { code: string; silence: LineSilence | null };
+
 /** Tester present, while a session is open. */
 const HEARTBEAT_MS = 2000;
 /** How often LIVE re-reads the inputs. */
@@ -75,6 +75,7 @@ export function useKombiLink() {
   const [practice, setPractice] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [connectFailure, setConnectFailure] = useState<ConnectFailure | null>(null);
   const [runs, setRuns] = useState<Partial<Record<CheckId, CheckRun>>>({});
   const [running, setRunning] = useState<CheckId | null>(null);
   const [stepping, setStepping] = useState<Stepping>(null);
@@ -169,13 +170,14 @@ export function useKombiLink() {
 
   /**
    * Must be called from the click itself: the port picker only opens inside a user gesture.
-   * `reference` is what the session compares against; it is fixed for the session so the report
-   * names one.
+   * `reference` is the chip image the reads are held against, or null to hold them against
+   * nothing - every check runs either way (setReference changes it later).
    */
   const connect = useCallback(
     async (mode: 'serial' | 'practice', reference: Reference | null, practiceVariant: KombiVariant = 'KOMBI46') => {
       setError(null);
       setNotice(null);
+      setConnectFailure(null);
       let port: SerialPortLike;
       let requestPort: () => Promise<SerialPortLike>;
       if (mode === 'practice') {
@@ -216,8 +218,6 @@ export function useKombiLink() {
           reference,
           vin: null,
           odometer: null,
-          clusterVin: null,
-          clusterKm: null,
           faults: null,
           inputs: null,
           eeprom: null,
@@ -242,7 +242,11 @@ export function useKombiLink() {
       } catch (e) {
         linkRef.current = null;
         setPhase('disconnected');
-        setError(tc().noIdent(isDs2Error(e) ? e.code : e instanceof Error ? e.message : String(e)));
+        const code = isDs2Error(e) ? e.code : e instanceof Error ? e.message : String(e);
+        // The link watched the IDENT that failed: the checks the panel lists depend on where it went quiet.
+        const silence = link.lastSilence;
+        setConnectFailure({ code, silence });
+        setError(tc().noIdent(code, silence));
       }
       bump();
     },
@@ -269,6 +273,19 @@ export function useKombiLink() {
   const setBench = useCallback((on: boolean) => {
     linkRef.current?.setBenchConfirmed(on);
     if (sessionRef.current) sessionRef.current = { ...sessionRef.current, benchConfirmed: on };
+    bump();
+  }, []);
+
+  /**
+   * The image the reads are held against, changed at any point of a session - a dump opened after
+   * CONNECT counts from then on. Nothing is re-read: the comparison is derived from the reads, and
+   * the report names the image held when it is saved. PRACTICE's cluster keeps the chip it was
+   * built from at CONNECT.
+   */
+  const setReference = useCallback((reference: Reference | null) => {
+    const s = sessionRef.current;
+    if (!s || s.reference === reference) return;
+    sessionRef.current = { ...s, reference };
     bump();
   }, []);
 
@@ -307,22 +324,26 @@ export function useKombiLink() {
     sessionRef.current = { ...s, items: [...s.items.filter((x) => x.item !== item), { item, sent, error, observed: null }] };
   };
 
+  /*
+   * Each read clears its last result before it asks again: a re-read that fails must not leave the
+   * answer to the earlier one standing beside its FAILED (tsunagi-m-link section 15).
+   */
   const run = useCallback(
     (id: CheckId) => {
-      const ref = sessionRef.current?.reference ?? null;
       switch (id) {
         case 'vin':
           return exclusive(id, async (link) => {
-            const d = await link.readVin();
-            patchSession({ vin: compareVin(d, ref), clusterVin: d.ok ? d.value : null });
+            patchSession({ vin: null });
+            patchSession({ vin: await link.readVin() });
           });
         case 'odometer':
           return exclusive(id, async (link) => {
-            const d = await link.readOdometer();
-            patchSession({ odometer: compareOdometer(d, ref), clusterKm: d.ok ? d.value : null });
+            patchSession({ odometer: null });
+            patchSession({ odometer: await link.readOdometer() });
           });
         case 'faults':
           return exclusive(id, async (link) => {
+            patchSession({ faults: null });
             const d = await link.readFaults();
             patchSession({ faults: d.ok ? { bytes: toHex(d.value).toUpperCase() } : { error: d.reason } });
           });
@@ -333,13 +354,14 @@ export function useKombiLink() {
           });
         case 'eeprom':
           return exclusive(id, async (link) => {
+            patchSession({ eeprom: null });
             const variant = link.variant;
             // With no variant the gate refuses the read; ask it rather than deciding here.
             const { from, count } = eepromReadRange(variant ?? 'KOMBI46');
-            const d = await link.readEepromWords(from, count, (done, total) =>
+            const bytes = await link.readEepromWords(from, count, (done, total) =>
               setRun('eeprom', { status: 'running', done, total }),
             );
-            patchSession({ eeprom: compareEeprom(d.ok ? d.value : null, from, count, ref) });
+            patchSession({ eeprom: { fromWord: from, words: count, bytes } });
           });
         case 'gong':
         case 'piezo':
@@ -503,7 +525,7 @@ export function useKombiLink() {
     const s = sessionRef.current;
     if (!s) return;
     const report = buildReport(s);
-    downloadReport(report, reportFilename(s.clusterVin, s.clusterKm, new Date(), s.practice));
+    downloadReport(report, reportFilename(valueOf(s.vin), valueOf(s.odometer), new Date(), s.practice));
   }, []);
 
   const busy = phase === 'connecting' || phase === 'stopping' || running !== null;
@@ -513,6 +535,7 @@ export function useKombiLink() {
     practice,
     error,
     notice,
+    connectFailure,
     busy,
     running,
     runs,
@@ -526,6 +549,7 @@ export function useKombiLink() {
     disconnect,
     stop,
     setBench,
+    setReference,
     run,
     runNeedle,
     startStepping,

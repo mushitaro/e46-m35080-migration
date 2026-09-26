@@ -29,7 +29,7 @@ import { ClusterBenchDiagram } from '@/components/ClusterBenchDiagram';
 import { BENCH_STEPS, type BenchStepId } from '@/components/ClusterBenchGuide';
 import { ClusterDiagram } from '@/components/ClusterDiagram';
 import type { BenchWireId } from '@/lib/domain/clusterBench';
-import { pickReference } from '@/lib/kombi/checks';
+import { pickReference, type Reference } from '@/lib/kombi/checks';
 import type { VinAction, RefusalCode } from '@/lib/domain/operations';
 import { planJob, jobNote, savedImage, NO_BYTES, type JobBytes, type JobInput, type JobSource, type OdometerIntent } from '@/lib/domain/job';
 import { deriveSteps, recommend, type StepId } from '@/lib/domain/workflow';
@@ -473,12 +473,18 @@ export default function Page() {
   const owner = linkOwnerOfMode(mode);
   const lock = modeLock({ bridgeBusy: busy, clusterSessionOpen: kombi.sessionOpen, clusterBusy: kombi.busy });
 
-  /* What TEST compares the cluster with: this session's chip read, else the newest record of the
-     same kind (practice or real). Fixed into the session at CONNECT. */
+  /* What TEST compares the cluster with: a dump the reader opened in CHECKS, else this session's
+     chip read, else the newest record of the same kind (practice or real) - or nothing, and every
+     check still runs. The session follows it, even after CONNECT. */
+  const [testDump, setTestDump] = useState<Reference | null>(null);
   const reference = useMemo(
-    () => pickReference(image ? { image, practice: link.practice } : null, records, practiceIntent),
-    [image, link.practice, records, practiceIntent],
+    () => testDump ?? pickReference(image ? { image, practice: link.practice } : null, records, practiceIntent),
+    [testDump, image, link.practice, records, practiceIntent],
   );
+  const { setReference } = kombi;
+  useEffect(() => {
+    setReference(reference);
+  }, [setReference, reference]);
 
   const hub: HubConfig =
     owner === 'cluster'
@@ -759,6 +765,7 @@ export default function Page() {
           <ChecksPanel
             kombi={kombi}
             reference={reference}
+            onReference={setTestDump}
             lang={lang}
             namesLoad={namesRef.state}
             onOpenNames={(file) => void namesRef.openFile(file)}

@@ -34,8 +34,6 @@ describe('the report file', () => {
     reference: null,
     vin: null,
     odometer: null,
-    clusterVin: null,
-    clusterKm: null,
     faults: null,
     inputs: null,
     eeprom: null,
@@ -73,6 +71,35 @@ describe('the report file', () => {
     const r = buildReport(session());
     expect(r.bench.pinout.verified).toBe(false);
     expect(r.assumptions.eepromWordMapping).toMatch(/2w/);
+  });
+
+  it("is complete with no chip image: the cluster's answers, the EEPROM's words, and nothing compared", () => {
+    const r = buildReport(
+      session({
+        vin: { ok: true, value: 'CD67890' },
+        odometer: { ok: false, reason: 'not-bcd', got: 3 },
+        eeprom: { fromWord: 0, words: 2, bytes: { ok: true, value: Uint8Array.from([0x12, 0x34, 0xab, 0xcd]) } },
+      }),
+    );
+    expect(r.reference).toBeNull();
+    expect(r.compared).toBeNull();
+    expect(r.cluster.vin).toBe('CD67890');
+    expect(r.cluster.km).toEqual({ unreadable: 'not-bcd', got: 3 });
+    expect(r.read.eeprom).toEqual({ fromWord: 0, words: 2, bytes: '12 34 AB CD' });
+  });
+
+  it('with a chip image, also holds the reads against it', () => {
+    const image = new Uint8Array(1024);
+    image.set([0x12, 0x34, 0xab, 0xcc]);
+    const r = buildReport(
+      session({
+        reference: { image, source: 'record', label: 'Backup_x.bin', at: at.getTime() },
+        eeprom: { fromWord: 0, words: 2, bytes: { ok: true, value: Uint8Array.from([0x12, 0x34, 0xab, 0xcd]) } },
+      }),
+    );
+    expect(r.reference).toMatchObject({ source: 'record', label: 'Backup_x.bin' });
+    expect(r.compared?.vin).toBeNull();
+    expect(r.compared?.eeprom).toMatchObject({ result: 'different', differing: [3] });
   });
 });
 

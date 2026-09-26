@@ -13,7 +13,7 @@
 import { toHex } from '@tsunagi/ds2-core';
 import { fileStamp } from '@/lib/domain/records';
 import { BENCH_PINOUT } from '@/lib/domain/clusterBench';
-import type { EepromCheck, FieldCheck, ItemResult, Reference } from './checks';
+import { compareReads, type EepromRead, type ItemResult, type Reference } from './checks';
 import type { Decoded, Ident, PortValue } from './decode';
 import type { SentRecord } from './kombiLink';
 import { WORD_MAPPING_HYPOTHESIS, type KombiVariant } from './protocol';
@@ -34,15 +34,17 @@ export type TestSession = {
   ident: Decoded<Ident> | null;
   variant: KombiVariant | null;
   benchConfirmed: boolean;
+  /** The chip image the reads are held against, fixed at CONNECT - or null, and nothing is compared. */
   reference: Reference | null;
-  vin: FieldCheck[] | null;
-  odometer: FieldCheck | null;
-  /** The cluster's own reading of each, as decoded - the file name uses these. */
-  clusterVin: string | null;
-  clusterKm: number | null;
+  /**
+   * What the cluster answered, decoded - or why it would not decode. Null until read. These ARE
+   * the results; a comparison with the reference is derived from them where it is shown.
+   */
+  vin: Decoded<string> | null;
+  odometer: Decoded<number> | null;
   faults: { bytes: string } | { error: string } | null;
   inputs: PortValue[] | null;
-  eeprom: EepromCheck | null;
+  eeprom: EepromRead | null;
   items: ItemResult[];
   /** After STOP: did the needles and lamps go back to the cluster's own? The reader's answer. */
   released: 'returned' | 'not-returned' | null;
@@ -53,11 +55,18 @@ export type TestReport = ReturnType<typeof buildReport>;
 
 const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
 
+/** A read's value, or null when it has not been made or would not decode - the file name uses these. */
+export const valueOf = <T>(d: Decoded<T> | null): T | null => (d?.ok ? d.value : null);
+
+/** A read as the report writes it: the value, or what would not decode and how many bytes came. */
+const written = <T, U>(d: Decoded<T> | null, show: (v: T) => U) =>
+  d === null ? null : d.ok ? show(d.value) : { unreadable: d.reason, got: d.got };
+
 export function buildReport(s: TestSession) {
   // Heartbeats are counted, not listed: at one every two seconds they would bury the rest.
   const beats = s.telegrams.filter((t) => t.kind === 'keep-alive');
   return {
-    schema: 1 as const,
+    schema: 2 as const,
     tool: 'E46 M35080 /// MIGRATION - TEST',
     practice: s.practice,
     startedAt: iso(s.startedAt),
@@ -66,16 +75,26 @@ export function buildReport(s: TestSession) {
     cluster: {
       variant: s.variant,
       ident: s.ident?.ok ? s.ident.value : s.ident ? { unreadable: s.ident.reason } : null,
-      vin: s.clusterVin,
-      km: s.clusterKm,
+      vin: written(s.vin, (v) => v),
+      km: written(s.odometer, (v) => v),
     },
     bench: { confirmed: s.benchConfirmed, pinout: BENCH_PINOUT },
     reference: s.reference
       ? { source: s.reference.source, label: s.reference.label, at: iso(s.reference.at) }
       : null,
     assumptions: { eepromWordMapping: WORD_MAPPING_HYPOTHESIS },
-    compared: { vin: s.vin, odometer: s.odometer, eeprom: s.eeprom },
-    read: { faults: s.faults, inputs: s.inputs },
+    read: {
+      faults: s.faults,
+      inputs: s.inputs,
+      // The words by number, their bytes as the cluster sent them: no chip address is assumed here.
+      eeprom: s.eeprom && {
+        fromWord: s.eeprom.fromWord,
+        words: s.eeprom.words,
+        bytes: written(s.eeprom.bytes, (b) => toHex(b).toUpperCase()),
+      },
+    },
+    // Only with a chip image to hold the reads against; without one there is nothing to compare.
+    compared: s.reference ? compareReads(s, s.reference) : null,
     driven: s.items,
     released: s.released,
     telegrams: s.telegrams

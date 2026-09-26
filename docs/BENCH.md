@@ -109,15 +109,20 @@ first, then the supply's output.
  OBD 7 ─────────► [ K-LINE · 2 ports ] ───────────► X11175 25  (TXD1)
  K+DCAN, plugged into the OBD socket ──USB──► PC
 
- OBD-II socket, mating face (as the car's, under the dash)
+ OBD-II socket, seen from the plug-in side, wide edge up - SAE J1962's vehicle connector mating end
+ view (its back, and the cable's plug seen face on, are mirrored: 1 top right, 16 bottom left)
   ┌──────────────────────────────┐
    \  1  2  3 [4][5] 6 [7] 8     /
     \  9 10 11 12 13 14 15 [16] /
      └─────────────────────────┘
 ```
 
-The OBD socket is drawn as its mating face — the way you see the car's socket under the dash:
-pins 1–8 across the top, 9–16 across the bottom. The cluster connector is drawn as above, from
+The OBD socket is drawn from the plug-in side with its wide edge up — the J1962 face: pins 1–8
+across the top, 9–16 across the bottom, left to right. **From the back, where a pigtail's wires
+leave, left and right swap:** 16 becomes 9 and 7 becomes 2, and the cable is left with no supply
+and no K-line - the cluster still lights, and CONNECT times out. Identify every pigtail wire by
+continuity from the socket's front contacts, never by its colour or by counting from the back.
+The cluster connector is drawn as above, from
 the back of the cluster, beside a list of the five wires it uses; the wires land on the list.
 Which port of a lever connector a wire takes does not matter; the app's drawing picks one so the
 wires do not cross more than they must.
@@ -144,10 +149,12 @@ Each step says what to do and how you know it is done.
    not use. Check each pin number on your own cluster first.
    *Done when* with the supply off, a meter shows each plug pin connected to its connector and no
    path between +12 V and ground.
-4. **OBD socket.** 16 into +12 V, 4 and 5 into ground; 7 and cluster pin 25 meet in the 2-port
-   connector. Insulate the ends you do not use.
-   *Done when* OBD 16 reads 12 V to OBD 4 and 5 with the supply on, and OBD 7 has continuity to
-   cluster pin 25.
+4. **OBD socket.** Number the socket's holes from the cable's plug: hold it face to face as it
+   goes in, and the hole its pin 16 enters is 16 - no drawing and no molding to misread. Find
+   which pigtail wire reaches which hole with a meter. 16 into +12 V, 4 and 5 into ground; 7 and
+   cluster pin 25 meet in the 2-port connector. Insulate the ends you do not use.
+   *Done when* with the supply on, hole 16 reads 12 V to holes 4 and 5, and hole 7 has continuity
+   to cluster pin 25.
 5. **K+DCAN.** Plug the cable into the socket, its switch where it sits on your E46 (K-line),
    USB to the PC.
    *Done when* the PC lists the cable's USB serial port.
@@ -162,6 +169,8 @@ Each step says what to do and how you know it is done.
 - **Check the pin numbers on your own cluster.** See the warning at the top.
 - **Check the polarity** at both connectors before connecting the cluster plug.
 - **Always fit the fuse.** It is the only thing between a miswire and the cluster.
+- **Number the OBD holes from the cable's plug.** Counted from the socket's back, or read off the
+  plug's own face, they are mirrored.
 - **Insulate the pigtail ends you do not use.** A loose end that touches +12 V feeds a cluster
   input that was never meant to see it, and no fuse stops that.
 - **Never connect the UNO to the cluster.** TEST refuses the UNO's port (USB vendor 0x2341).

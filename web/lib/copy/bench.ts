@@ -32,9 +32,11 @@ const JA = {
 
   b4Title: 'OBD ソケット',
   b4Body:
+    'ソケットの穴が何番かは、ケーブルのプラグを挿す向きに向かい合わせ、プラグの刻印で決めます（プラグの 16 番が入る穴が 16 番）。' +
+    'ピッグテールのどの線がどの穴かは、テスターの導通で確かめます（線色では決めない）。' +
     '16 番を +12V、4 番と 5 番を GND のコネクタへ差します。7 番とメータ側の 25 番は、2 口のコネクタで 1 つにつなぎます。' +
     '使わない線は先端を絶縁します。',
-  b4Done: '電源を入れると OBD 16 と OBD 4・5 の間が 12V。OBD 7 とメータ側の 25 番が導通する',
+  b4Done: '電源を入れると、差し込む側の接点で OBD 16 と OBD 4・5 の間が 12V。OBD 7 とメータ側の 25 番が導通する',
 
   b5Title: 'K+DCAN をつなぐ',
   b5Body: 'ケーブルを OBD ソケットに差し、切り替えスイッチは E46 で使っている位置（K-line）のまま、USB を PC へつなぎます。',
@@ -65,8 +67,9 @@ const JA = {
     'CAN の相手がいない机上では、警告灯がいくつか点いたままになることがあります。故障ではありません。' +
     'ランプの確認では、1 つずつ点けて、見えたかどうかを記録します。',
   leverNode: 'レバー式コネクタは 1 個が 1 つのノードです。どの口に差しても同じです。',
-  obdFace: 'OBD ソケットは差し込み面で描いています（車のダッシュ下で見える向き）。',
-  clusterFace: 'メータのコネクタは、メータを裏から見た向きで描いています（bmwgm5 の基板の写真と同じ）。',
+  obdView: '差し込む側から見た向き',
+  obdFace: 'OBD ソケットは差し込む側・幅の広い辺が上の向き（1 番が左上）。裏側とケーブルのプラグは左右が逆（1 番が右上）。',
+  clusterFace: 'メータのコネクタは、メータを裏から見た向きです（bmwgm5 の写真と同じ）。外したプラグを差し込み面から見ると左右が逆です。',
   wireLetters: '線色は BMW の略記で、先頭が地の色：SW 黒・BR 茶・RT 赤・GE 黄・GN 緑・BL 青・VI 紫・WS 白',
 
   /* ---- parts (data/bench-parts.json) ---- */
@@ -107,9 +110,11 @@ const EN: typeof JA = {
 
   b4Title: 'The OBD socket',
   b4Body:
+    "Number the socket's holes from the cable's plug: hold it face to face as it goes in, and the hole its pin 16 enters is 16. " +
+    'Find which pigtail wire goes to which hole with a meter, not by its colour. ' +
     '16 into +12 V, 4 and 5 into ground. 7 and cluster pin 25 meet in the two-port connector. ' +
     'Insulate the ends you do not use.',
-  b4Done: 'With the supply on, OBD 16 reads 12 V to OBD 4 and 5, and OBD 7 has continuity to cluster pin 25',
+  b4Done: "With the supply on, OBD 16 reads 12 V to OBD 4 and 5 at the socket's front contacts, and OBD 7 has continuity to cluster pin 25",
 
   b5Title: 'Plug in the K+DCAN',
   b5Body: 'The cable into the socket, its switch where it sits on your E46 (K-line), USB to the PC.',
@@ -139,8 +144,9 @@ const EN: typeof JA = {
     'With no CAN partners on the bench, some warning lamps may stay lit. That is the bench, not a fault. ' +
     'The lamp check lights each lamp on its own and records whether you saw it.',
   leverNode: 'A lever connector is one node: any of its ports will do.',
-  obdFace: "The OBD socket is drawn as its mating face - the way the car's socket looks under the dash.",
-  clusterFace: "The cluster connector is drawn as seen from the back of the cluster - as in bmwgm5's photo of the board.",
+  obdView: 'seen from the plug-in side',
+  obdFace: "OBD socket: plug-in side, wide edge up, 1 top left. Its back and the cable's plug are mirrored.",
+  clusterFace: "Cluster connector: from the cluster's back, as bmwgm5's photo; an unplugged plug's face is mirrored.",
   wireLetters: 'Wire colours, base first: SW black, BR brown, RT red, GE yellow, GN green, BL blue, VI violet, WS white',
 
   pPsu: '12 V bench supply (1 A or more)',

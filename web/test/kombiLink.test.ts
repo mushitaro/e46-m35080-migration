@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { Ds2Status, WebSerialTransport, isDs2Error, type ExchangeBehavior, type TraceEntry } from '@tsunagi/ds2-core';
-import { KombiGateError, KombiLink } from '@/lib/kombi/kombiLink';
+import { Ds2Error, Ds2Status, WebSerialTransport, isDs2Error, type ExchangeBehavior, type TraceEntry } from '@tsunagi/ds2-core';
+import { KombiGateError, KombiLink, silenceOf } from '@/lib/kombi/kombiLink';
 import { GAUGE_IDS, KOMBI_VARIANTS, lampBits, wordToByteAddress, type KombiVariant } from '@/lib/kombi/protocol';
 import {
   PRACTICE_DIFFERING_WORD,
@@ -224,6 +224,37 @@ describe('failures', () => {
     await expect(link.connect()).rejects.toBeDefined();
     expect(link.isConnected).toBe(false);
     await expect(link.readVin()).rejects.toMatchObject({ code: 'NOT_CONNECTED' });
+  });
+
+  it('says where IDENT went quiet: no echo at all is the cable, an echo and then nothing is the cluster', async () => {
+    const quiet = async (kind: 'dead' | 'silent') => {
+      const sim = simulatedKombiPort({ variant: 'KOMBI46', chip: chip() }, [{ kind }, { kind }, { kind }]);
+      const link = new KombiLink(new WebSerialTransport({ requestPort: sim.requestPort }), { timings: FAST });
+      await expect(link.connect()).rejects.toMatchObject({ code: 'READ_TIMEOUT' });
+      return { silence: link.lastSilence, outcome: link.sent.at(-1)?.outcome };
+    };
+    // Nothing back, not even the echo: the cable never drove the line.
+    expect(await quiet('dead')).toMatchObject({ silence: 'no-echo', outcome: { kind: 'failed', code: 'READ_TIMEOUT', silence: 'no-echo' } });
+    // The echo whole, then silence: the telegram was on the line and the cluster did not answer.
+    expect(await quiet('silent')).toMatchObject({ silence: 'no-answer', outcome: { kind: 'failed', silence: 'no-answer' } });
+  });
+
+  it('classifies a timeout by what the exchange had seen, and nothing else', () => {
+    const timeout = (received: number) =>
+      new Ds2Error('READ_TIMEOUT', `Timed out waiting for 4 byte(s) (received ${received})`, {
+        kind: 'timeout',
+        detail: { expected: 4, received, timeoutMs: 120 },
+      });
+    const before = { echoed: false, heardAfterEcho: false };
+    const after = { echoed: true, heardAfterEcho: false };
+    expect(silenceOf(timeout(0), before)).toBe('no-echo');
+    expect(silenceOf(timeout(2), before)).toBe('partial-echo');
+    expect(silenceOf(timeout(0), after)).toBe('no-answer');
+    expect(silenceOf(timeout(1), after)).toBe('cut-short');
+    expect(silenceOf(timeout(0), { echoed: true, heardAfterEcho: true })).toBe('cut-short');
+    // Not a timeout: an echo that came back wrong classifies itself in ds2-core.
+    expect(silenceOf(new Ds2Error('ECHO_MISMATCH', 'x', { kind: 'electrical' }), before)).toBeNull();
+    expect(silenceOf(new Error('x'), after)).toBeNull();
   });
 
   it('an index outside both ranges leaves the variant unknown: shared reads only', async () => {

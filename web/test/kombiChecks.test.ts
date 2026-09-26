@@ -4,9 +4,11 @@ import {
   checksFor,
   compareEeprom,
   compareOdometer,
+  compareReads,
   compareVin,
   eepromReadRange,
   pickReference,
+  referenceFromFile,
   sweepNeedle,
   sweepPlan,
   type Reference,
@@ -20,6 +22,7 @@ import type { DeviceRecord } from '@/lib/domain/records';
 import { lateImage } from './support/lateImage';
 
 const ok = <T,>(value: T) => ({ ok: true as const, value });
+const words = (fromWord: number, bytes: Uint8Array) => ({ fromWord, words: bytes.length / 2, bytes: ok(bytes) });
 const ref = (image: Uint8Array): Reference => ({ image, source: 'chip-read', label: 'CHIP READ', at: null });
 
 describe('the check list', () => {
@@ -30,6 +33,23 @@ describe('the check list', () => {
     expect(checksFor('KOMBI46R')).not.toContain('outputs');
     expect(checksFor(null)).not.toContain('outputs');
     expect(checksFor(null).at(-1)).toBe('release');
+  });
+});
+
+describe('a dump opened in CHECKS, as what the reads are held against', () => {
+  it('takes exactly one M35080 image, named by its file', () => {
+    const image = lateImage();
+    const r = referenceFromFile('Backup_CD67890.bin', image.slice().buffer);
+    expect(r).toMatchObject({ ok: true, reference: { source: 'file', label: 'Backup_CD67890.bin', at: null } });
+    expect(r.ok && Array.from(r.reference.image)).toEqual(Array.from(image));
+  });
+
+  it("refuses what REWRITE's SOURCE refuses: the wrong size, and a bus's 1024 copies of one byte", () => {
+    expect(referenceFromFile('half.bin', new ArrayBuffer(512))).toEqual({ ok: false, refusal: { kind: 'size', size: 512 } });
+    expect(referenceFromFile('ff.bin', new Uint8Array(1024).fill(0xff).buffer)).toEqual({
+      ok: false,
+      refusal: { kind: 'not-a-chip', value: 0xff },
+    });
   });
 });
 
@@ -66,7 +86,7 @@ describe('what TEST compares against', () => {
   });
 });
 
-describe('comparisons: EQUAL, DIFFERENT, or NOT COMPARED and why', () => {
+describe('comparisons, when there is a chip image: EQUAL, DIFFERENT, or NOT COMPARED and why', () => {
   const image = lateImage({ codedVin: 'CD67890', asciiVin: 'AB12345', km: 123_456 });
 
   it('compares the VIN with both chip fields, neither preferred', () => {
@@ -76,7 +96,6 @@ describe('comparisons: EQUAL, DIFFERENT, or NOT COMPARED and why', () => {
   });
 
   it('says why it could not compare', () => {
-    expect(compareVin(ok('CD67890'), null).map((f) => f.why)).toEqual(['no-reference', 'no-reference']);
     expect(compareVin({ ok: false, reason: 'not-vin-shaped', got: 6 }, ref(image))[0]).toMatchObject({
       result: 'not-compared',
       why: 'unreadable',
@@ -92,14 +111,22 @@ describe('comparisons: EQUAL, DIFFERENT, or NOT COMPARED and why', () => {
 
   it('compares the EEPROM under the stated word mapping, and names every differing byte', () => {
     const read = image.slice(0, 64);
-    expect(compareEeprom(read, 0, 32, ref(image))).toMatchObject({ result: 'equal', differing: [], mapping: WORD_MAPPING_HYPOTHESIS });
+    expect(compareEeprom(words(0, read), ref(image))).toMatchObject({ result: 'equal', differing: [], mapping: WORD_MAPPING_HYPOTHESIS });
     read[0x30] ^= 1;
     read[0x31] ^= 1;
-    expect(compareEeprom(read, 0, 32, ref(image))).toMatchObject({ result: 'different', differing: [0x30, 0x31] });
+    expect(compareEeprom(words(0, read), ref(image))).toMatchObject({ result: 'different', differing: [0x30, 0x31] });
     // From word 0x10 the read starts at chip byte 0x20.
-    expect(compareEeprom(image.slice(0x20, 0x40), 0x10, 16, ref(image)).result).toBe('equal');
-    expect(compareEeprom(null, 0, 16, ref(image))).toMatchObject({ result: 'not-compared', why: 'unreadable' });
-    expect(compareEeprom(read, 0, 32, null)).toMatchObject({ result: 'not-compared', why: 'no-reference' });
+    expect(compareEeprom(words(0x10, image.slice(0x20, 0x40)), ref(image)).result).toBe('equal');
+    const garbled = { fromWord: 0, words: 16, bytes: { ok: false as const, reason: 'length-mismatch' as const, got: 5 } };
+    expect(compareEeprom(garbled, ref(image))).toMatchObject({ result: 'not-compared', why: 'unreadable', words: 16 });
+  });
+
+  it('holds only the reads made so far against the image', () => {
+    const none = { vin: null, odometer: null, eeprom: null };
+    expect(compareReads(none, ref(image))).toEqual({ vin: null, odometer: null, eeprom: null });
+    const some = compareReads({ ...none, odometer: ok(123_456) }, ref(image));
+    expect(some.vin).toBeNull();
+    expect(some.odometer).toMatchObject({ result: 'equal' });
   });
 
   it('reads the whole chip where the variant can address it', () => {

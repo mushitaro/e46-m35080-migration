@@ -56,8 +56,8 @@ SAVE EDITED. WRITE CHIP appears only after the hub has taken you through CONNECT
 BACKUP — from REWRITE itself, so a file opened there stays open while the chip is read.
 
 **TEST** *(experimental)* — the chip back in its cluster, the cluster on the desk, over the
-K+DCAN cable: **BENCH** (the wiring, the parts, the procedure) and **CHECKS** (ask it, compare,
-move its needles and lamps).
+K+DCAN cable: **BENCH** (the wiring, the parts, the procedure) and **CHECKS** (ask it and see what
+it answers, move its needles and lamps).
 
 After a read the tool says **which job this chip allows** rather than leaving you
 to work it out: a donor below your target can simply be raised (no new chip), one
@@ -171,10 +171,12 @@ back in a cluster yet**; that is why CODING is experimental.
 ## TEST — the cluster off the car, on the K+DCAN cable
 
 TEST mode (MODE › TEST) runs the cluster on the desk once its chip is back: it reads what the cluster says (IDENT,
-the VIN, the odometer, the fault memory, the inputs), compares the VIN and odometer with the chip
-image or the newest record, reads the EEPROM through the cluster to compare it too, sweeps each
-needle up and back, lights the lamps one at a time for you to answer SEEN / NOT SEEN, and ends
-the session with STOP. Nothing is graded: it records what was sent, what the cluster answered
+the VIN, the odometer, the fault memory, the inputs, and the EEPROM through the cluster) and shows
+it as the cluster answered, sweeps each needle up and back, lights the lamps one at a time for you
+to answer SEEN / NOT SEEN, and ends the session with STOP. None of it needs a chip image; when
+there is one - a dump (.bin) opened under REFERENCE in CHECKS, else the image read in CHIP mode,
+else the newest record - the VIN, the odometer and the EEPROM are also compared with it (the dump
+stays in the browser). Nothing is graded: it records what was sent, what the cluster answered
 and what you saw, and SAVE REPORT downloads that as JSON (never SYNCed).
 
 The bench, in short (the full procedure, parts and cautions: [`docs/BENCH.md`](docs/BENCH.md);
@@ -200,7 +202,7 @@ cluster.
 Every telegram TEST sends is decided by one function, `mayRun` (`web/lib/kombi/runGate.ts`):
 only the listed telegrams, at their exact length for the variant; anything that moves a needle,
 lights a lamp or makes a sound waits for the variant (read from IDENT) and for you to confirm the
-cluster is on the bench; needles stay within 10–90° and move at most 10° a step. There is no code
+cluster is on the bench (ON THE BENCH, just above NEEDLES in CHECKS); needles stay within 10–90° and move at most 10° a step. There is no code
 at all for the telegrams that would write to the cluster.
 
 ## Layout

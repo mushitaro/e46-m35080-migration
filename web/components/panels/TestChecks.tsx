@@ -8,30 +8,42 @@
  * (tsunagi-m-mobile section 10). The panel never decides for itself: `mayRun` is asked about the
  * same bytes the link would send.
  *
- * Results are reported, not graded: EQUAL / DIFFERENT / NOT COMPARED with both sides and the chip
- * address; SEEN / NOT SEEN as the reader answered.
+ * Results are reported, not graded. A read's result is what the cluster answered, and it needs
+ * nothing else to be one; only when there is a chip image does EQUAL / DIFFERENT / NOT COMPARED
+ * appear under it, with the chip's value and address. A drive's result is SEEN / NOT SEEN as the
+ * reader answered.
  */
 
-import { Eye, EyeOff, FileDown, Pause, Play, Radio } from 'lucide-react';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp, Eye, EyeOff, FileDown, Pause, Play, Radio, X } from 'lucide-react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { DropZone } from '@/components/DropZone';
 import { MicroLabel, Pill, TextButton, type Tone } from '@/components/ui';
 import { CHROME } from '@/lib/copy/chrome';
+import { jc } from '@/lib/copy/job';
 import { tc } from '@/lib/copy/test';
+import { t } from '@/lib/i18n';
 import type { CheckRun, UseKombiLink } from '@/lib/hooks/useKombiLink';
+import type { LineSilence } from '@/lib/kombi/kombiLink';
 import * as drives from '@/lib/kombi/actuations';
 import * as reads from '@/lib/kombi/reads';
 import {
   checksFor,
+  compareReads,
+  DRIVE_CHECKS,
+  referenceFromFile,
   sweepPlan,
   type CheckId,
   type Compare,
+  type Comparison,
+  type EepromCheck,
+  type EepromRead,
   type FieldCheck,
   type ItemResult,
   type Observation,
   type Reference,
 } from '@/lib/kombi/checks';
-import { GAUGES, type GaugeId, type KombiRequest, type KombiVariant } from '@/lib/kombi/protocol';
+import type { Decoded } from '@/lib/kombi/decode';
+import { GAUGES, wordToByteAddress, type GaugeId, type KombiRequest, type KombiVariant } from '@/lib/kombi/protocol';
 import { mayRun, type GateRefusal } from '@/lib/kombi/runGate';
 import { bitName, namesFor, type BitGroup } from '@/lib/kombi/names';
 import { describeOrigin, type RefLoad } from '@/lib/refdata/load';
@@ -60,12 +72,15 @@ const COMPARE_WORD: Record<Compare, string> = {
 export function TestChecks({
   kombi,
   reference,
+  onReference,
   lang,
   namesLoad,
   onOpenNames,
 }: {
   kombi: UseKombiLink;
+  /** What the reads are held against - the session follows it - or null to compare nothing. */
   reference: Reference | null;
+  onReference: (reference: Reference | null) => void;
   lang: Lang;
   /** The names reference data, or null while it is being fetched. */
   namesLoad: RefLoad<'kombi-names'> | null;
@@ -77,6 +92,11 @@ export function TestChecks({
   const names = namesFor(namesLoad?.ok ? namesLoad.doc : null, variant);
   const open = kombi.phase === 'connected' && kombi.sessionOpen;
   const v = variant ?? 'KOMBI46';
+  /* The reads, held against the reference when there is one. No check waits for this. */
+  const compared = s && reference ? compareReads(s, reference) : null;
+  /* ON THE BENCH is asked where it is needed: just above the first check that moves something. */
+  const checks = checksFor(variant);
+  const firstDrive = checks.find((id) => DRIVE_CHECKS.has(id));
 
   /** What the gate would say about these bytes now. Null while there is no link to ask. */
   const refusal = (req: KombiRequest): GateRefusal | null => {
@@ -121,57 +141,59 @@ export function TestChecks({
         ) : (
           <span className="text-slate-600">{kombi.phase === 'disconnected' ? CHROME.awaiting.connection : CHROME.test.unknown}</span>
         )}
-        <span className="truncate text-slate-500">
-          {reference ? c.referenceFrom(reference.label) : c.noReference}
-        </span>
       </div>
 
-      {/* ---- the bench, stated by the reader ---- */}
-      <label className={`flex items-start gap-2 ${open ? 'cursor-pointer' : 'opacity-60'}`}>
-        <input
-          type="checkbox"
-          checked={s?.benchConfirmed ?? false}
-          disabled={!open}
-          onChange={(e) => kombi.setBench(e.target.checked)}
-          className="mt-0.5 h-3 w-3 accent-amber-500"
-        />
-        <span className="flex flex-col gap-0.5">
-          <MicroLabel className={s?.benchConfirmed ? 'text-amber-400' : ''}>{CHROME.test.onBench}</MicroLabel>
-          <span className="text-[11px] leading-snug text-slate-300">{c.benchStatement}</span>
-          <span className="text-[10px] leading-snug text-slate-500">{c.benchWhy}</span>
-        </span>
-      </label>
+      {/* ---- a CONNECT that got no answer: where the line went quiet, and what to check for THAT ---- */}
+      {kombi.phase === 'disconnected' && kombi.connectFailure?.silence && (
+        <SilenceChecks code={kombi.connectFailure.code} silence={kombi.connectFailure.silence} />
+      )}
 
-      {/* ---- the checks ---- */}
-      {checksFor(variant).map((id) => (
-        <Check
-          key={id}
-          id={id}
-          run={kombi.runs[id]}
-          reason={id === 'needles' || id === 'release' ? null : reasonFor(id)}
-          action={
-            id === 'needles' || id === 'release' ? null : id === 'lamps' || id === 'outputs' ? (
-              kombi.stepping?.check === id ? null : (
-                <TextButton Icon={Play} disabled={!canRun || reasonFor(id) !== null} onClick={() => void kombi.startStepping(id)}>
-                  {CHROME.test.start}
-                </TextButton>
-              )
-            ) : (
-              <span className="flex items-center gap-3">
-                {id === 'inputs' && (
-                  <TextButton Icon={kombi.live ? Pause : Radio} tone="secondary" disabled={!open || reasonFor(id) !== null} onClick={kombi.toggleLive}>
-                    {kombi.live ? CHROME.test.pause : CHROME.test.live}
+      {/* ---- what the reads are held against, if anything: a dump the reader opens here comes first ---- */}
+      <ReferencePick reference={reference} onReference={onReference} />
+
+      {/* ---- the checks: the reads, then ON THE BENCH, then what moves the cluster ---- */}
+      {checks.map((id) => (
+        <Fragment key={id}>
+          {id === firstDrive && (
+            <BenchConfirm confirmed={s?.benchConfirmed ?? false} enabled={open} onChange={kombi.setBench} />
+          )}
+          <Check
+            id={id}
+            run={kombi.runs[id]}
+            reason={id === 'needles' || id === 'release' ? null : reasonFor(id)}
+            action={
+              id === 'needles' || id === 'release' ? null : id === 'lamps' || id === 'outputs' ? (
+                kombi.stepping?.check === id ? null : (
+                  <TextButton Icon={Play} disabled={!canRun || reasonFor(id) !== null} onClick={() => void kombi.startStepping(id)}>
+                    {CHROME.test.start}
                   </TextButton>
-                )}
-                <TextButton Icon={Play} disabled={!canRun || reasonFor(id) !== null} onClick={() => void kombi.run(id)}>
-                  {CHROME.test.run}
-                </TextButton>
-              </span>
-            )
-          }
-        >
-          <CheckResult id={id} kombi={kombi} refusal={refusal} canRun={canRun} item={item} names={names} lang={lang} />
-        </Check>
+                )
+              ) : (
+                <span className="flex items-center gap-3">
+                  {id === 'inputs' && (
+                    <TextButton Icon={kombi.live ? Pause : Radio} tone="secondary" disabled={!open || reasonFor(id) !== null} onClick={kombi.toggleLive}>
+                      {kombi.live ? CHROME.test.pause : CHROME.test.live}
+                    </TextButton>
+                  )}
+                  <TextButton Icon={Play} disabled={!canRun || reasonFor(id) !== null} onClick={() => void kombi.run(id)}>
+                    {CHROME.test.run}
+                  </TextButton>
+                </span>
+              )
+            }
+          >
+            <CheckResult
+              id={id}
+              kombi={kombi}
+              compared={compared}
+              refusal={refusal}
+              canRun={canRun}
+              item={item}
+              names={names}
+              lang={lang}
+            />
+          </Check>
+        </Fragment>
       ))}
 
       {/* ---- where the names come from ---- */}
@@ -200,6 +222,111 @@ export function TestChecks({
         </TextButton>
         <p className="text-[10px] leading-snug text-slate-600">{c.reportNote}</p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The image the reads are held against, and the place to open one. A dump opened here comes before
+ * a chip read or a record; CLEAR lets go of it. Nothing here gates a check - with no image at all,
+ * every read and drive still runs, and the reads show what the cluster answered.
+ */
+function ReferencePick({
+  reference,
+  onReference,
+}: {
+  reference: Reference | null;
+  onReference: (reference: Reference | null) => void;
+}) {
+  const c = tc();
+  const [refused, setRefused] = useState<string | null>(null);
+  const sizeRefusal = (size?: number) => {
+    const why = t().refusal({ code: 'backup-size', fileSize: size });
+    return `${why.reason} ${why.detail ?? ''}`.trim();
+  };
+  const open = (file: File) => {
+    setRefused(null);
+    file
+      .arrayBuffer()
+      .then((buffer) => {
+        const r = referenceFromFile(file.name, buffer);
+        if (r.ok) return onReference(r.reference);
+        setRefused(r.refusal.kind === 'size' ? sizeRefusal(r.refusal.size) : jc().file.notAChip(r.refusal.value));
+      })
+      // A file that cannot be read at all (moved, a folder) says so, and keeps what was there.
+      .catch(() => setRefused(sizeRefusal()));
+  };
+  return (
+    <div className="flex flex-col gap-2 border-t border-slate-800 pt-3">
+      <MicroLabel as="h3">{CHROME.test.reference}</MicroLabel>
+      <p className="text-[10px] leading-snug text-slate-500">{c.referenceLead}</p>
+      {reference && (
+        <span className="flex min-w-0 items-center gap-2">
+          <Pill tone={reference.source === 'file' ? 'primary' : 'neutral'}>{CHROME.test.source[reference.source]}</Pill>
+          {reference.source !== 'chip-read' && (
+            <span className="min-w-0 truncate font-mono text-[11px] text-slate-200">{reference.label}</span>
+          )}
+          {reference.source === 'file' && (
+            <TextButton tone="danger" Icon={X} onClick={() => onReference(null)} className="ml-auto">
+              {CHROME.test.clear}
+            </TextButton>
+          )}
+        </span>
+      )}
+      {reference?.source !== 'file' && <DropZone onFile={open} hint={CHROME.drop.file} />}
+      {refused && <p className="font-mono text-[10px] leading-snug text-red-400">{refused}</p>}
+    </div>
+  );
+}
+
+/**
+ * The reader's word that the cluster is out of the car, on the bench - asked right above the first
+ * check that moves something, so a refused needle or lamp has its answer in sight (the gate refuses
+ * every drive until it is ticked: runGate.ts).
+ */
+function BenchConfirm({
+  confirmed,
+  enabled,
+  onChange,
+}: {
+  confirmed: boolean;
+  enabled: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  const c = tc();
+  return (
+    <label className={`flex items-start gap-2 border-t border-slate-800 pt-3 ${enabled ? 'cursor-pointer' : 'opacity-60'}`}>
+      <input
+        type="checkbox"
+        checked={confirmed}
+        disabled={!enabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-3 w-3 accent-amber-500"
+      />
+      <span className="flex flex-col gap-0.5">
+        <MicroLabel className={confirmed ? 'text-amber-400' : ''}>{CHROME.test.onBench}</MicroLabel>
+        <span className="text-[11px] leading-snug text-slate-300">{c.benchStatement}</span>
+        <span className="text-[10px] leading-snug text-slate-500">{c.benchWhy}</span>
+      </span>
+    </label>
+  );
+}
+
+/**
+ * Why CONNECT failed, drawn where there is room to read it: the hub's notice holds one line, and a
+ * checklist in a truncated line is a checklist nobody reads (tsunagi-m-ux section 12).
+ */
+function SilenceChecks({ code, silence }: { code: string; silence: LineSilence }) {
+  const s = tc().silence[silence];
+  return (
+    <div role="alert" className="flex flex-col gap-1.5 rounded bg-slate-900 px-2.5 py-2">
+      <span className="font-mono text-[10px] text-red-400">{`IDENT · ${code}`}</span>
+      <p className="text-[11px] leading-snug text-slate-300">{s.what}</p>
+      <ol className="flex list-decimal flex-col gap-0.5 pl-4 text-[11px] leading-snug text-slate-400">
+        {s.checks.map((check) => (
+          <li key={check}>{check}</li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -260,6 +387,7 @@ function Check({
 function CheckResult({
   id,
   kombi,
+  compared,
   refusal,
   canRun,
   item,
@@ -268,6 +396,8 @@ function CheckResult({
 }: {
   id: CheckId;
   kombi: UseKombiLink;
+  /** The reads held against the session's chip image, or null when it has none. */
+  compared: Comparison | null;
   refusal: (req: KombiRequest) => GateRefusal | null;
   canRun: boolean;
   item: (key: string) => ItemResult | undefined;
@@ -279,9 +409,19 @@ function CheckResult({
   if (!s) return null;
   switch (id) {
     case 'vin':
-      return s.vin ? <Fields checks={s.vin} /> : null;
+      return s.vin ? (
+        <div className="flex flex-col gap-1">
+          <Reply read={s.vin} show={(vin) => vin} />
+          {s.vin.ok && compared?.vin && <Compared checks={compared.vin} />}
+        </div>
+      ) : null;
     case 'odometer':
-      return s.odometer ? <Fields checks={[s.odometer]} /> : null;
+      return s.odometer ? (
+        <div className="flex flex-col gap-1">
+          <Reply read={s.odometer} show={km} />
+          {s.odometer.ok && compared?.odometer && <Compared checks={[compared.odometer]} />}
+        </div>
+      ) : null;
     case 'faults':
       return s.faults ? (
         <p className="break-all font-mono text-[10px] text-slate-300">
@@ -311,28 +451,7 @@ function CheckResult({
         </ul>
       ) : null;
     case 'eeprom':
-      return s.eeprom ? (
-        <div className="flex flex-col gap-0.5 font-mono text-[10px]">
-          <span className="flex items-center gap-2">
-            <Pill tone={COMPARE_TONE[s.eeprom.result]}>{COMPARE_WORD[s.eeprom.result]}</Pill>
-            <span className="text-slate-400">
-              {s.eeprom.result === 'not-compared' && s.eeprom.why
-                ? c.notCompared[s.eeprom.why]
-                : `${s.eeprom.differing.length} / ${s.eeprom.words * 2}`}
-            </span>
-          </span>
-          {s.eeprom.differing.length > 0 && (
-            <span className="break-all text-red-400">
-              {s.eeprom.differing
-                .slice(0, 12)
-                .map((a) => `0x${a.toString(16).toUpperCase().padStart(3, '0')}`)
-                .join(' ')}
-              {s.eeprom.differing.length > 12 ? ' …' : ''}
-            </span>
-          )}
-          <span className="text-slate-600">{c.mappingNote}</span>
-        </div>
-      ) : null;
+      return s.eeprom ? <EepromResult read={s.eeprom} check={compared?.eeprom ?? null} /> : null;
     case 'needles':
       return (
         <ul className="flex flex-col gap-1">
@@ -468,29 +587,127 @@ function Answer({
   );
 }
 
-/** Cluster value against chip value, and the verdict with its reason when it could not be made. */
-function Fields({ checks }: { checks: FieldCheck[] }) {
-  const c = tc();
+const hex = (n: number, digits: number) => n.toString(16).toUpperCase().padStart(digits, '0');
+const km = (n: number) => `${n.toLocaleString()} km`;
+
+/** One line of a read's result: what it is, then its value. The labels line up down a check. */
+function Line({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <ul className="flex flex-col gap-1 font-mono text-[10px]">
-      {checks.map((f) => (
-        <li key={f.field} className="flex flex-col">
-          <span className="flex items-center gap-2">
-            <span className="w-24 shrink-0 text-slate-600">{CHROME.test.field[f.field]}</span>
-            <Pill tone={COMPARE_TONE[f.result]}>{COMPARE_WORD[f.result]}</Pill>
+    <span className="flex min-w-0 items-center gap-2 font-mono">
+      <span className="w-24 shrink-0 text-[10px] text-slate-600">{label}</span>
+      {children}
+    </span>
+  );
+}
+
+/** What the cluster answered, as it said it - or why its reply would not decode. */
+function Reply<T>({ read, show }: { read: Decoded<T>; show: (value: T) => string }) {
+  return (
+    <Line label={CHROME.test.cluster}>
+      {read.ok ? (
+        <span className="text-[11px] text-slate-200">{show(read.value)}</span>
+      ) : (
+        <span className="text-[10px] text-red-400">{tc().unreadable(read.reason, read.got)}</span>
+      )}
+    </Line>
+  );
+}
+
+/** The same read held against the chip image: each chip field, where it is, and the verdict. */
+function Compared({ checks }: { checks: FieldCheck[] }) {
+  const c = tc();
+  return checks.map((f) => (
+    <Line key={f.field} label={CHROME.test.field[f.field]}>
+      <span className="text-[11px] text-slate-300">
+        {f.chip === null ? '—' : f.field === 'odometer' ? km(Number(f.chip)) : f.chip}
+      </span>
+      {f.at && <span className="text-[10px] text-slate-600">{f.at}</span>}
+      <Pill tone={COMPARE_TONE[f.result]}>{COMPARE_WORD[f.result]}</Pill>
+      {f.why && <span className="truncate text-[10px] text-slate-500">{c.notCompared[f.why]}</span>}
+    </Line>
+  ));
+}
+
+/**
+ * The EEPROM as the cluster read it out: which words, and the words themselves when asked for -
+ * 32 or 64 lines of hex open by default would push every check below it off the panel. With a
+ * chip image, the verdict under it, and the bytes that differ marked in the words.
+ */
+function EepromResult({ read, check }: { read: EepromRead; check: EepromCheck | null }) {
+  const c = tc();
+  const [shown, setShown] = useState(false);
+  const last = read.fromWord + read.words - 1;
+  const chipFrom = wordToByteAddress(read.fromWord);
+  const chipTo = wordToByteAddress(last) + 1;
+  return (
+    <div className="flex flex-col gap-1">
+      <Line label={CHROME.test.cluster}>
+        {read.bytes.ok ? (
+          <>
+            <span className="text-[11px] text-slate-200">{c.eepromWords(hex(read.fromWord, 3), hex(last, 3), read.words)}</span>
+            <TextButton Icon={shown ? ChevronUp : ChevronDown} tone="secondary" onClick={() => setShown(!shown)}>
+              {shown ? CHROME.test.hide : CHROME.test.show}
+            </TextButton>
+          </>
+        ) : (
+          <span className="text-[10px] text-red-400">{c.unreadable(read.bytes.reason, read.bytes.got)}</span>
+        )}
+      </Line>
+      {shown && read.bytes.ok && <Words fromWord={read.fromWord} bytes={read.bytes.value} differing={check?.differing ?? []} />}
+      {check && read.bytes.ok && (
+        <>
+          <Line label={CHROME.test.chip}>
+            <span className="text-[10px] text-slate-600">{`0x${hex(chipFrom, 3)}-0x${hex(chipTo, 3)}`}</span>
+            <Pill tone={COMPARE_TONE[check.result]}>{COMPARE_WORD[check.result]}</Pill>
+            {check.differing.length > 0 && (
+              <span className="text-[10px] text-slate-400">{c.differingBytes(check.differing.length, check.words * 2)}</span>
+            )}
+          </Line>
+          {check.differing.length > 0 && (
+            <span className="break-all pl-[104px] font-mono text-[10px] text-red-400">
+              {check.differing
+                .slice(0, 12)
+                .map((a) => `0x${hex(a, 3)}`)
+                .join(' ')}
+              {check.differing.length > 12 ? ' …' : ''}
+            </span>
+          )}
+        </>
+      )}
+      <span className="font-mono text-[10px] text-slate-600">{c.mappingNote}</span>
+    </div>
+  );
+}
+
+/**
+ * The words as the cluster sent them, eight to a line, each line by its first word's number. A
+ * byte the chip image holds differently - under the stated mapping - is marked.
+ */
+function Words({ fromWord, bytes, differing }: { fromWord: number; bytes: Uint8Array; differing: readonly number[] }) {
+  const marked = new Set(differing);
+  const chipAt = wordToByteAddress(fromWord);
+  const lines: number[] = [];
+  for (let i = 0; i < bytes.length; i += 16) lines.push(i);
+  return (
+    <div className="flex flex-col">
+      {lines.map((i) => (
+        <Line key={i} label={hex(fromWord + i / 2, 3)}>
+          <span className="flex gap-2 text-[10px] leading-snug">
+            {Array.from({ length: Math.min(8, (bytes.length - i) / 2) }, (_, w) => (
+              <span key={w}>
+                {[0, 1].map((b) => {
+                  const at = i + w * 2 + b;
+                  return (
+                    <span key={b} className={marked.has(chipAt + at) ? 'text-red-400' : 'text-slate-300'}>
+                      {hex(bytes[at] ?? 0, 2)}
+                    </span>
+                  );
+                })}
+              </span>
+            ))}
           </span>
-          <span className="flex gap-2 pl-[104px] text-slate-300">
-            <span className="text-slate-600">{CHROME.test.cluster}</span>
-            <span>{f.cluster ?? '—'}</span>
-          </span>
-          <span className="flex gap-2 pl-[104px] text-slate-300">
-            <span className="text-slate-600">{CHROME.test.chip}</span>
-            <span>{f.chip ?? '—'}</span>
-            {f.at && <span className="text-slate-600">{f.at}</span>}
-          </span>
-          {f.why && <span className="pl-[104px] text-slate-500">{c.notCompared[f.why]}</span>}
-        </li>
+        </Line>
       ))}
-    </ul>
+    </div>
   );
 }

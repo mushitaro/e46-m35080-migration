@@ -32,6 +32,7 @@ import {
   type Ds2ByteTransport,
   type Ds2Frame,
   type Ds2Timings,
+  type LinkTiming,
 } from '@tsunagi/ds2-core';
 import * as drives from './actuations';
 import {
@@ -76,10 +77,69 @@ export type SentOutcome =
   | { kind: 'acknowledged' }
   /** The cluster answered with a negative status, recorded as its number. */
   | { kind: 'rejected'; status: number; description: string }
-  /** No usable answer: the error's code, verbatim. */
-  | { kind: 'failed'; code: string; message: string }
+  /** No usable answer: the error's code, verbatim, and for a timeout where the line went quiet. */
+  | { kind: 'failed'; code: string; message: string; silence?: LineSilence }
   /** The gate stayed held past the wait; the bytes never left. */
   | { kind: 'not-sent' };
+
+/**
+ * Where a telegram that timed out went quiet - carried as data (tsunagi-m-link section 6), because
+ * the four need opposite checks and one READ_TIMEOUT hides which it was.
+ *
+ *   no-echo       not even our own telegram came back: the cable is not driving the K-line, so
+ *                 nothing reached the cluster (the cable's power on OBD 16, its port, its mode)
+ *   partial-echo  part of it came back: something pulled the line down while we sent
+ *   no-answer     it went out and came back whole, and the cluster said nothing (the wire to it,
+ *                 its pin, its supply)
+ *   cut-short     the cluster began to answer and stopped
+ */
+export type LineSilence = 'no-echo' | 'partial-echo' | 'no-answer' | 'cut-short';
+
+/** What one exchange got back, as the link reports it: the echo whole, and anything after it. */
+export type LineSeen = { echoed: boolean; heardAfterEcho: boolean };
+
+/**
+ * The silence a timeout was, from what the exchange had seen. Null for anything that is not a
+ * timeout - an echo that came back WRONG is ds2-core's ECHO_MISMATCH, which classifies itself.
+ */
+export function silenceOf(e: unknown, seen: LineSeen): LineSilence | null {
+  if (!isDs2Error(e) || e.code !== 'READ_TIMEOUT') return null;
+  const received = (e.detail as { received?: number } | undefined)?.received ?? 0;
+  if (!seen.echoed) return received > 0 ? 'partial-echo' : 'no-echo';
+  return seen.heardAfterEcho || received > 0 ? 'cut-short' : 'no-answer';
+}
+
+/**
+ * Watches each exchange through ds2-core's timing hook. ds2-core is vendored and cannot be taught
+ * to say which of its reads timed out; the hook already marks the one boundary that matters - the
+ * echo read whole - and after it any byte, whether it arrived later or in the echo's own chunk, is
+ * the cluster talking.
+ */
+class LineProbe implements LinkTiming {
+  private seen: LineSeen = { echoed: false, heardAfterEcho: false };
+
+  constructor(private readonly transport: Ds2ByteTransport) {}
+
+  exchangeStart(): void {
+    this.seen = { echoed: false, heardAfterEcho: false };
+  }
+  echoComplete(): void {
+    this.seen = { echoed: true, heardAfterEcho: this.transport.bufferedLength() > 0 };
+  }
+  rx(): void {
+    if (this.seen.echoed) this.seen = { ...this.seen, heardAfterEcho: true };
+  }
+  writeStart(): void {}
+  writeEnd(): void {}
+  parkStart(): void {}
+  parkEnd(): void {}
+  exchangeEnd(): void {}
+
+  /** For the exchange that just failed. */
+  silence(e: unknown): LineSilence | null {
+    return silenceOf(e, this.seen);
+  }
+}
 
 export type SentRecord = {
   kind: RequestKind;
@@ -105,13 +165,21 @@ const GATE_POLL_MS = 20;
 
 export class KombiLink {
   private readonly ds2: Ds2Link;
+  private readonly probe: LineProbe;
   private connected = false;
   private ctx: GateContext = { variant: null, benchConfirmed: false, needles: clusterHeldNeedles() };
   private identity: Identity | null = null;
   private readonly log: SentRecord[] = [];
 
   constructor(transport: Ds2ByteTransport, options: KombiLinkOptions = {}) {
-    this.ds2 = new Ds2Link(transport, { address: KOMBI_ADDRESS, timings: options.timings });
+    this.probe = new LineProbe(transport);
+    this.ds2 = new Ds2Link(transport, { address: KOMBI_ADDRESS, timings: options.timings, timing: this.probe });
+  }
+
+  /** Where the last telegram went quiet, when it timed out: what a failed CONNECT tells the reader to check. */
+  get lastSilence(): LineSilence | null {
+    const outcome = this.log.at(-1)?.outcome;
+    return outcome?.kind === 'failed' ? (outcome.silence ?? null) : null;
   }
 
   get isConnected(): boolean {
@@ -228,7 +296,7 @@ export class KombiLink {
       record.outcome = outcomeOf(frame);
       return frame.controlOrStatus === Ds2Status.ACKNOWLEDGE;
     } catch (e) {
-      record.outcome = failureOf(e);
+      record.outcome = failureOf(e, this.probe.silence(e));
       return false;
     }
   }
@@ -372,7 +440,8 @@ export class KombiLink {
       record.outcome = outcomeOf(frame);
       return frame;
     } catch (e) {
-      record.outcome = failureOf(e);
+      // The retry throws its LAST attempt's error, and the probe has just watched that attempt.
+      record.outcome = failureOf(e, this.probe.silence(e));
       throw e;
     }
   }
@@ -408,11 +477,12 @@ function mayHaveLanded(e: unknown): boolean {
   return !(isDs2Error(e) && (e.code === 'GATE_HELD' || e.code === 'NOT_CONNECTED'));
 }
 
-function failureOf(e: unknown): SentOutcome {
+function failureOf(e: unknown, silence: LineSilence | null = null): SentOutcome {
   if (isDs2Error(e) && e.code === 'GATE_HELD') return { kind: 'not-sent' };
   return {
     kind: 'failed',
     code: isDs2Error(e) ? e.code : e instanceof Error ? e.name : 'unknown',
     message: e instanceof Error ? e.message : String(e),
+    ...(silence ? { silence } : {}),
   };
 }

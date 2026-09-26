@@ -67,13 +67,16 @@ export function BenchPanel({
 export function ChecksPanel({
   kombi,
   reference,
+  onReference,
   lang,
   namesLoad,
   onOpenNames,
 }: {
   kombi: UseKombiLink;
-  /** What the next CONNECT will compare against; the session keeps its own once connected. */
+  /** What the reads are held against - the session follows it - or null to compare nothing. */
   reference: Reference | null;
+  /** A dump the reader opened, or null to let go of it. */
+  onReference: (reference: Reference | null) => void;
   lang: 'ja' | 'en';
   /** The lamp, output and input names (kombi-names.json), or null while fetching. */
   namesLoad: RefLoad<'kombi-names'> | null;
@@ -83,7 +86,8 @@ export function ChecksPanel({
     <div className="h-full overflow-y-auto py-2 pr-2">
       <TestChecks
         kombi={kombi}
-        reference={kombi.session?.reference ?? reference}
+        reference={reference}
+        onReference={onReference}
         lang={lang}
         namesLoad={namesLoad}
         onOpenNames={onOpenNames}
