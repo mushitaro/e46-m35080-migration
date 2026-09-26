@@ -134,7 +134,7 @@ const JA = {
     inputs: 'イグニッションの端子やボタンの入力を読みます。ビットの名前は参照データが無い間 P2.b4 のように示します。',
     eeprom: 'メータ越しに EEPROM を読みます。メータは 2 バイトの語で数えます。',
     needles:
-      '針を 1 本ずつ、10° ずつ動かして上まで行き、戻します。メータの針が動いたら SEEN、動かなかったら NOT SEEN を押してください。',
+      '針を 1 本ずつ、10° ずつ動かして上まで行き、戻します。戻った後は診断を一度終えて針をメータに返すので、0 に戻ります。メータの針が動いたら SEEN、動かなかったら NOT SEEN を押してください。',
     lamps:
       'ランプを 1 つだけ点けます。メータでそのランプが点いたら SEEN、点かなかったら NOT SEEN を押すと、次のランプに進みます。NOT SEEN と答えたものが下に赤く残ります（球切れ・配線を疑う候補）。',
     outputs: '出力ポートの 4 ビットを 1 つずつ点けます（KOMBI46 のみ）。点いたら SEEN、点かなかったら NOT SEEN。',
@@ -218,7 +218,8 @@ const EN: typeof JA = {
     faults: 'Read the fault memory as it is. How it splits into entries has not been extracted yet, so it is shown as raw bytes.',
     inputs: 'Read the ignition terminals and button inputs. Until reference data names the bits, a bit is shown as P2.b4.',
     eeprom: 'Read the EEPROM through the cluster. The cluster counts it in 2-byte words.',
-    needles: 'Move each needle up in steps of 10 degrees and back. Press SEEN if the needle moved on the cluster, NOT SEEN if it did not.',
+    needles:
+      'Move each needle up in steps of 10 degrees and back, then end the session once so the cluster takes it back to zero. Press SEEN if the needle moved on the cluster, NOT SEEN if it did not.',
     lamps:
       'Light one lamp at a time. Press SEEN if it lit on the cluster, NOT SEEN if it did not, and the next one lights. What you marked NOT SEEN stays below in red - the lamps to check for a bulb or wiring.',
     outputs: 'Drive the four bits of the output port one at a time (KOMBI46 only). SEEN if it lit, NOT SEEN if not.',

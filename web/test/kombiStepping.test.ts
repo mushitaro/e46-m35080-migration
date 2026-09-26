@@ -213,6 +213,10 @@ describe('the reads, with no chip image to compare them with (PRACTICE, KOMBI46)
     const items = h.current.session!.items;
     expect(items.find((x) => x.item === 'gong')).toMatchObject({ sent: 'acknowledged' });
     expect(items.find((x) => x.item === 'speed')).toMatchObject({ sent: 'acknowledged' });
+    // The sweep ends at 10 degrees, above the dial's zero: 9F hands the needle back to the cluster.
+    expect(h.current.session!.telegrams.at(-1)).toMatchObject({ kind: 'end-session', outcome: { kind: 'acknowledged' } });
+    expect(h.current.commanded.needles.speed).toBeUndefined();
+    expect(h.current.sessionOpen).toBe(true);
 
     await h.current.disconnect();
   }, 30_000);

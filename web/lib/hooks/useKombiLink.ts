@@ -390,16 +390,26 @@ export function useKombiLink() {
     [exclusive, setRun],
   );
 
-  /** One needle, swept up and back. The reader then says whether it moved. */
+  /**
+   * One needle, swept up and back, then handed back to the cluster. The lowest angle the SGBDs take
+   * is 10 degrees, not the dial's zero, so a needle left there sits above zero until the session
+   * ends: 9F ends it (the link stays open, and the next command starts a new one), and the cluster
+   * puts the needle back on its own reading. The reader then says whether it moved.
+   */
   const runNeedle = useCallback(
     (gauge: GaugeId) =>
       exclusive('needles', async (link) => {
         cancelRef.current = false;
         try {
-          await sweepNeedle(link, gauge, {
+          const swept = await sweepNeedle(link, gauge, {
             cancelled: () => cancelRef.current,
             onStep: (d) => command({ needles: { ...commandedRef.current.needles, [gauge]: d } }),
           });
+          if (swept === 'done') {
+            await link.stop();
+            const { [gauge]: _handedBack, ...held } = commandedRef.current.needles;
+            command({ needles: held });
+          }
           itemResult(gauge, 'acknowledged', null);
         } catch (e) {
           if (!(e instanceof KombiGateError)) itemResult(gauge, 'failed', isDs2Error(e) ? e.code : String(e));
