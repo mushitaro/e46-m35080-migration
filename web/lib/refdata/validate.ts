@@ -69,6 +69,9 @@ function checkNames(d: Obj): string | null {
   if (!isObj(d.variants)) return 'variants';
   for (const v of KOMBI_VARIANTS) {
     const names = d.variants[v];
+    // The names were made for the two E46 SGBDs; a KOMBIR40 shows its bits by position until
+    // reference data names them too.
+    if (names === undefined && v === 'KOMBIR40') continue;
     if (!isObj(names)) return `variants.${v}`;
     for (const group of ['lamps', 'outputs', 'inputs', 'faults']) {
       const g = names[group];

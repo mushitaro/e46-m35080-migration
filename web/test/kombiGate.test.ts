@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import * as reads from '@/lib/kombi/reads';
 import * as drives from '@/lib/kombi/actuations';
-import { GAUGE_IDS, KOMBI_VARIANTS, lampBits, request, type KombiRequest, type KombiVariant } from '@/lib/kombi/protocol';
+import { GAUGE_IDS, gaugesFor, KOMBI_VARIANTS, lampBits, request, type KombiRequest, type KombiVariant } from '@/lib/kombi/protocol';
+
+/** The variants with a gong and a piezo this tool may sound: not a KOMBIR40 (runGate.ts). */
+const SOUNDS = (v: KombiVariant) => v !== 'KOMBIR40';
 import { clusterHeldNeedles, mayRun, nextNeedleSpan, type GateContext, type NeedleSpan } from '@/lib/kombi/runGate';
 
 const ALLOWED_CONTROLS = new Set([0x00, 0x02, 0x04, 0x06, 0x0b, 0x0c, 0x9e, 0x9f]);
@@ -53,8 +56,9 @@ describe('mayRun: the list', () => {
     }
     expect(passed.sort()).toEqual(
       [
-        // both variants: IDENT, VIN, odometer, faults, gong, piezo, 9E, 9F
-        ...KOMBI_VARIANTS.flatMap((v) => [`${v} 00 `, `${v} 02 02`, `${v} 02 01`, `${v} 04 01`, `${v} 0c 11`, `${v} 0c 10`, `${v} 9e `, `${v} 9f `]),
+        // every variant: IDENT, VIN, odometer, faults, 9E, 9F; the E46 ones also the gong and piezo
+        ...KOMBI_VARIANTS.flatMap((v) => [`${v} 00 `, `${v} 02 02`, `${v} 02 01`, `${v} 04 01`, `${v} 9e `, `${v} 9f `]),
+        ...KOMBI_VARIANTS.filter(SOUNDS).flatMap((v) => [`${v} 0c 11`, `${v} 0c 10`]),
         // KOMBI46: the output port, all off; 46R: the two input-port reads this alphabet spells (00, 06)
         'KOMBI46 0c 14 06 00',
         'KOMBI46R 0b 14 00 00',
@@ -93,7 +97,7 @@ describe('mayRun: the list', () => {
         reads.readEeprom(variant, 0x10, 4),
         drives.setNeedle(variant, 'rpm', 45),
         drives.lampsOff(variant),
-        drives.soundGong(),
+        ...(SOUNDS(variant) ? [drives.soundGong()] : []),
       ];
       for (const r of good) {
         expect(mayRun(r, c).ok).toBe(true);
@@ -134,7 +138,8 @@ describe('mayRun: the bench', () => {
   it('refuses every drive until the reader has confirmed the bench, and no read', () => {
     for (const variant of KOMBI_VARIANTS) {
       const off = ctx({ variant, benchConfirmed: false });
-      for (const r of [drives.setNeedle(variant, 'fuel', 10), drives.lampsOff(variant), drives.soundGong(), drives.soundPiezo()]) {
+      const sounds = SOUNDS(variant) ? [drives.soundGong(), drives.soundPiezo()] : [];
+      for (const r of [drives.setNeedle(variant, 'fuel', 10), drives.lampsOff(variant), ...sounds]) {
         expect(mayRun(r, off)).toMatchObject({ ok: false, reason: 'bench-unconfirmed' });
         expect(mayRun(r, { ...off, benchConfirmed: true }).ok).toBe(true);
       }
@@ -148,7 +153,7 @@ describe('mayRun: the bench', () => {
 describe('mayRun: needles', () => {
   it('only the rest angle while the cluster holds the needle', () => {
     for (const variant of KOMBI_VARIANTS) {
-      for (const g of GAUGE_IDS) {
+      for (const { id: g } of gaugesFor(variant)) {
         expect(mayRun(drives.setNeedle(variant, g, 10), ctx({ variant })).ok).toBe(true);
         expect(mayRun(drives.setNeedle(variant, g, 20), ctx({ variant }))).toMatchObject({ ok: false, reason: 'step-too-large' });
       }

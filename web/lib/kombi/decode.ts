@@ -122,7 +122,7 @@ export type PortValue = { port: number; value: number };
  * KOMBI46R.
  */
 export function decodeInputs(variant: KombiVariant, replies: readonly Uint8Array[]): Decoded<PortValue[]> {
-  if (variant === 'KOMBI46') {
+  if (variant !== 'KOMBI46R') {
     const p = replies[0] ?? new Uint8Array(0);
     if (replies.length !== 1 || p.length < INPUT_PORTS_46.length) return fail('short', p);
     return { ok: true, value: INPUT_PORTS_46.map((port, i) => ({ port, value: p[i] ?? 0 })) };

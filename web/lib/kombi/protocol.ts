@@ -26,8 +26,14 @@ import { Ds2Control } from '@tsunagi/ds2-core';
 /** The cluster's DS2 address. ds2-core names the modules it was written for; this is not one. */
 export const KOMBI_ADDRESS = 0x80;
 
-/** The two E46 clusters, by the SGBD that speaks for each (variant.ts decides which one this is). */
-export const KOMBI_VARIANTS = ['KOMBI46', 'KOMBI46R'] as const;
+/**
+ * The clusters this tool speaks to, by the SGBD that speaks for each (variant.ts decides which one
+ * this is). KOMBI46 and KOMBI46R are the E46 clusters. KOMBIR40 is the SGBD D_0080.grp names for
+ * diagnosis index 0x50-0x54 - and what the first real cluster on the
+ * bench answered as, from a car whose chip reads as an E46's. Its telegrams below were taken from
+ * the SGBD run in EDIABAS simulation (what each job sends), not read off its bytecode.
+ */
+export const KOMBI_VARIANTS = ['KOMBI46', 'KOMBI46R', 'KOMBIR40'] as const;
 export type KombiVariant = (typeof KOMBI_VARIANTS)[number];
 
 /** One telegram's content: the control byte and what follows it. Address, length and checksum
@@ -91,6 +97,11 @@ export type GaugeId = (typeof GAUGES)[number]['id'];
 
 export const GAUGE_IDS: readonly GaugeId[] = GAUGES.map((g) => g.id);
 
+/** The needles a variant has: a KOMBIR40's SGBD drives four - no fuel-consumption gauge. */
+export function gaugesFor(variant: KombiVariant | null): readonly (typeof GAUGES)[number][] {
+  return variant === 'KOMBIR40' ? GAUGES.filter((g) => g.id !== 'consumption') : GAUGES;
+}
+
 export function gaugeSelect(id: GaugeId): number {
   const g = GAUGES.find((x) => x.id === id);
   if (!g) throw new RangeError(`unknown gauge ${String(id)}`);
@@ -113,8 +124,11 @@ export const NEEDLE_MAX_STEP_DEG = 10;
 /** Where a needle is taken to be before this tool has moved it: the bottom of the range. */
 export const NEEDLE_REST_DEG = NEEDLE_MIN_DEG;
 
-/** Degrees to the 16-bit value on the wire: 45 degrees is 0x05A0 on a KOMBI46, 0x01C2 on a 46R. */
-export const NEEDLE_SCALE: Record<KombiVariant, number> = { KOMBI46: 32, KOMBI46R: 10 };
+/**
+ * Degrees to the 16-bit value on the wire: 45 degrees is 0x05A0 on a KOMBI46, 0x01C2 on a 46R. A
+ * KOMBIR40 scales as a KOMBI46 does (50 degrees went out as 0x0640).
+ */
+export const NEEDLE_SCALE: Record<KombiVariant, number> = { KOMBI46: 32, KOMBI46R: 10, KOMBIR40: 32 };
 
 /* ---------------------------------- lamps --------------------------------- */
 
@@ -123,6 +137,10 @@ export const NEEDLE_SCALE: Record<KombiVariant, number> = { KOMBI46: 32, KOMBI46
  *
  *   KOMBI46   0C 09 B1 B2 B3 B4
  *   KOMBI46R  0C 09 00 B1 B2 B3 B4 B5 B6     (the 00 is fixed)
+ *   KOMBIR40  0C 09 B1 B2 B3 B4 B5 B6 B7      (B4-B6 carry no lamp bit, B7 two)
+ *
+ * The KOMBIR40 SGBD writes a length byte of 09 in front of that frame - the KOMBI46 frame's - though
+ * it carries seven lamp bytes. This tool's link writes the length of what it sends, 0C.
  *
  * A bit outside its mask is one the SGBD marks free or reserved. It is not a lamp, and the gate
  * refuses a frame that sets it.
@@ -130,6 +148,7 @@ export const NEEDLE_SCALE: Record<KombiVariant, number> = { KOMBI46: 32, KOMBI46
 export const LAMP_MASKS: Record<KombiVariant, readonly number[]> = {
   KOMBI46: [0x3f, 0xff, 0xff, 0x7f],
   KOMBI46R: [0x3d, 0xff, 0x3f, 0x7f, 0xbf, 0xbf],
+  KOMBIR40: [0x67, 0xfe, 0xfe, 0x00, 0x00, 0x00, 0xc0],
 };
 
 /** Every lamp bit of a variant as `{ byte, bit }`, byte counted from 1 as the SGBDs number them. */
@@ -159,7 +178,7 @@ export const INPUT_PORTS_46R = [0x00, 0x03, 0x05, 0x06, 0x09, 0x0d, 0x0e] as con
  * M35080's byte addresses has not been confirmed on a cluster, so anything that compares a read
  * with a chip image has to say which mapping it assumed (WORD_MAPPING_HYPOTHESIS).
  */
-export const EEPROM_WORD_LIMIT: Record<KombiVariant, number> = { KOMBI46: 0x100, KOMBI46R: 0x400 };
+export const EEPROM_WORD_LIMIT: Record<KombiVariant, number> = { KOMBI46: 0x100, KOMBI46R: 0x400, KOMBIR40: 0x100 };
 /** Words per read, both variants. */
 export const EEPROM_MAX_WORDS = 16;
 

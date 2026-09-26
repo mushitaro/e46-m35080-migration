@@ -18,9 +18,12 @@
 
 import type { KombiVariant } from './protocol';
 
+// KOMBIR40, 0x50-0x54, is in the same file: the first cluster on the bench answered 0x54.
+
 export const VARIANT_RANGES: readonly { variant: KombiVariant; lo: number; hi: number }[] = [
   { variant: 'KOMBI46', lo: 0x30, hi: 0x35 },
   { variant: 'KOMBI46R', lo: 0x36, hi: 0x40 },
+  { variant: 'KOMBIR40', lo: 0x50, hi: 0x54 },
 ];
 
 export function variantOf(diagIndex: number): KombiVariant | null {

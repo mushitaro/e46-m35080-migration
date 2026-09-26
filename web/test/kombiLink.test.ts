@@ -110,7 +110,8 @@ describe.each(KOMBI_VARIANTS)('%s on the bench', (variant) => {
     const { link, kombi, port } = await bench({ variant });
     link.setBenchConfirmed(true);
     await link.setNeedle('fuel', 10);
-    await link.showLamp(2, 0);
+    const [lamp] = lampBits(variant);
+    await link.showLamp(lamp!.byte, lamp!.bit);
     expect(await link.stop()).toBe(true);
 
     expect(controlsOf(port.trace).at(-1)).toBe(0x9f);
@@ -130,8 +131,10 @@ describe.each(KOMBI_VARIANTS)('%s on the bench', (variant) => {
     await link.readEepromWords(0, 40);
     for (const d of [10, 20, 30]) await link.setNeedle('coolant', d);
     await link.showLamp(1, 0);
-    await link.soundGong();
-    await link.soundPiezo();
+    if (variant !== 'KOMBIR40') {
+      await link.soundGong();
+      await link.soundPiezo();
+    }
     await link.keepAlive();
     await expect(link.setNeedle('coolant', 90)).rejects.toBeInstanceOf(KombiGateError);
     await link.stop();

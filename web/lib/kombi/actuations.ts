@@ -41,9 +41,9 @@ export function setLamps(variant: KombiVariant, bytes: readonly number[]): Kombi
   if (bytes.length !== n || bytes.some((b) => !Number.isInteger(b) || b < 0 || b > 0xff)) {
     throw new RangeError(`a ${variant} lamp telegram takes ${n} bytes, got [${bytes.join(', ')}]`);
   }
-  return variant === 'KOMBI46'
-    ? request(KombiControl.DRIVE, [Drive.LAMPS, ...bytes])
-    : request(KombiControl.DRIVE, [Drive.LAMPS, 0x00, ...bytes]);
+  return variant === 'KOMBI46R'
+    ? request(KombiControl.DRIVE, [Drive.LAMPS, 0x00, ...bytes])
+    : request(KombiControl.DRIVE, [Drive.LAMPS, ...bytes]);
 }
 
 /** One lamp on, every other lamp off. `byte` counts from 1, as the SGBDs number them. */

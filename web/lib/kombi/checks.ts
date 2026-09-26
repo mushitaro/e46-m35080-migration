@@ -67,8 +67,8 @@ export function checksFor(variant: KombiVariant | null): CheckId[] {
     'needles',
     'lamps',
     ...(variant === 'KOMBI46' ? (['outputs'] as const) : []),
-    'gong',
-    'piezo',
+    // A KOMBIR40 has no gong or piezo this tool may sound (runGate.ts).
+    ...(variant === 'KOMBIR40' ? [] : (['gong', 'piezo'] as const)),
     'release',
   ];
 }

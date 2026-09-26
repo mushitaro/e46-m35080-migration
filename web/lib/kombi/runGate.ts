@@ -130,10 +130,12 @@ type Rule = {
   check?: (payload: Uint8Array, variant: KombiVariant | null, ctx: GateContext) => GateRefusal | null;
 };
 
-const BOTH = (n: number): Record<KombiVariant, number> => ({ KOMBI46: n, KOMBI46R: n });
+const ALL = (n: number): Record<KombiVariant, number> => ({ KOMBI46: n, KOMBI46R: n, KOMBIR40: n });
+/** The E46 clusters only: what a KOMBIR40's SGBD has no job for (the gong, the piezo, a fifth needle). */
+const E46 = (n: number): Partial<Record<KombiVariant, number>> => ({ KOMBI46: n, KOMBI46R: n });
 
 function checkInputs(p: Uint8Array, variant: KombiVariant | null): GateRefusal | null {
-  if (variant === 'KOMBI46') {
+  if (variant !== 'KOMBI46R') {
     return INPUT_PORTS_46.every((port, i) => p[1 + i] === port) ? null : 'out-of-range';
   }
   return (INPUT_PORTS_46R as readonly number[]).includes(p[1] ?? -1) && p[2] === 0x00 ? null : 'out-of-range';
@@ -142,7 +144,7 @@ function checkInputs(p: Uint8Array, variant: KombiVariant | null): GateRefusal |
 function checkEeprom(p: Uint8Array, variant: KombiVariant | null): GateRefusal | null {
   if (variant === null) return 'variant-unknown';
   let word: number;
-  if (variant === 'KOMBI46') {
+  if (variant !== 'KOMBI46R') {
     if (p[1] !== 0x00 || p[2] !== 0x00) return 'out-of-range';
     word = p[3] ?? 0;
   } else {
@@ -173,7 +175,7 @@ function checkLamps(p: Uint8Array, variant: KombiVariant | null): GateRefusal | 
   if (variant === null) return 'variant-unknown';
   const masks = LAMP_MASKS[variant];
   // A 46R's lamp bytes follow a fixed 00.
-  const first = variant === 'KOMBI46' ? 1 : 2;
+  const first = variant === 'KOMBI46R' ? 2 : 1;
   if (variant === 'KOMBI46R' && p[1] !== 0x00) return 'out-of-range';
   return masks.every((mask, i) => ((p[first + i] ?? 0) & ~mask) === 0) ? null : 'out-of-range';
 }
@@ -196,7 +198,7 @@ const RULES: readonly Rule[] = [
     cls: 'read',
     control: KombiControl.READ_INPUTS,
     prefix: [INPUT_PORTS],
-    length: { KOMBI46: 1 + INPUT_PORTS_46.length, KOMBI46R: 3 },
+    length: { KOMBI46: 1 + INPUT_PORTS_46.length, KOMBI46R: 3, KOMBIR40: 1 + INPUT_PORTS_46.length },
     check: checkInputs,
   },
   {
@@ -204,7 +206,7 @@ const RULES: readonly Rule[] = [
     cls: 'read',
     control: KombiControl.READ_MEMORY,
     prefix: [SEGMENT_EEPROM],
-    length: BOTH(5),
+    length: ALL(5),
     check: checkEeprom,
   },
 
@@ -214,7 +216,7 @@ const RULES: readonly Rule[] = [
       cls: 'drive',
       control: KombiControl.DRIVE,
       prefix: [g.select],
-      length: BOTH(3),
+      length: g.id === 'consumption' ? E46(3) : ALL(3),
       check: checkNeedle,
     }),
   ),
@@ -223,7 +225,11 @@ const RULES: readonly Rule[] = [
     cls: 'drive',
     control: KombiControl.DRIVE,
     prefix: [Drive.LAMPS],
-    length: { KOMBI46: 1 + LAMP_MASKS.KOMBI46.length, KOMBI46R: 2 + LAMP_MASKS.KOMBI46R.length },
+    length: {
+      KOMBI46: 1 + LAMP_MASKS.KOMBI46.length,
+      KOMBI46R: 2 + LAMP_MASKS.KOMBI46R.length,
+      KOMBIR40: 1 + LAMP_MASKS.KOMBIR40.length,
+    },
     check: checkLamps,
   },
   {
@@ -234,8 +240,10 @@ const RULES: readonly Rule[] = [
     length: { KOMBI46: 3 },
     check: checkOutputs,
   },
-  { kind: 'gong', cls: 'drive', control: KombiControl.DRIVE, prefix: [Drive.GONG], length: BOTH(1) },
-  { kind: 'piezo', cls: 'drive', control: KombiControl.DRIVE, prefix: [Drive.PIEZO], length: BOTH(1) },
+  // A KOMBIR40's gong is another telegram (0C 0F), and its SGBD would not build the one that
+  // sounds it; its output port (0C 14 04) has no "off" the SGBD will send. Neither is on its list.
+  { kind: 'gong', cls: 'drive', control: KombiControl.DRIVE, prefix: [Drive.GONG], length: E46(1) },
+  { kind: 'piezo', cls: 'drive', control: KombiControl.DRIVE, prefix: [Drive.PIEZO], length: E46(1) },
 ];
 
 function ruleFor(req: KombiRequest): Rule | null {

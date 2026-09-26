@@ -57,7 +57,7 @@ describe('IDENT', () => {
 });
 
 describe('the variant, by D_0080.grp\'s ranges', () => {
-  it('KOMBI46 0x30-0x35, KOMBI46R 0x36-0x40, closed at both ends', () => {
+  it('KOMBI46 0x30-0x35, KOMBI46R 0x36-0x40, KOMBIR40 0x50-0x54, closed at both ends', () => {
     expect(variantOf(0x2f)).toBeNull();
     expect(variantOf(0x30)).toBe('KOMBI46');
     expect(variantOf(0x35)).toBe('KOMBI46');
@@ -66,11 +66,14 @@ describe('the variant, by D_0080.grp\'s ranges', () => {
     expect(variantOf(0x41)).toBeNull();
     // Other cars' clusters share the group file; this tool knows neither.
     expect(variantOf(0x29)).toBeNull();
-    expect(variantOf(0x50)).toBeNull();
+    expect(variantOf(0x4f)).toBeNull();
+    expect(variantOf(0x50)).toBe('KOMBIR40');
+    expect(variantOf(0x54)).toBe('KOMBIR40');
+    expect(variantOf(0x55)).toBeNull();
   });
 
-  it('has exactly the two E46 ranges', () => {
-    expect(VARIANT_RANGES.map((r) => r.variant)).toEqual(['KOMBI46', 'KOMBI46R']);
+  it('has the two E46 ranges and KOMBIR40, what the first bench cluster answered as', () => {
+    expect(VARIANT_RANGES.map((r) => r.variant)).toEqual(['KOMBI46', 'KOMBI46R', 'KOMBIR40']);
   });
 });
 

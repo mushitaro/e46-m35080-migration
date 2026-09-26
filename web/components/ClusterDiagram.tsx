@@ -19,7 +19,7 @@
 
 import { CHROME } from '@/lib/copy/chrome';
 import { tc } from '@/lib/copy/test';
-import { GAUGES, LAMP_MASKS, NEEDLE_MAX_DEG, NEEDLE_MIN_DEG, OUTPUT_PORT_MASK, type KombiVariant } from '@/lib/kombi/protocol';
+import { gaugesFor, LAMP_MASKS, NEEDLE_MAX_DEG, NEEDLE_MIN_DEG, OUTPUT_PORT_MASK, type KombiVariant } from '@/lib/kombi/protocol';
 import { lampKey, outputKey } from '@/lib/kombi/checks';
 import type { Commanded, Stepping } from '@/lib/hooks/useKombiLink';
 
@@ -80,7 +80,7 @@ export function ClusterDiagram({
       </text>
 
       {/* ---- needles ---- */}
-      {GAUGES.map((g, i) => {
+      {gaugesFor(variant).map((g, i) => {
         const cx = dialX(i);
         const cy = DIAL_Y;
         const r = DIAL_R;

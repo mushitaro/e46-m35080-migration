@@ -162,7 +162,7 @@ Each step says what to do and how you know it is done.
    To switch off, STOP the session first, then the output.
    *Done when* the cluster lights up, runs its bulb check, and the fuse holds.
 7. **CONNECT.** In the TEST tab, choose the cable's port.
-   *Done when* TEST shows the cluster's part number and its variant (KOMBI46 or KOMBI46R).
+   *Done when* TEST shows IDENT's bytes and a variant (KOMBI46, KOMBI46R or KOMBIR40).
 
 ## Cautions
 
@@ -184,7 +184,11 @@ group file D_0080.grp) — strong evidence, not a measurement. The first session
 settles, in this order:
 
 1. The X11175 pin numbers above (then `verified` becomes true in `clusterBench.ts`).
-2. IDENT: the diagnosis index, and so the variant the app names.
+2. IDENT: the diagnosis index, and so the variant the app names. The first cluster on the bench
+   (2026-09-26) answered 0x54, which D_0080.grp gives to KOMBIR40 - not to either E46 SGBD - and a
+   part-number field that is not BCD. TEST speaks KOMBIR40's telegrams to it: four
+   needles, seven lamp bytes, and the KOMBI46-shaped EEPROM and input reads; no gong, piezo or
+   output port.
 3. Which chip field the cluster reports as its VIN — the coded field at 0x07A, or the ASCII one.
 4. The mileage the cluster reports, against the chip's counter.
 5. The needles, the lamps (each bit against the lamp that lit) and the gong.

@@ -45,7 +45,8 @@ export function readFaults(): KombiRequest {
  * together), one per port on a KOMBI46R.
  */
 export function readInputs(variant: KombiVariant): KombiRequest[] {
-  if (variant === 'KOMBI46') return [request(KombiControl.READ_INPUTS, [INPUT_PORTS, ...INPUT_PORTS_46])];
+  // A KOMBIR40 reads its ports as a KOMBI46 does.
+  if (variant !== 'KOMBI46R') return [request(KombiControl.READ_INPUTS, [INPUT_PORTS, ...INPUT_PORTS_46])];
   return INPUT_PORTS_46R.map((port) => request(KombiControl.READ_INPUTS, [INPUT_PORTS, port, 0x00]));
 }
 
@@ -56,7 +57,8 @@ export function readInputs(variant: KombiVariant): KombiRequest[] {
 export function readEeprom(variant: KombiVariant, word: number, count: number): KombiRequest {
   if (!Number.isInteger(word) || word < 0 || word > 0xffff) throw new RangeError(`word address ${word}`);
   if (!Number.isInteger(count) || count < 0 || count > 0xff) throw new RangeError(`word count ${count}`);
-  return variant === 'KOMBI46'
+  // A KOMBIR40 addresses it as a KOMBI46 does: one byte, words 00-FF.
+  return variant !== 'KOMBI46R'
     ? request(KombiControl.READ_MEMORY, [SEGMENT_EEPROM, 0x00, 0x00, word & 0xff, count])
     : request(KombiControl.READ_MEMORY, [SEGMENT_EEPROM, 0x00, (word >> 8) & 0xff, word & 0xff, count]);
 }

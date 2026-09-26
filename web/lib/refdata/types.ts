@@ -102,7 +102,8 @@ export type VariantNames = {
 
 export type NamesDoc = Provenance & {
   kind: 'kombi-names';
-  variants: Record<KombiVariant, VariantNames>;
+  /** A variant the reference data has no names for is simply absent (KOMBIR40, today). */
+  variants: Partial<Record<KombiVariant, VariantNames>>;
 };
 
 export type RefDocs = { 'kombi-coding': CodingDoc; 'kombi-names': NamesDoc };

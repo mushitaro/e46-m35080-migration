@@ -43,7 +43,7 @@ import {
   type Reference,
 } from '@/lib/kombi/checks';
 import type { Decoded } from '@/lib/kombi/decode';
-import { GAUGES, wordToByteAddress, type GaugeId, type KombiRequest, type KombiVariant } from '@/lib/kombi/protocol';
+import { gaugesFor, wordToByteAddress, type GaugeId, type KombiRequest, type KombiVariant } from '@/lib/kombi/protocol';
 import { mayRun, type GateRefusal } from '@/lib/kombi/runGate';
 import { bitName, namesFor, type BitGroup } from '@/lib/kombi/names';
 import { describeOrigin, type RefLoad } from '@/lib/refdata/load';
@@ -464,7 +464,7 @@ function CheckResult({
     case 'needles':
       return (
         <ul className="flex flex-col gap-1">
-          {GAUGES.map((g) => {
+          {gaugesFor(s.variant).map((g) => {
             const gate = kombi.gate;
             const next = gate ? sweepPlan(gate.needles[g.id])[0] : 10;
             const why = refusal(drives.setNeedle(s.variant ?? 'KOMBI46', g.id, next ?? 10));

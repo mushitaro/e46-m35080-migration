@@ -157,7 +157,7 @@ export class SimulatedKombi {
   private readInputs(req: Ds2Frame): Reply {
     const p = req.payload;
     if (p[0] !== INPUT_PORTS) return this.notImplemented(req);
-    if (this.variant === 'KOMBI46') {
+    if (this.variant !== 'KOMBI46R') {
       const all = INPUT_PORTS_46.every((port, i) => p[1 + i] === port) && p.length === 1 + INPUT_PORTS_46.length;
       return all ? { payload: Uint8Array.from(INPUT_PORTS_46.map((port) => this.inputs[port] ?? 0)) } : this.notImplemented(req);
     }
@@ -169,7 +169,7 @@ export class SimulatedKombi {
   private readEeprom(req: Ds2Frame): Reply {
     const p = req.payload;
     if (p.length !== 5 || p[0] !== SEGMENT_EEPROM) return this.notImplemented(req);
-    const word = this.variant === 'KOMBI46' ? (p[3] ?? 0) : (((p[2] ?? 0) << 8) | (p[3] ?? 0));
+    const word = this.variant !== 'KOMBI46R' ? (p[3] ?? 0) : (((p[2] ?? 0) << 8) | (p[3] ?? 0));
     const count = p[4] ?? 0;
     const from = wordToByteAddress(word);
     const to = wordToByteAddress(word + count);
@@ -191,7 +191,7 @@ export class SimulatedKombi {
     }
     if (sub === Drive.LAMPS) {
       const n = LAMP_MASKS[this.variant].length;
-      const bytes = this.variant === 'KOMBI46' ? p.slice(1) : p[1] === 0x00 ? p.slice(2) : null;
+      const bytes = this.variant !== 'KOMBI46R' ? p.slice(1) : p[1] === 0x00 ? p.slice(2) : null;
       if (!bytes || bytes.length !== n) return this.notImplemented(req);
       this.lamps = Array.from(bytes);
       this.events.push({ kind: 'lamps', bytes: Array.from(bytes) });
