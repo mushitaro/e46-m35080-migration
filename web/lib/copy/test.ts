@@ -133,11 +133,13 @@ const JA = {
     faults: '故障メモリをそのまま読みます。項目への分け方はまだ抽出していないため、生のバイトで示します。',
     inputs: 'イグニッションの端子やボタンの入力を読みます。ビットの名前は参照データが無い間 P2.b4 のように示します。',
     eeprom: 'メータ越しに EEPROM を読みます。メータは 2 バイトの語で数えます。',
-    needles: '針を 1 本ずつ、10° ずつ動かして上まで行き、戻します。各段で止まります。',
-    lamps: 'ランプを 1 つずつ点けます。見えたかどうかを記録してください。',
-    outputs: '出力ポートの 4 ビットを 1 つずつ点けます（KOMBI46 のみ）。',
-    gong: 'ゴングを 1 回鳴らします。',
-    piezo: 'ピエゾを 1 回鳴らします。',
+    needles:
+      '針を 1 本ずつ、10° ずつ動かして上まで行き、戻します。メータの針が動いたら SEEN、動かなかったら NOT SEEN を押してください。',
+    lamps:
+      'ランプを 1 つだけ点けます。メータでそのランプが点いたら SEEN、点かなかったら NOT SEEN を押すと、次のランプに進みます。NOT SEEN と答えたものが下に赤く残ります（球切れ・配線を疑う候補）。',
+    outputs: '出力ポートの 4 ビットを 1 つずつ点けます（KOMBI46 のみ）。点いたら SEEN、点かなかったら NOT SEEN。',
+    gong: 'ゴングを 1 回鳴らします。聞こえたら HEARD、聞こえなかったら NOT HEARD を押してください。',
+    piezo: 'ピエゾを 1 回鳴らします。聞こえたら HEARD、聞こえなかったら NOT HEARD を押してください。',
     release: 'STOP で診断を終えたあと、針とランプがメータ自身の表示に戻ったかを記録します。',
   } satisfies Record<CheckId, string>,
 
@@ -216,11 +218,12 @@ const EN: typeof JA = {
     faults: 'Read the fault memory as it is. How it splits into entries has not been extracted yet, so it is shown as raw bytes.',
     inputs: 'Read the ignition terminals and button inputs. Until reference data names the bits, a bit is shown as P2.b4.',
     eeprom: 'Read the EEPROM through the cluster. The cluster counts it in 2-byte words.',
-    needles: 'Move each needle up in steps of 10 degrees and back, holding at each step.',
-    lamps: 'Light the lamps one at a time. Record whether you saw each.',
-    outputs: 'Drive the four bits of the output port one at a time (KOMBI46 only).',
-    gong: 'Sound the gong once.',
-    piezo: 'Sound the piezo once.',
+    needles: 'Move each needle up in steps of 10 degrees and back. Press SEEN if the needle moved on the cluster, NOT SEEN if it did not.',
+    lamps:
+      'Light one lamp at a time. Press SEEN if it lit on the cluster, NOT SEEN if it did not, and the next one lights. What you marked NOT SEEN stays below in red - the lamps to check for a bulb or wiring.',
+    outputs: 'Drive the four bits of the output port one at a time (KOMBI46 only). SEEN if it lit, NOT SEEN if not.',
+    gong: 'Sound the gong once. Press HEARD if you heard it, NOT HEARD if not.',
+    piezo: 'Sound the piezo once. Press HEARD if you heard it, NOT HEARD if not.',
     release: 'After STOP ends the session, record whether the needles and lamps went back to the cluster.',
   },
 
