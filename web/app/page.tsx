@@ -40,6 +40,7 @@ import { VariantBadge } from '@/components/VariantBadge';
 import { PrivacyLink } from '@/components/PrivacyLink';
 import { SyncPanel } from '@/components/SyncPanel';
 import { PreviewNotice, usePreviewNoticeOpen } from '@/components/PreviewNotice';
+import { CreditsButton, CreditsDialog } from '@/components/CreditsDialog';
 import { diff, parseImageFile, secureOf, verdictFor } from '@/lib/domain/image';
 import {
   applyBytes,
@@ -126,6 +127,7 @@ export default function Page() {
   /* The preview's first-run notice: until the owner confirms what the preview sends, it covers the
      app, and the header and the work area behind it are inert. Never open in a release. */
   const noticeOpen = usePreviewNoticeOpen();
+  const [creditsOpen, setCreditsOpen] = useState(false);
 
   /* MODE (lib/domain/modes.ts) and, per mode, the tab the reader was last on - so switching to
      TEST and back lands where the job was left, not at the start of it. */
@@ -956,6 +958,7 @@ export default function Page() {
         </div>
         <div className="ml-auto flex items-center gap-3">
           <PrivacyLink />
+          <CreditsButton onOpen={() => setCreditsOpen(true)} />
           <VariantBadge />
         </div>
       </header>
@@ -1084,6 +1087,7 @@ export default function Page() {
       />
 
       <PreviewNotice open={noticeOpen} />
+      {creditsOpen && <CreditsDialog onClose={() => setCreditsOpen(false)} />}
     </main>
   );
 }

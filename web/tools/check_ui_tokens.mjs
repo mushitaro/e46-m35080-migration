@@ -69,6 +69,8 @@ const OUTLINE_ALLOWED = new Set([
     'components/ConfirmDialog.tsx',
     'components/PreviewNotice.tsx',
     'components/ModeCorner.tsx',
+    // CREDITS (who this is built on, and the MESH colophon), opened from the header's MEDAL.
+    'components/CreditsDialog.tsx',
     // The hub ring is a STATE indicator, not a frame. Named here so a second
     // ring cannot appear without this list changing.
     'components/Hub.tsx',

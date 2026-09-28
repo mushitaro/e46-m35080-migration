@@ -98,6 +98,16 @@ try {
 const missingDocs = documents.filter((d) => !swDocuments.includes(BASE + d));
 check('DOCUMENTS lists every exported .html', missingDocs.length === 0, missingDocs.join(', ') || `${swDocuments.length} documents`);
 
+// ---- 3b. exactly one CREDITS list per document ------------------------------------------------
+// scripts/inject-supporters.mjs writes the names the CREDITS colophon shows into every page, from
+// m3.tsunagi.app/api/credits, and stops the build if it cannot read them. Two lists would mean it
+// ran twice without replacing; none, that it did not run.
+for (const doc of documents) {
+  const html = readFileSync(join(OUT, doc.slice(1)), 'utf8');
+  const n = (html.match(/id="m-supporters"/g) || []).length;
+  check(`exactly one CREDITS list in ${doc}`, n === 1, `${n} found`);
+}
+
 // ---- 4. exactly one build-id per document, and version.json agrees -------------------------
 for (const doc of documents) {
   const html = readFileSync(join(OUT, doc.slice(1)), 'utf8');
